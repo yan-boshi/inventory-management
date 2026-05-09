@@ -1,0 +1,57 @@
+import express from 'express'
+import cors from 'cors'
+import dotenv from 'dotenv'
+
+// Import routes
+import authRoutes from './routes/authRoutes.js'
+import userRoutes from './routes/userRoutes.js'
+import businessCategoryRoutes from './routes/businessCategoryRoutes.js'
+import paymentMethodRoutes from './routes/paymentMethodRoutes.js'
+import productRoutes from './routes/productRoutes.js'
+import customerRoutes from './routes/customerRoutes.js'
+import supplierRoutes from './routes/supplierRoutes.js'
+import salesOrderRoutes from './routes/salesOrderRoutes.js'
+import purchaseOrderRoutes from './routes/purchaseOrderRoutes.js'
+import quotationRoutes from './routes/quotationRoutes.js'
+
+dotenv.config()
+
+const app = express()
+const PORT = process.env.PORT || 3003
+
+// Middleware
+app.use(cors())
+app.use(express.json())
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Inventory Management Server is running' })
+})
+
+// API Routes
+app.use('/api/auth', authRoutes)
+app.use('/api/users', userRoutes)
+app.use('/api/business-categories', businessCategoryRoutes)
+app.use('/api/payment-methods', paymentMethodRoutes)
+app.use('/api/products', productRoutes)
+app.use('/api/customers', customerRoutes)
+app.use('/api/suppliers', supplierRoutes)
+app.use('/api/sales-orders', salesOrderRoutes)
+app.use('/api/purchase-orders', purchaseOrderRoutes)
+app.use('/api/quotations', quotationRoutes)
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack)
+  res.status(500).json({ success: false, message: 'Something went wrong!' })
+})
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Route not found' })
+})
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`)
+  console.log(`API documentation available at http://localhost:${PORT}/api`)
+})

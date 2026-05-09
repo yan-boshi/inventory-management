@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npx eslint *)",
+      "Bash(npx prettier *)",
+      "Bash(npx cspell *)",
+      "Bash(npx vue-tsc *)",
+      "Bash(npm test *)",
+      "Bash(tasklist /FI \"IMAGENAME eq node.exe\" /FI \"IMAGENAME eq npm.exe\")",
+      "Bash(curl *)",
+      "Bash(node -c models/Quotation.js)",
+      "Bash(node -c controllers/quotationController.js)",
+      "Bash(node -c routes/quotationRoutes.js)"
+    ]
+  }
+}

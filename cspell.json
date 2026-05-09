@@ -1,0 +1,14 @@
+{
+  "version": "0.2",
+  "language": "en,zh-CN",
+  "words": [
+    "antdesign",
+    "pinia",
+    "vite",
+    "vue",
+    "typescript",
+    "esbuild",
+    "antd",
+    "vitest"
+  ]
+}
