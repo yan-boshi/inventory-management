@@ -82,7 +82,7 @@ export const getPurchaseOrderById = async (req, res) => {
 
 export const createPurchaseOrder = async (req, res) => {
   try {
-    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, delivery_date, arrival_date, remarks, contract_number, expenses } = req.body
+    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, delivery_date, arrival_date, remarks, contract_number, expenses, purchase_person } = req.body
 
     if (!supplier_name || !supplier_code) {
       return res.status(400).json({ success: false, message: 'Supplier name and code are required' })
@@ -102,7 +102,8 @@ export const createPurchaseOrder = async (req, res) => {
       arrival_date,
       remarks,
       contract_number,
-      expenses
+      expenses,
+      purchase_person
     })
     res.status(201).json({ success: true, data: order })
   } catch (error) {
@@ -113,7 +114,7 @@ export const createPurchaseOrder = async (req, res) => {
 export const updatePurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params
-    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, delivery_date, arrival_date, remarks, contract_number, expenses } = req.body
+    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, delivery_date, arrival_date, remarks, contract_number, expenses, purchase_person } = req.body
 
     const existing = await PurchaseOrder.findById(id)
     if (!existing) {
@@ -130,6 +131,7 @@ export const updatePurchaseOrder = async (req, res) => {
     if (remarks !== undefined) updateData.remarks = remarks
     if (contract_number !== undefined) updateData.contract_number = contract_number
     if (expenses !== undefined) updateData.expenses = expenses
+    if (purchase_person !== undefined) updateData.purchase_person = purchase_person
 
     if (purchase_items !== undefined) {
       if (!Array.isArray(purchase_items) || purchase_items.length === 0) {

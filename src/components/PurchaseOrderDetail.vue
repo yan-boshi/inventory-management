@@ -1,7 +1,7 @@
 <template>
   <a-modal
     title="采购订单详情"
-    :width="700"
+    :width="900"
     :visible="visible"
     @cancel="handleCancel"
     :footer="null"
@@ -18,26 +18,6 @@
             <a-descriptions-item label="供应商名称">{{ order.supplier_name }}</a-descriptions-item>
             <a-descriptions-item label="供应商代码">{{ order.supplier_code }}</a-descriptions-item>
             <a-descriptions-item label="采购人">{{ order.purchase_person || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="结算方式">{{ order.payment_method }}</a-descriptions-item>
-            <a-descriptions-item label="业务分类">{{ order.business_category }}</a-descriptions-item>
-            <a-descriptions-item label="产品名称">{{ order.product_name }}</a-descriptions-item>
-            <a-descriptions-item label="规格型号">{{ order.model || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="规格描述">{{ order.description || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="产品代码">{{ order.product_code }}</a-descriptions-item>
-            <a-descriptions-item label="单位">{{ order.unit || '-' }}</a-descriptions-item>
-          </a-descriptions>
-        </div>
-
-        <div>
-          <h4>订单信息</h4>
-          <a-descriptions size="small" :column="1">
-            <a-descriptions-item label="数量">{{ order.quantity }}</a-descriptions-item>
-            <a-descriptions-item label="含税单价 (元)">{{ order.tax_included_price.toFixed(2) }}</a-descriptions-item>
-            <a-descriptions-item label="税率">{{ (order.tax_rate * 100).toFixed(2) }}%</a-descriptions-item>
-            <a-descriptions-item label="未税单价 (元)">{{ order.tax_excluded_price.toFixed(2) }}</a-descriptions-item>
-            <a-descriptions-item label="含税金额 (元)" :labelStyle="{ color: '#f5222d' }">{{ order.tax_included_amount.toFixed(2) }}</a-descriptions-item>
-            <a-descriptions-item label="未税金额 (元)">{{ order.tax_excluded_amount.toFixed(2) }}</a-descriptions-item>
-            <a-descriptions-item label="税额 (px)" :labelStyle="{ color: '#f5222d' }">{{ order.tax_amount.toFixed(2) }}</a-descriptions-item>
             <a-descriptions-item label="币种">{{ order.currency }}</a-descriptions-item>
             <a-descriptions-item label="汇率">{{ order.exchange_rate }}</a-descriptions-item>
             <a-descriptions-item label="交货日期">{{ order.delivery_date || '-' }}</a-descriptions-item>
@@ -46,17 +26,15 @@
           </a-descriptions>
         </div>
 
-        <div style="grid-column: span 2;">
+        <div>
           <h4>状态</h4>
-          <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
             <a-tag :color="getStatusColor(order.status)">
               {{ getStatusText(order.status) }}
             </a-tag>
             <span style="color: #999;">最后更新: {{ formatDateTime(order.updated_at) }}</span>
           </div>
-        </div>
 
-        <div style="grid-column: span 2;">
           <h4>采购费用登记</h4>
           <div v-if="getValidExpenses(order.expenses).length > 0" style="display: flex; gap: 20px; padding: 12px; background: #f5f7fa; border-radius: 4px;">
             <a-tag v-for="item in getValidExpenses(order.expenses)" :key="item.key" color="blue">
@@ -67,8 +45,46 @@
         </div>
 
         <div style="grid-column: span 2;">
+          <h4>采购商品明细</h4>
+          <a-table
+            :columns="itemColumns"
+            :data-source="parsedItems"
+            :pagination="false"
+            bordered
+            size="small"
+            rowKey="no"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'tax_included_price'">
+                {{ formatMoney(record.tax_included_price) }}
+              </template>
+              <template v-else-if="column.key === 'tax_excluded_price'">
+                {{ formatMoney(record.tax_excluded_price) }}
+              </template>
+              <template v-else-if="column.key === 'tax_included_amount'">
+                {{ formatMoney(record.tax_included_amount) }}
+              </template>
+              <template v-else-if="column.key === 'tax_excluded_amount'">
+                {{ formatMoney(record.tax_excluded_amount) }}
+              </template>
+              <template v-else-if="column.key === 'tax_amount'">
+                {{ formatMoney(record.tax_amount) }}
+              </template>
+              <template v-else-if="column.key === 'total_price'">
+                {{ formatMoney(record.total_price) }}
+              </template>
+              <template v-else-if="column.key === 'status'">
+                <a-tag :color="getItemStatusColor(record.status)">
+                  {{ getItemStatusText(record.status) }}
+                </a-tag>
+              </template>
+            </template>
+          </a-table>
+        </div>
+
+        <div style="grid-column: span 2;">
           <h4>备注</h4>
-          <a-textarea v-model:value="order.remarks" :rows="3" disabled />
+          <a-textarea :value="order.remarks || ''" :rows="3" disabled />
         </div>
       </div>
     </div>
@@ -76,11 +92,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import dayjs from 'dayjs'
 import { getValidExpenses } from '@/utils/expense'
-import type { PurchaseOrder } from '@/types'
+import type { PurchaseOrder, PurchaseItem } from '@/types'
 
-defineProps<{
+const props = defineProps<{
   visible: boolean
   order?: PurchaseOrder
 }>()
@@ -89,8 +106,40 @@ const emit = defineEmits<{
   'update:visible': [value: boolean]
 }>()
 
+const parsedItems = computed(() => {
+  if (!props.order?.purchase_items) return []
+  try {
+    return typeof props.order.purchase_items === 'string'
+      ? JSON.parse(props.order.purchase_items)
+      : props.order.purchase_items
+  } catch {
+    return []
+  }
+})
+
+const itemColumns = [
+  { title: '序号', dataIndex: 'no', key: 'no', width: 60, align: 'center' as const },
+  { title: '业务分类', dataIndex: 'business_category', key: 'business_category', width: 100 },
+  { title: '产品名称', dataIndex: 'product_name', key: 'product_name', width: 120 },
+  { title: '产品代码', dataIndex: 'product_code', key: 'product_code', width: 100 },
+  { title: '规格型号', dataIndex: 'model', key: 'model', width: 100 },
+  { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' as const },
+  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 70, align: 'right' as const },
+  { title: '已入库', dataIndex: 'inbound_quantity', key: 'inbound_quantity', width: 70, align: 'right' as const },
+  { title: '含税单价', dataIndex: 'tax_included_price', key: 'tax_included_price', width: 90, align: 'right' as const },
+  { title: '未税单价', dataIndex: 'tax_excluded_price', key: 'tax_excluded_price', width: 90, align: 'right' as const },
+  { title: '含税金额', dataIndex: 'tax_included_amount', key: 'tax_included_amount', width: 100, align: 'right' as const },
+  { title: '税率', dataIndex: 'tax_rate', key: 'tax_rate', width: 70, align: 'right' as const },
+  { title: '状态', dataIndex: 'status', key: 'status', width: 80, align: 'center' as const },
+]
+
 const formatDateTime = (dateString: string) => {
+  if (!dateString) return '-'
   return dayjs(dateString).format('YYYY-MM-DD HH:mm:ss')
+}
+
+const formatMoney = (value: number) => {
+  return value != null ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'
 }
 
 const getStatusColor = (status: number | string) => {
@@ -109,6 +158,24 @@ const getStatusText = (status: number | string) => {
     '2': '已全部入库',
     '3': '已部分入库',
     '4': '已退货',
+  }
+  return statusMap[String(status)] || '未知'
+}
+
+const getItemStatusColor = (status: number | string) => {
+  const statusMap: Record<string, string> = {
+    '1': 'blue',
+    '2': 'green',
+    '3': 'orange',
+  }
+  return statusMap[String(status)] || 'default'
+}
+
+const getItemStatusText = (status: number | string) => {
+  const statusMap: Record<string, string> = {
+    '1': '未入库',
+    '2': '已全部入库',
+    '3': '已部分入库',
   }
   return statusMap[String(status)] || '未知'
 }

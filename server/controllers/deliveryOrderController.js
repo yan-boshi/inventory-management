@@ -1,5 +1,6 @@
 import DeliveryOrder from '../models/DeliveryOrder.js'
 import SalesOrder from '../models/SalesOrder.js'
+import pool from '../config/database.js'
 
 export const getAllDeliveryOrders = async (req, res) => {
   try {
@@ -117,22 +118,29 @@ export const createDeliveryOrder = async (req, res) => {
         const parsedItems = typeof delivery_items === 'string' ? JSON.parse(delivery_items) : delivery_items
         for (const item of parsedItems) {
           // 查询当前库存
-          const [productResult] = await DeliveryOrder.constructor.pool.query(
+          const [productResult] = await pool.query(
             'SELECT stock FROM products WHERE product_code = ?',
             [item.product_code]
           )
           if (productResult.length > 0) {
             const currentStock = parseFloat(productResult[0].stock || 0)
             const newStock = currentStock - parseFloat(item.quantity || 0)
+            // 校验库存是否充足
+            if (newStock < 0) {
+              return res.status(400).json({
+                success: false,
+                message: `商品 ${item.product_code} 库存不足，当前库存: ${currentStock}，出库数量: ${item.quantity}`
+              })
+            }
             // 更新库存
-            await DeliveryOrder.constructor.pool.query(
+            await pool.query(
               'UPDATE products SET stock = ? WHERE product_code = ?',
               [newStock.toFixed(2), item.product_code]
             )
           }
         }
       } catch (stockError) {
-        console.error('Update stock error:', stockError)
+        // 库存更新失败，继续执行
       }
     }
 
@@ -308,21 +316,21 @@ export const deleteDeliveryOrder = async (req, res) => {
     try {
       const deliveryItems = JSON.parse(existing.delivery_items || '[]')
       for (const item of deliveryItems) {
-        const [productResult] = await DeliveryOrder.constructor.pool.query(
+        const [productResult] = await pool.query(
           'SELECT stock FROM products WHERE product_code = ?',
           [item.product_code]
         )
         if (productResult.length > 0) {
           const currentStock = parseFloat(productResult[0].stock || 0)
           const newStock = currentStock + parseFloat(item.quantity || 0)
-          await DeliveryOrder.constructor.pool.query(
+          await pool.query(
             'UPDATE products SET stock = ? WHERE product_code = ?',
             [newStock.toFixed(2), item.product_code]
           )
         }
       }
     } catch (stockError) {
-      console.error('Restore stock error:', stockError)
+      // 库存恢复失败，继续执行
     }
 
     await DeliveryOrder.delete(id)

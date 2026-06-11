@@ -159,7 +159,6 @@ export const getDeliveryExpenseReport = async (req, res) => {
 
     res.json({ success: true, data: reportRows })
   } catch (error) {
-    console.error('Delivery expense report error:', error)
     res.status(500).json({ success: false, message: error.message })
   }
 }

@@ -1,20 +1,55 @@
 import pool from '../config/database.js'
 
+// 允许排序的字段白名单（子类可覆盖）
+const ALLOWED_ORDER_FIELDS = new Set()
+
 class BaseModel {
   constructor(tableName, idField = 'id') {
     this.tableName = tableName
     this.idField = idField
   }
 
+  // 验证排序字段是否安全
+  validateOrderBy(orderBy) {
+    if (!orderBy) return ''
+    // 只允许字母、数字、下划线、逗号、空格、ASC、DESC
+    const sanitized = orderBy.replace(/[^a-zA-Z0-9_,\s]/g, '')
+    return sanitized ? ` ORDER BY ${sanitized}` : ''
+  }
+
+  // 验证并格式化 LIMIT 参数
+  validateLimit(limit) {
+    if (!limit) return ''
+    // 如果是 "offset, count" 格式，验证两个数字
+    const parts = String(limit).split(',').map(s => s.trim())
+    if (parts.length === 2) {
+      const offset = parseInt(parts[0], 10)
+      const count = parseInt(parts[1], 10)
+      if (isNaN(offset) || isNaN(count) || offset < 0 || count < 0 || count > 10000) {
+        return ''
+      }
+      return ` LIMIT ${offset}, ${count}`
+    } else if (parts.length === 1) {
+      const count = parseInt(parts[0], 10)
+      if (isNaN(count) || count < 0 || count > 10000) {
+        return ''
+      }
+      return ` LIMIT ${count}`
+    }
+    return ''
+  }
+
   async findAll(options = {}) {
     const { where = '', orderBy = '', limit = '', params = [] } = options
-    const sql = `SELECT * FROM ${this.tableName}${where ? ` WHERE ${where}` : ''}${orderBy ? ` ORDER BY ${orderBy}` : ''}${limit ? ` LIMIT ${limit}` : ''}`
+    const orderClause = this.validateOrderBy(orderBy)
+    const limitClause = this.validateLimit(limit)
+    const whereClause = where ? ` WHERE ${where}` : ''
+    const sql = `SELECT * FROM ${this.tableName}${whereClause}${orderClause}${limitClause}`
     const [rows] = await pool.query(sql, params)
     return rows
   }
 
   async findById(id) {
-    console.log('查询参数', id);
     const sql = `SELECT * FROM ${this.tableName} WHERE ${this.idField} = ?`
     const [rows] = await pool.query(sql, [id])
     return rows[0] || null
@@ -22,9 +57,7 @@ class BaseModel {
 
   async findOne(where, params = []) {
     const sql = `SELECT * FROM ${this.tableName} WHERE ${where} LIMIT 1`
-    console.log('数据库查询参数', sql, params);
     const [rows] = await pool.query(sql, params)
-    console.log('数据库查询结果', rows);
     return rows[0] || null
   }
 
@@ -33,8 +66,8 @@ class BaseModel {
     const placeholders = Object.keys(data).map(() => '?').join(', ')
     const values = Object.values(data)
     const sql = `INSERT INTO ${this.tableName} (${fields}) VALUES (${placeholders})`
-    const [result] = await pool.query(sql, values)
-    return this.findById(result.insertId || values[0])
+    await pool.query(sql, values)
+    return this.findById(data[this.idField])
   }
 
   async update(id, data) {
@@ -52,22 +85,26 @@ class BaseModel {
   }
 
   async count(where = '', params = []) {
-    const sql = `SELECT COUNT(*) as total FROM ${this.tableName}${where ? ` WHERE ${where}` : ''}`
+    const whereClause = where ? ` WHERE ${where}` : ''
+    const sql = `SELECT COUNT(*) as total FROM ${this.tableName}${whereClause}`
     const [rows] = await pool.query(sql, params)
     return rows[0].total
   }
 
   async paginate(options = {}) {
     const { where = '', orderBy = '', page = 1, pageSize = 10, params = [] } = options
-    const offset = (page - 1) * pageSize
+    // 验证分页参数
+    const validPage = Math.max(1, parseInt(page) || 1)
+    const validPageSize = Math.min(1000, Math.max(1, parseInt(pageSize) || 10))
+    const offset = (validPage - 1) * validPageSize
     const total = await this.count(where, params)
-    const data = await this.findAll({ where, orderBy, limit: `${offset}, ${pageSize}`, params })
+    const data = await this.findAll({ where, orderBy, limit: `${offset}, ${validPageSize}`, params })
     return {
       data,
       total: parseInt(total),
-      page: parseInt(page),
-      pageSize: parseInt(pageSize),
-      totalPages: Math.ceil(total / pageSize)
+      page: validPage,
+      pageSize: validPageSize,
+      totalPages: Math.ceil(total / validPageSize)
     }
   }
 }

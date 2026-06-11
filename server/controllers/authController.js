@@ -1,19 +1,22 @@
 import User from '../models/User.js'
 import jwt from 'jsonwebtoken'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'x7K9mP2nR8vQz1wB4fL6sYjD5cVhN0pXqEaTgWuZiSbFkMlJdHrOyC'
+// 生产环境必须设置 JWT_SECRET 环境变量
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production'
+  ? (() => { throw new Error('JWT_SECRET environment variable is required in production') })()
+  : 'dev-only-secret-key-change-in-production')
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h'
 
-console.log('JWT_SECRET', JWT_SECRET)
-console.log('JWT_EXPIRES_IN', JWT_EXPIRES_IN)
-
 export const register = async (req, res) => {
-  console.log('req.body', req.body)
   try {
     const { username, password, phone, email, remarks } = req.body
 
     if (!username || !password) {
       return res.status(400).json({ success: false, message: 'Username and password are required' })
+    }
+
+    if (!phone || !email) {
+      return res.status(400).json({ success: false, message: 'Phone and email are required' })
     }
 
     const existingUser = await User.findByUsername(username)
@@ -29,7 +32,6 @@ export const register = async (req, res) => {
       email,
       remarks
     })
-    console.log('user', user)
 
     const token = jwt.sign(
       { userId: user.user_id, username: user.username, role: user.role },
@@ -58,7 +60,6 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    console.log('req.body', req.body)
     const { username, password } = req.body
 
     if (!username || !password) {
@@ -96,14 +97,13 @@ export const login = async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('Login error:', error)
     res.status(500).json({ success: false, message: error.message })
   }
 }
 
 export const getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId)
+    const user = await User.findById(req.user.user_id)
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' })
     }

@@ -1,5 +1,6 @@
 import BaseModel from './BaseModel.js'
 import pool from '../config/database.js'
+import { generateUUID } from '../utils/uuid.js'
 
 class DeliveryOrder extends BaseModel {
   constructor() {
@@ -51,14 +52,6 @@ class DeliveryOrder extends BaseModel {
     return super.update(id, data)
   }
 
-  generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0
-      const v = c === 'x' ? r : (r & 0x3) | 0x8
-      return v.toString(16)
-    })
-  }
-
   async create(data) {
     const deliveryItems = typeof data.delivery_items === 'string' ? JSON.parse(data.delivery_items) : (data.delivery_items || [])
     const expensesJson = data.expenses ? JSON.stringify(data.expenses) : null
@@ -73,7 +66,7 @@ class DeliveryOrder extends BaseModel {
     const orderNumber = await this.generateOrderNumber()
 
     const orderData = {
-      delivery_order_id: this.generateUUID(),
+      delivery_order_id: generateUUID(),
       order_number: orderNumber,
       sales_order_number: data.sales_order_number || null,
       customer_name: data.customer_name || '',

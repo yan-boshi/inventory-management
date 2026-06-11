@@ -1,5 +1,6 @@
 import BaseModel from './BaseModel.js'
 import bcrypt from 'bcrypt'
+import { generateUUID } from '../utils/uuid.js'
 
 class User extends BaseModel {
   constructor() {
@@ -12,7 +13,7 @@ class User extends BaseModel {
 
   async create(userData) {
     const hashedPassword = await bcrypt.hash(userData.password, 10)
-    const userId = this.generateUUID()
+    const userId = generateUUID()
     const data = {
       user_id: userId,
       username: userData.username,
@@ -32,14 +33,6 @@ class User extends BaseModel {
   async updatePassword(userId, newPassword) {
     const hashedPassword = await bcrypt.hash(newPassword, 10)
     return this.update(userId, { password: hashedPassword })
-  }
-
-  generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0
-      const v = c === 'x' ? r : (r & 0x3) | 0x8
-      return v.toString(16)
-    })
   }
 }
 

@@ -1,5 +1,6 @@
 import WarehousingOrder from '../models/WarehousingOrder.js'
 import PurchaseOrder from '../models/PurchaseOrder.js'
+import pool from '../config/database.js'
 
 export const getAllWarehousingOrders = async (req, res) => {
   try {
@@ -21,12 +22,12 @@ export const getAllWarehousingOrders = async (req, res) => {
     }
 
     if (productName) {
-      where.push('customer_name LIKE ?')
+      where.push('warehousing_items LIKE ?')
       params.push(`%${productName}%`)
     }
 
     if (productCode) {
-      where.push('purchase_order_number LIKE ?')
+      where.push('warehousing_items LIKE ?')
       params.push(`%${productCode}%`)
     }
 
@@ -108,7 +109,7 @@ export const createWarehousingOrder = async (req, res) => {
         const items = typeof warehousing_items === 'string' ? JSON.parse(warehousing_items) : warehousing_items
         for (const item of items) {
           // 查询当前库存和单价
-          const [productResult] = await WarehousingOrder.constructor.pool.query(
+          const [productResult] = await pool.query(
             'SELECT stock, tax_included_price FROM products WHERE product_code = ?',
             [item.product_code]
           )
@@ -132,12 +133,12 @@ export const createWarehousingOrder = async (req, res) => {
 
             // 更新库存和单价（价格四舍五入保留四位小数）
             if (newTaxExcludedPrice !== null) {
-              await WarehousingOrder.constructor.pool.query(
+              await pool.query(
                 'UPDATE products SET stock = ?, tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
                 [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, Math.round(newTaxExcludedPrice * 10000) / 10000, item.product_code]
               )
             } else {
-              await WarehousingOrder.constructor.pool.query(
+              await pool.query(
                 'UPDATE products SET stock = ?, tax_included_price = ? WHERE product_code = ?',
                 [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, item.product_code]
               )
@@ -145,7 +146,7 @@ export const createWarehousingOrder = async (req, res) => {
           }
         }
       } catch (stockError) {
-        console.error('Update stock error:', stockError)
+        // 库存更新失败，继续执行
       }
     }
 
@@ -322,21 +323,21 @@ export const deleteWarehousingOrder = async (req, res) => {
       try {
         const items = JSON.parse(existing.warehousing_items || '[]')
         for (const item of items) {
-          const [productResult] = await WarehousingOrder.constructor.pool.query(
+          const [productResult] = await pool.query(
             'SELECT stock FROM products WHERE product_code = ?',
             [item.product_code]
           )
           if (productResult.length > 0) {
             const currentStock = parseFloat(productResult[0].stock || 0)
             const newStock = Math.max(0, currentStock - parseFloat(item.quantity || 0))
-            await WarehousingOrder.constructor.pool.query(
+            await pool.query(
               'UPDATE products SET stock = ? WHERE product_code = ?',
               [newStock.toFixed(2), item.product_code]
             )
           }
         }
       } catch (stockError) {
-        console.error('Decrease stock error:', stockError)
+        // 库存扣减失败，继续执行
       }
     }
 
@@ -359,7 +360,7 @@ export const getNewOrderNumber = async (req, res) => {
 export const getPurchaseOrdersForWarehousing = async (req, res) => {
   try {
     // 获取未入库或已部分入库的采购订单
-    const [orders] = await WarehousingOrder.constructor.pool.query(
+    const [orders] = await pool.query(
       `SELECT * FROM purchase_orders
        WHERE status = '1' OR status = '3'
        ORDER BY created_at DESC`

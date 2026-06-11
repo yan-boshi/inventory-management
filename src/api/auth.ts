@@ -5,7 +5,8 @@ interface CurrentUser {
   userId: string
   username: string
   role: string
-  contact?: string
+  phone?: string
+  email?: string
   remarks?: string
 }
 
@@ -14,7 +15,6 @@ export const login = (data: LoginRequest): Promise<ApiResponse<AuthResponse>> =>
 }
 
 export const register = (data: RegisterRequest): Promise<ApiResponse<AuthResponse>> => {
-  console.log('register data', data)
   return request.post('/auth/register', data)
 }
 

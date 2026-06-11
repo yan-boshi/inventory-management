@@ -16,6 +16,6 @@ router.get('/:id', authMiddleware, adminOnly, getUserById)
 router.post('/', authMiddleware, adminOnly, createUser)
 router.put('/:id', authMiddleware, adminOnly, updateUser)
 router.delete('/:id', authMiddleware, adminOnly, deleteUser)
-router.post('/:id/change-password', authMiddleware, changePassword)
+router.post('/:id/change-password', authMiddleware, adminOnly, changePassword)
 
 export default router

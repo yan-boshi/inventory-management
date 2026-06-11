@@ -295,7 +295,7 @@ export interface SalesOrder {
   payment_method: string
   sales_items: string
   sales_date: string
-  status: 1 | 2
+  status: 1 | 2 | 3 | 4
   tax_included_amount: number
   currency: string
   exchange_rate: number
@@ -319,6 +319,7 @@ export interface CreateSalesOrderRequest {
   remarks?: string
   expenses?: Expenses
   sales_person?: string
+  tax_included_amount?: number
 }
 
 export interface UpdateSalesOrderRequest extends Partial<CreateSalesOrderRequest> { }
@@ -408,7 +409,7 @@ export interface PurchaseOrder {
   exchange_rate: number
   delivery_date?: string
   arrival_date?: string
-  status: 1 | 2
+  status: 1 | 2 | 3 | 4
   remarks?: string
   expenses?: string
   purchase_person?: string
@@ -496,7 +497,8 @@ export interface AuthResponse {
     userId: string
     username: string
     role: string
-    contact?: string
+    phone?: string
+    email?: string
   }
   token: string
 }
@@ -706,9 +708,9 @@ export interface UndeliveredSalesOrder {
   sales_order_id: string
   order_number: string
   customer_name: string
-  customer_address: string
+  customer_address?: string
   sales_items: string
   currency: string
-  total_amount: number
+  tax_included_amount: number
   remarks?: string
 }

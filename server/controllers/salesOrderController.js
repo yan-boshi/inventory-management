@@ -7,16 +7,17 @@ export const getAllSalesOrders = async (req, res) => {
       pageSize = 10,
       customerName,
       customerCode,
-      quotationNumber,
-      salesDate
+      orderNumber,
+      startDate,
+      endDate
     } = req.query
 
     const where = []
     const params = []
 
-    if (quotationNumber) {
+    if (orderNumber) {
       where.push('order_number LIKE ?')
-      params.push(`%${quotationNumber}%`)
+      params.push(`%${orderNumber}%`)
     }
 
     if (customerName) {
@@ -29,9 +30,15 @@ export const getAllSalesOrders = async (req, res) => {
       params.push(`%${customerCode}%`)
     }
 
-    if (salesDate) {
+    if (startDate && endDate) {
+      where.push('sales_date BETWEEN ? AND ?')
+      params.push(startDate, endDate)
+    } else if (startDate) {
       where.push('sales_date >= ?')
-      params.push(salesDate)
+      params.push(startDate)
+    } else if (endDate) {
+      where.push('sales_date <= ?')
+      params.push(endDate)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
@@ -86,7 +93,8 @@ export const createSalesOrder = async (req, res) => {
       delivery_date,
       remarks,
       tax_included_amount,
-      expenses
+      expenses,
+      sales_person
     } = req.body
 
     if (!customer_name || !customer_code) {
@@ -104,7 +112,8 @@ export const createSalesOrder = async (req, res) => {
       delivery_date,
       remarks,
       tax_included_amount,
-      expenses
+      expenses,
+      sales_person
     })
     res.status(201).json({ success: true, data: order })
   } catch (error) {
@@ -127,7 +136,8 @@ export const updateSalesOrder = async (req, res) => {
       remarks,
       status,
       tax_included_amount,
-      expenses
+      expenses,
+      sales_person
     } = req.body
 
     const existing = await SalesOrder.findById(id)
@@ -148,6 +158,7 @@ export const updateSalesOrder = async (req, res) => {
     if (status !== undefined) updateData.status = parseInt(status)
     if (tax_included_amount !== undefined) updateData.tax_included_amount = parseFloat(tax_included_amount)
     if (expenses !== undefined) updateData.expenses = expenses
+    if (sales_person !== undefined) updateData.sales_person = sales_person
 
     const order = await SalesOrder.update(id, updateData)
     res.json({ success: true, data: order })
@@ -181,7 +192,37 @@ export const returnSalesOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Sales order not found' })
     }
 
-    const updated = await SalesOrder.update(id, { status: 4 })
+    // 退货时回退已出库的库存
+    const salesItems = JSON.parse(existing.sales_items || '[]')
+    const { default: pool } = await import('../config/database.js')
+    for (const item of salesItems) {
+      if (item.outbound_quantity && item.outbound_quantity > 0 && item.product_code) {
+        const [productResult] = await pool.query(
+          'SELECT stock FROM products WHERE product_code = ?',
+          [item.product_code]
+        )
+        if (productResult.length > 0) {
+          const currentStock = parseFloat(productResult[0].stock || 0)
+          const newStock = currentStock + parseFloat(item.outbound_quantity)
+          await pool.query(
+            'UPDATE products SET stock = ? WHERE product_code = ?',
+            [newStock.toFixed(2), item.product_code]
+          )
+        }
+      }
+    }
+
+    // 重置销售项的出库数量和状态
+    const resetItems = salesItems.map(item => ({
+      ...item,
+      outbound_quantity: 0,
+      status: 1
+    }))
+
+    const updated = await SalesOrder.update(id, {
+      status: 4,
+      sales_items: JSON.stringify(resetItems)
+    })
     res.json({ success: true, data: updated })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })

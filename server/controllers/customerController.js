@@ -24,7 +24,6 @@ export const getAllCustomers = async (req, res) => {
       pageSize,
       params
     })
-    console.log('result:', result)
     return res.json({
       success: true,
       data: result.data,

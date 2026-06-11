@@ -1,5 +1,6 @@
 import BaseModel from './BaseModel.js'
 import pool from '../config/database.js'
+import { generateUUID } from '../utils/uuid.js'
 
 class SalesOrder extends BaseModel {
   constructor() {
@@ -11,14 +12,6 @@ class SalesOrder extends BaseModel {
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
     const random = Math.floor(Math.random() * 10000).toString().padStart(5, '0')
     return `XSD-S-${dateStr}-${random}`
-  }
-
-  generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0
-      const v = c === 'x' ? r : (r & 0x3) | 0x8
-      return v.toString(16)
-    })
   }
 
   calculateTaxExcludedPrice(taxIncludedPrice, taxRate) {
@@ -63,7 +56,7 @@ class SalesOrder extends BaseModel {
     }
 
     const orderData = {
-      sales_order_id: this.generateUUID(),
+      sales_order_id: generateUUID(),
       order_number: await this.generateOrderNumber(),
       contract_number: data.contract_number || null,
       customer_name: data.customer_name,
@@ -205,6 +198,13 @@ class SalesOrder extends BaseModel {
   async paginateWithStatus(options = {}) {
     const { where = '', orderBy = 'created_at DESC', page = 1, pageSize = 10, params = [] } = options
 
+    // 验证分页参数
+    const validPage = Math.max(1, parseInt(page) || 1)
+    const validPageSize = Math.min(1000, Math.max(1, parseInt(pageSize) || 10))
+
+    // 验证排序字段（只允许字母、数字、下划线、逗号、空格、ASC、DESC）
+    const sanitizedOrderBy = orderBy.replace(/[^a-zA-Z0-9_,\s]/g, '') || 'sales_date DESC'
+
     // 查询总数
     let countQuery = `SELECT COUNT(*) as total FROM ${this.tableName}`
     if (where) {
@@ -214,14 +214,14 @@ class SalesOrder extends BaseModel {
     const total = countResult[0]?.total || 0
 
     // 查询分页数据
-    const offset = (page - 1) * pageSize
+    const offset = (validPage - 1) * validPageSize
     let query = `SELECT * FROM ${this.tableName}`
     if (where) {
       query += ` WHERE ${where}`
     }
-    query += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`
+    query += ` ORDER BY ${sanitizedOrderBy} LIMIT ? OFFSET ?`
 
-    const [rows] = await pool.query(query, [...params, parseInt(pageSize), parseInt(offset)])
+    const [rows] = await pool.query(query, [...params, validPageSize, offset])
 
     // 为每个订单计算状态
     const ordersWithStatus = await Promise.all(
@@ -234,9 +234,9 @@ class SalesOrder extends BaseModel {
     return {
       data: ordersWithStatus,
       total,
-      page: parseInt(page),
-      pageSize: parseInt(pageSize),
-      totalPages: Math.ceil(total / pageSize)
+      page: validPage,
+      pageSize: validPageSize,
+      totalPages: Math.ceil(total / validPageSize)
     }
   }
 }

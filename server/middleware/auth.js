@@ -1,7 +1,10 @@
 import jwt from 'jsonwebtoken'
 import User from '../models/User.js'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'x7K9mP2nR8vQz1wB4fL6sYjD5cVhN0pXqEaTgWuZiSbFkMlJdHrOyC'
+// 生产环境必须设置 JWT_SECRET 环境变量
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production'
+  ? (() => { throw new Error('JWT_SECRET environment variable is required in production') })()
+  : 'dev-only-secret-key-change-in-production')
 
 export const authMiddleware = async (req, res, next) => {
   try {

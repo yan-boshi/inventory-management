@@ -1,21 +1,14 @@
 import BaseModel from './BaseModel.js'
+import { generateUUID } from '../utils/uuid.js'
 
 class Customer extends BaseModel {
   constructor() {
     super('customers', 'customer_id')
   }
 
-  generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0
-      const v = c === 'x' ? r : (r & 0x3) | 0x8
-      return v.toString(16)
-    })
-  }
-
   async create(data) {
     const customerData = {
-      customer_id: this.generateUUID(),
+      customer_id: generateUUID(),
       customer_name: data.customer_name,
       customer_code: data.customer_code,
       customer_tax_number: data.customer_tax_number || null,

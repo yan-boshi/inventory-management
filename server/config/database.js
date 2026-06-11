@@ -29,20 +29,4 @@ const pool = mysql.createPool({
   keepAliveInitialDelay: 0
 })
 
-pool.on('connection', (connection) => {
-  console.log('MySQL pool created a new connection')
-})
-
-pool.on('acquire', (connection) => {
-  console.log('Connection %d acquired', connection.threadId)
-})
-
-pool.on('release', (connection) => {
-  console.log('Connection %d released', connection.threadId)
-})
-
-pool.on('enqueue', () => {
-  console.log('Waiting for available connection slot')
-})
-
 export default pool

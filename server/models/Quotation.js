@@ -1,4 +1,5 @@
 import BaseModel from './BaseModel.js'
+import { generateUUID } from '../utils/uuid.js'
 
 class Quotation extends BaseModel {
   constructor() {
@@ -10,14 +11,6 @@ class Quotation extends BaseModel {
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
     const random = Math.floor(Math.random() * 10000).toString().padStart(5, '0')
     return `XSD-Q-${dateStr}-${random}`
-  }
-
-  generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0
-      const v = c === 'x' ? r : (r & 0x3) | 0x8
-      return v.toString(16)
-    })
   }
 
   async create(data) {
@@ -34,7 +27,7 @@ class Quotation extends BaseModel {
     }
 
     const orderData = {
-      quotation_id: this.generateUUID(),
+      quotation_id: generateUUID(),
       quotation_number: this.generateQuotationNumber(),
       customer_name: data.customer_name,
       customer_code: data.customer_code,
