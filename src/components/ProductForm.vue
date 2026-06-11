@@ -8,19 +8,17 @@
     :okText="isEdit ? '保存' : '创建'"
     :confirmLoading="loading"
   >
-    <a-form
-      ref="formRef"
-      :model="form"
-      :rules="rules"
-      layout="vertical"
-      v-if="visible"
-    >
+    <a-form ref="formRef" :model="form" :rules="rules" layout="vertical" v-if="visible">
       <a-form-item label="产品名称" name="product_name">
         <a-input v-model:value="form.product_name" placeholder="请输入产品名称" />
       </a-form-item>
 
       <a-form-item label="产品代码" name="product_code">
-        <a-input v-model:value="form.product_code" placeholder="请输入产品代码" :disabled="isEdit" />
+        <a-input
+          v-model:value="form.product_code"
+          placeholder="请输入产品代码"
+          :disabled="isEdit"
+        />
       </a-form-item>
 
       <a-form-item label="规格型号" name="model">
@@ -33,6 +31,36 @@
 
       <a-form-item label="单位" name="unit">
         <a-input v-model:value="form.unit" placeholder="请输入单位" />
+      </a-form-item>
+
+      <a-form-item label="库存" name="stock">
+        <a-input-number
+          v-model:value="form.stock"
+          :min="0"
+          :precision="0"
+          placeholder="请输入库存数量"
+          style="width: 100%"
+        />
+      </a-form-item>
+
+      <a-form-item label="含税单价" name="tax_included_price">
+        <a-input-number
+          v-model:value="form.tax_included_price"
+          :min="0"
+          :precision="2"
+          placeholder="请输入含税单价"
+          style="width: 100%"
+        />
+      </a-form-item>
+
+      <a-form-item label="未税单价" name="tax_excluded_price">
+        <a-input-number
+          v-model:value="form.tax_excluded_price"
+          :min="0"
+          :precision="2"
+          placeholder="请输入未税单价"
+          style="width: 100%"
+        />
       </a-form-item>
 
       <a-form-item label="备注" name="remarks">
@@ -56,7 +84,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
-  'success': []
+  success: []
 }>()
 
 const formRef = ref()
@@ -68,16 +96,15 @@ const form = reactive<CreateProductRequest>({
   model: '',
   description: '',
   unit: '',
-  remarks: ''
+  stock: 0,
+  tax_included_price: undefined,
+  tax_excluded_price: undefined,
+  remarks: '',
 })
 
 const rules = {
-  product_name: [
-    { required: true, message: '请输入产品名称', trigger: 'blur' }
-  ],
-  product_code: [
-    { required: true, message: '请输入产品代码', trigger: 'blur' }
-  ]
+  product_name: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
+  product_code: [{ required: true, message: '请输入产品代码', trigger: 'blur' }],
 }
 
 const handleSubmit = async () => {
@@ -107,20 +134,26 @@ const handleCancel = () => {
   emit('update:visible', false)
 }
 
-watch(() => props.visible, (visible) => {
-  if (visible && props.isEdit && props.productData) {
-    Object.assign(form, {
-      product_name: props.productData.product_name || '',
-      product_code: props.productData.product_code || '',
-      model: props.productData.model || '',
-      description: props.productData.description || '',
-      unit: props.productData.unit || '',
-      remarks: props.productData.remarks || ''
-    })
-  } else if (visible && !props.isEdit) {
-    resetForm()
+watch(
+  () => props.visible,
+  visible => {
+    if (visible && props.isEdit && props.productData) {
+      Object.assign(form, {
+        product_name: props.productData.product_name || '',
+        product_code: props.productData.product_code || '',
+        model: props.productData.model || '',
+        description: props.productData.description || '',
+        unit: props.productData.unit || '',
+        stock: props.productData.stock || 0,
+        tax_included_price: props.productData.tax_included_price,
+        tax_excluded_price: props.productData.tax_excluded_price,
+        remarks: props.productData.remarks || '',
+      })
+    } else if (visible && !props.isEdit) {
+      resetForm()
+    }
   }
-})
+)
 
 const resetForm = () => {
   Object.assign(form, {
@@ -129,7 +162,10 @@ const resetForm = () => {
     model: '',
     description: '',
     unit: '',
-    remarks: ''
+    stock: 0,
+    tax_included_price: undefined,
+    tax_excluded_price: undefined,
+    remarks: '',
   })
 }
 </script>

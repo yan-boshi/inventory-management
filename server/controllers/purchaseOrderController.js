@@ -42,7 +42,7 @@ export const getAllPurchaseOrders = async (req, res) => {
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
-    const result = await PurchaseOrder.paginate({
+    const result = await PurchaseOrder.paginateWithStatus({
       where: whereClause,
       orderBy: 'created_at DESC',
       page,
@@ -72,7 +72,9 @@ export const getPurchaseOrderById = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, message: 'Purchase order not found' })
     }
-    res.json({ success: true, data: order })
+    // 计算动态状态
+    const status = await PurchaseOrder.calculateStatus(id)
+    res.json({ success: true, data: { ...order, status } })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
@@ -80,50 +82,27 @@ export const getPurchaseOrderById = async (req, res) => {
 
 export const createPurchaseOrder = async (req, res) => {
   try {
-    const {
-      supplier_name,
-      supplier_code,
-      payment_method,
-      business_category,
-      product_name,
-      model,
-      description,
-      product_code,
-      unit,
-      quantity,
-      tax_included_price,
-      tax_rate,
-      currency,
-      exchange_rate,
-      delivery_date,
-      arrival_date,
-      remarks,
-      contract_number
-    } = req.body
+    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, delivery_date, arrival_date, remarks, contract_number, expenses } = req.body
 
     if (!supplier_name || !supplier_code) {
       return res.status(400).json({ success: false, message: 'Supplier name and code are required' })
     }
 
+    if (!purchase_items || !Array.isArray(purchase_items) || purchase_items.length === 0) {
+      return res.status(400).json({ success: false, message: 'Purchase items are required' })
+    }
+
     const order = await PurchaseOrder.create({
       supplier_name,
       supplier_code,
-      payment_method,
-      business_category,
-      product_name,
-      model,
-      description,
-      product_code,
-      unit,
-      quantity: parseFloat(quantity),
-      tax_included_price: parseFloat(tax_included_price),
-      tax_rate: parseFloat(tax_rate) || 0.13,
+      purchase_items,
       currency,
       exchange_rate: parseFloat(exchange_rate) || 1.0,
       delivery_date,
       arrival_date,
       remarks,
-      contract_number
+      contract_number,
+      expenses
     })
     res.status(201).json({ success: true, data: order })
   } catch (error) {
@@ -134,26 +113,7 @@ export const createPurchaseOrder = async (req, res) => {
 export const updatePurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params
-    const {
-      supplier_name,
-      supplier_code,
-      payment_method,
-      business_category,
-      product_name,
-      model,
-      description,
-      product_code,
-      unit,
-      quantity,
-      tax_included_price,
-      tax_rate,
-      currency,
-      exchange_rate,
-      delivery_date,
-      arrival_date,
-      remarks,
-      contract_number
-    } = req.body
+    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, delivery_date, arrival_date, remarks, contract_number, expenses } = req.body
 
     const existing = await PurchaseOrder.findById(id)
     if (!existing) {
@@ -163,46 +123,37 @@ export const updatePurchaseOrder = async (req, res) => {
     const updateData = {}
     if (supplier_name !== undefined) updateData.supplier_name = supplier_name
     if (supplier_code !== undefined) updateData.supplier_code = supplier_code
-    if (payment_method !== undefined) updateData.payment_method = payment_method
-    if (business_category !== undefined) updateData.business_category = business_category
-    if (product_name !== undefined) updateData.product_name = product_name
-    if (model !== undefined) updateData.model = model
-    if (description !== undefined) updateData.description = description
-    if (product_code !== undefined) updateData.product_code = product_code
-    if (unit !== undefined) updateData.unit = unit
-    if (quantity !== undefined) updateData.quantity = parseFloat(quantity)
-    if (tax_included_price !== undefined) updateData.tax_included_price = parseFloat(tax_included_price)
-    if (tax_rate !== undefined) updateData.tax_rate = parseFloat(tax_rate)
     if (currency !== undefined) updateData.currency = currency
-    if (exchange_rate !== undefined) updateData.exchange_rate = parseFloat(exchange_rate)
+    if (exchange_rate !== undefined) updateData.exchange_rate = parseFloat(exchange_rate) || 1.0
     if (delivery_date !== undefined) updateData.delivery_date = delivery_date
     if (arrival_date !== undefined) updateData.arrival_date = arrival_date
     if (remarks !== undefined) updateData.remarks = remarks
     if (contract_number !== undefined) updateData.contract_number = contract_number
+    if (expenses !== undefined) updateData.expenses = expenses
 
-    // Recalculate tax values if needed
-    if (quantity !== undefined || tax_included_price !== undefined || tax_rate !== undefined) {
-      const taxExcludedPrice = PurchaseOrder.calculateTaxExcludedPrice(
-        updateData.tax_included_price || existing.tax_included_price,
-        updateData.tax_rate || existing.tax_rate
-      )
-      const taxIncludedAmount = PurchaseOrder.calculateTaxIncludedAmount(
-        updateData.quantity || existing.quantity,
-        updateData.tax_included_price || existing.tax_included_price
-      )
-      const taxExcludedAmount = PurchaseOrder.calculateTaxExcludedAmount(
-        updateData.quantity || existing.quantity,
-        taxExcludedPrice
-      )
-      const taxAmount = PurchaseOrder.calculateTaxAmount(
-        taxIncludedAmount,
-        updateData.tax_rate || existing.tax_rate
-      )
+    if (purchase_items !== undefined) {
+      if (!Array.isArray(purchase_items) || purchase_items.length === 0) {
+        return res.status(400).json({ success: false, message: 'Purchase items must be a non-empty array' })
+      }
 
-      updateData.tax_excluded_price = taxExcludedPrice
-      updateData.tax_included_amount = taxIncludedAmount
-      updateData.tax_excluded_amount = taxExcludedAmount
-      updateData.tax_amount = taxAmount
+      const calculatedItems = purchase_items.map((item) => {
+        const taxRateDecimal = item.tax_rate / 100
+        const taxExcludedPrice = PurchaseOrder.calculateTaxExcludedPrice(item.tax_included_price, taxRateDecimal)
+        const taxIncludedAmount = PurchaseOrder.calculateTaxIncludedAmount(item.quantity, item.tax_included_price)
+        const taxExcludedAmount = PurchaseOrder.calculateTaxExcludedAmount(item.quantity, taxExcludedPrice)
+        const taxAmount = PurchaseOrder.calculateTaxAmount(taxIncludedAmount, taxRateDecimal)
+
+        return {
+          ...item,
+          tax_excluded_price: taxExcludedPrice,
+          tax_included_amount: taxIncludedAmount,
+          tax_excluded_amount: taxExcludedAmount,
+          tax_amount: taxAmount,
+          total_price: taxIncludedAmount
+        }
+      })
+
+      updateData.purchase_items = JSON.stringify(calculatedItems)
     }
 
     const order = await PurchaseOrder.update(id, updateData)
@@ -228,16 +179,21 @@ export const deletePurchaseOrder = async (req, res) => {
   }
 }
 
-export const returnPurchaseOrder = async (req, res) => {
+export const updatePurchaseOrderStatus = async (req, res) => {
   try {
     const { id } = req.params
+    const { status } = req.body
+
+    if (!status || ![1, 2, 3, 4].includes(parseInt(status))) {
+      return res.status(400).json({ success: false, message: 'Status must be 1 (not warehoused), 2 (fully warehoused), 3 (partially warehoused), or 4 (returned)' })
+    }
 
     const existing = await PurchaseOrder.findById(id)
     if (!existing) {
       return res.status(404).json({ success: false, message: 'Purchase order not found' })
     }
 
-    const updated = await PurchaseOrder.update(id, { is_returned: true })
+    const updated = await PurchaseOrder.updateStatus(id, parseInt(status))
     res.json({ success: true, data: updated })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })

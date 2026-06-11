@@ -24,8 +24,8 @@ export const purchaseOrdersApi = {
     return instance.delete<{ message: string }>(`${API_BASE_URL}/${id}`)
   },
 
-  return: async (id: string) => {
-    return instance.post<PurchaseOrder>(`${API_BASE_URL}/${id}/return`)
+  updateStatus: async (id: string, status: 1 | 2 | 3 | 4) => {
+    return instance.put<PurchaseOrder>(`${API_BASE_URL}/${id}/status`, { status })
   },
 
   getNewOrderNumber: async () => {

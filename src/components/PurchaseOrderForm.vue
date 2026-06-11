@@ -1,323 +1,469 @@
 <template>
   <a-modal
     :title="isEdit ? '编辑采购订单' : '新增采购订单'"
-    :width="900"
+    width="85%"
     :visible="visible"
     @ok="handleSubmit"
     @cancel="handleCancel"
-    :okText="isEdit ? '保存' : '创建'"
+    :okText="'保存'"
     :confirmLoading="submitting"
+    :footer="null"
   >
-    <a-form
-      ref="formRef"
-      :model="form"
-      :rules="rules"
-      layout="horizontal"
-      :label-col="{ span: 6 }"
-      :wrapper-col="{ span: 18 }"
-      v-if="visible"
-    >
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-        <a-form-item label="默认单据编号">
-          <a-input :value="orderNumber" disabled />
-        </a-form-item>
-
-        <a-form-item label="采购合同编号" name="contractNumber">
-          <a-input v-model:value="form.contract_number" placeholder="请输入采购合同编号" allow-clear />
-        </a-form-item>
-
-        <a-form-item label="供应商名称" name="supplier">
-          <a-select
-            v-model:value="form.supplier_name"
-            placeholder="请选择供应商"
-            :loading="loading.suppliers"
-            show-search
-            :filter-option="false"
-            @search="handleSupplierSearch"
-            @change="handleSupplierChange"
-          >
-            <a-select-option
-              v-for="supplier in supplierOptions"
-              :key="supplier.supplier_id"
-              :value="supplier.supplier_name"
-            >
-              {{ supplier.supplier_name }} ({{ supplier.supplier_code }})
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-
-        <a-form-item label="结算方式" name="paymentMethod">
-          <a-select
-            v-model:value="form.payment_method"
-            placeholder="请选择结算方式"
-            :loading="loading.paymentMethods"
-            show-search
-            :filter-option="false"
-            @search="handlePaymentMethodSearch"
-          >
-            <a-select-option
-              v-for="method in paymentMethodOptions"
-              :key="method.payment_method_id"
-              :value="method.payment_method_name"
-            >
-              {{ method.payment_method_name }}
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-
-        <a-form-item label="业务分类" name="businessCategory">
-          <a-select
-            v-model:value="form.business_category"
-            placeholder="请选择业务分类"
-            :loading="loading.businessCategories"
-            show-search
-            :filter-option="false"
-            @search="handleBusinessCategorySearch"
-          >
-            <a-select-option
-              v-for="category in businessCategoryOptions"
-              :key="category.business_category_id"
-              :value="category.business_category_name"
-            >
-              {{ category.business_category_name }}
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-
-        <a-form-item label="产品名称" name="product">
-          <a-select
-            v-model:value="form.product_name"
-            placeholder="请选择产品"
-            :loading="loading.products"
-            show-search
-            :filter-option="false"
-            @search="handleProductSearch"
-            @change="handleProductChange"
-          >
-            <a-select-option
-              v-for="product in productOptions"
-              :key="product.product_id"
-              :value="product.product_name"
-            >
-              {{ product.product_name }} ({{ product.product_code }})
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-
-        <a-form-item label="规格型号">
-          <a-input v-model:value="form.model" disabled />
-        </a-form-item>
-
-        <a-form-item label="规格描述">
-          <a-input v-model:value="form.description" disabled />
-        </a-form-item>
-
-        <a-form-item label="产品代码" name="productCode">
-          <a-input v-model:value="form.product_code" disabled />
-        </a-form-item>
-
-        <a-form-item label="单位">
-          <a-input v-model:value="form.unit" disabled />
-        </a-form-item>
-
-        <a-form-item label="数量" name="quantity">
-          <a-input-number
-            v-model:value="form.quantity"
-            :min="1"
-            :precision="2"
-            style="width: 100%"
-            @change="calculateAmounts"
-          />
-        </a-form-item>
-
-        <a-form-item label="含税单价 (元)" name="taxIncludedPrice">
-          <a-input-number
-            v-model:value="form.tax_included_price"
-            :min="0"
-            :precision="2"
-            style="width: 100%"
-            @change="calculateAmounts"
-          />
-        </a-form-item>
-
-        <a-form-item label="税率" name="taxRate">
-          <a-input-number
-            v-model:value="form.tax_rate"
-            :min="0"
-            :max="1"
-            :step="0.01"
-            :precision="4"
-            style="width: 100%"
-            @change="calculateAmounts"
-          >
-            <template #addonAfter>
-              <span>%</span>
-            </template>
-          </a-input-number>
-        </a-form-item>
-
-        <a-form-item label="未税单价 (元)" name="taxExcludedPrice">
-          <a-input v-model:value="form.tax_excluded_price" disabled />
-        </a-form-item>
-
-        <a-form-item label="含税金额 (元)" name="taxIncludedAmount">
-          <a-input v-model:value="form.tax_included_amount" disabled />
-        </a-form-item>
-
-        <a-form-item label="未税金额 (元)" name="taxExcludedAmount">
-          <a-input v-model:value="form.tax_excluded_amount" disabled />
-        </a-form-item>
-
-        <a-form-item label="税额 (元)" name="taxAmount">
-          <a-input v-model:value="form.tax_amount" disabled />
-        </a-form-item>
-
-        <a-form-item label="币种">
-          <a-select
-            v-model:value="form.currency"
-            style="width: 100%"
-          >
-            <a-select-option value="CNY">人民币</a-select-option>
-            <a-select-option value="USD">美元</a-select-option>
-            <a-select-option value="EUR">欧元</a-select-option>
-          </a-select>
-        </a-form-item>
-
-        <a-form-item label="汇率">
-          <a-input-number
-            v-model:value="form.exchange_rate"
-            :min="0"
-            :precision="4"
-            style="width: 100%"
-          />
-        </a-form-item>
-
-        <a-form-item label="交货日期">
-          <a-date-picker
-            v-model:value="form.delivery_date"
-            style="width: 100%"
-            format="YYYY-MM-DD"
-          />
-        </a-form-item>
-
-        <a-form-item label="到货日期">
-          <a-date-picker
-            v-model:value="form.arrival_date"
-            style="width: 100%"
-            format="YYYY-MM-DD"
-          />
-        </a-form-item>
-
-        <a-form-item label="备注" name="remarks">
-          <a-textarea v-model:value="form.remarks" :rows="3" placeholder="请输入备注信息" />
-        </a-form-item>
+    <div v-if="visible" class="purchase-order-form">
+      <div class="purchase-order-header">
+        <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
+        <h2 class="purchase-order-title">采购订单</h2>
       </div>
-    </a-form>
+
+      <div class="purchase-order-content">
+        <div class="form-row">
+          <div class="form-item">
+            <label class="form-label">默认单据编号：</label>
+            <span class="invisible-input">{{ orderNumber }}</span>
+          </div>
+          <div class="form-item">
+            <label class="form-label">采购合同编号：</label>
+            <a-input v-model:value="form.contract_number" class="invisible-input note-input" />
+          </div>
+          <!-- <div class="form-item">
+            <label class="form-label">采购人：</label>
+            <a-input v-model:value="form.purchase_person" class="invisible-input note-input" disabled />
+          </div> -->
+        </div>
+
+        <div class="form-row">
+          <div class="form-item">
+            <label class="form-label">供应商名称:</label>
+            <a-select
+              v-model:value="form.supplier_name"
+              placeholder="请选择供应商"
+              :loading="loading.suppliers"
+              show-search
+              :filter-option="false"
+              @search="handleSupplierSearch"
+              @change="handleSupplierChange"
+              class="invisible-select supplier-name-input"
+            >
+              <a-select-option
+                v-for="supplier in supplierOptions"
+                :key="supplier.supplier_id"
+                :value="supplier.supplier_name"
+              >
+                {{ supplier.supplier_name }}
+              </a-select-option>
+            </a-select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <a-table
+            :columns="itemColumns"
+            :data-source="form.purchase_items"
+            :pagination="false"
+            bordered
+            size="small"
+          >
+            <template #bodyCell="{ column, record, index }">
+              <template v-if="column.key === 'no'">
+                {{ index + 1 }}
+              </template>
+              <template v-else-if="column.key === 'business_category'">
+                <a-select
+                  v-model:value="record.business_category"
+                  placeholder="请选择业务分类"
+                  :loading="loading.businessCategories"
+                  style="width: 100%"
+                  class="invisible-select"
+                >
+                  <a-select-option
+                    v-for="category in businessCategoryOptions"
+                    :key="category.business_category_id"
+                    :value="category.business_category_name"
+                  >
+                    {{ category.business_category_name }}
+                  </a-select-option>
+                </a-select>
+              </template>
+              <template v-else-if="column.key === 'product_name'">
+                <a-select
+                  v-model:value="record.product_name"
+                  placeholder="请选择产品"
+                  :loading="loading.products"
+                  show-search
+                  :filter-option="false"
+                  @search="value => handleProductSearch(value, index)"
+                  @change="value => handleProductChange(value, index)"
+                  style="width: 100%"
+                  class="invisible-select"
+                >
+                  <a-select-option
+                    v-for="product in productOptions"
+                    :key="product.product_id"
+                    :value="product.product_name"
+                  >
+                    {{ product.product_name }}
+                  </a-select-option>
+                </a-select>
+              </template>
+              <template v-else-if="column.key === 'product_code'">
+                <a-input v-model:value="record.product_code" style="width: 100%" class="invisible-input" />
+              </template>
+
+              <template v-else-if="column.key === 'model'">
+                <a-input v-model:value="record.model" style="width: 100%" class="invisible-input" />
+              </template>
+
+              <template v-else-if="column.key === 'description'">
+                <a-input
+                  v-model:value="record.description"
+                  style="width: 100%"
+                  class="invisible-input"
+                />
+              </template>
+
+              <template v-else-if="column.key === 'unit'">
+                <a-input v-model:value="record.unit" style="width: 100%" class="invisible-input" />
+              </template>
+
+              <template v-else-if="column.key === 'quantity'">
+                <a-input-number
+                  v-model:value="record.quantity"
+                  :min="1"
+                  :precision="0"
+                  style="width: 100%"
+                  @change="() => calculateRowTotal(index)"
+                  class="invisible-input"
+                />
+              </template>
+              <template v-else-if="column.key === 'inbound_quantity'">
+                <a-input
+                  v-model:value="record.inbound_quantity"
+                  style="width: 100%"
+                  disabled="true"
+                  class="invisible-input"
+                />
+              </template>
+              <template v-else-if="column.key === 'tax_rate'">
+                <a-input-number
+                  v-model:value="record.tax_rate"
+                  :min="0"
+                  :max="100"
+                  :precision="2"
+                  style="width: 100px"
+                  class="invisible-input"
+                  @change="() => calculateRowTotal(index)"
+                />
+              </template>
+
+              <template v-else-if="column.key === 'tax_included_price'">
+                <a-input-number
+                  v-model:value="record.tax_included_price"
+                  :min="0"
+                  :precision="2"
+                  style="width: 100%"
+                  @change="() => calculateRowTotal(index)"
+                  class="invisible-input"
+                />
+              </template>
+              <template v-else-if="column.key === 'tax_excluded_price'">
+                <a-input
+                  :value="record.tax_excluded_price?.toFixed(2)"
+                  disabled
+                  style="width: 100%"
+                  class="invisible-input"
+                />
+              </template>
+
+              <template v-else-if="column.key === 'tax_included_amount'">
+                <a-input
+                  :value="record.tax_included_amount?.toFixed(2)"
+                  disabled
+                  style="width: 100%"
+                  class="invisible-input"
+                />
+              </template>
+              <template v-else-if="column.key === 'tax_excluded_amount'">
+                <a-input
+                  :value="record.tax_excluded_amount?.toFixed(2)"
+                  disabled
+                  style="width: 100%"
+                  class="invisible-input"
+                />
+              </template>
+              <template v-else-if="column.key === 'tax_amount'">
+                <a-input
+                  :value="record.tax_amount?.toFixed(2)"
+                  disabled
+                  style="width: 100%"
+                  class="invisible-input"
+                />
+              </template>
+
+              <template v-else-if="column.key === 'status'">
+                <a-select
+                  v-model:value="record.status"
+                  style="width: 100%"
+                  class="invisible-select"
+                >
+                  <a-select-option :value="1">正常</a-select-option>
+                  <a-select-option :value="2">已退货</a-select-option>
+                </a-select>
+              </template>
+
+              <template v-else-if="column.key === 'remarks'">
+                <a-input
+                  v-model:value="record.remarks"
+                  style="width: 100%"
+                  class="invisible-input"
+                />
+              </template>
+
+              <template v-else-if="column.key === 'total_price'">
+                <a-input
+                  :value="record.total_price?.toFixed(2)"
+                  disabled
+                  style="width: 100%"
+                  class="invisible-input"
+                />
+              </template>
+
+              <template v-else-if="column.key === 'actions'">
+                <a-button type="link" size="small" danger @click="deleteItem(index)">
+                  删除
+                </a-button>
+              </template>
+            </template>
+
+            <template #footer>
+              <div class="table-footer">
+                <div class="total-row">
+                  <span class="total-label">含税总价：</span>
+                  <a-input
+                    :value="totalAmount.toFixed(2)"
+                    disabled
+                    style="width: 150px"
+                    class="invisible-input"
+                  />
+                </div>
+                <div class="add-row">
+                  <a-button type="dashed" size="small" @click="addNewItem">
+                    <template #icon>
+                      <PlusOutlined />
+                    </template>
+                    追加行
+                  </a-button>
+                </div>
+              </div>
+            </template>
+          </a-table>
+        </div>
+
+        <div class="purchase-order-note">
+          <div class="note-row">
+            <label class="note-label">币种：</label>
+            <a-select v-model:value="form.currency" style="width: 100%">
+              <a-select-option value="CNY">人民币</a-select-option>
+              <a-select-option value="USD">美元</a-select-option>
+              <a-select-option value="EUR">欧元</a-select-option>
+            </a-select>
+          </div>
+          <div class="note-row">
+            <label class="note-label">汇率：</label>
+            <a-input-number
+              v-model:value="form.exchange_rate"
+              :min="0"
+              :precision="4"
+              style="width: 100%"
+              class="invisible-input"
+            />
+          </div>
+          <div class="note-row">
+            <label class="note-label">发货日期：</label>
+            <a-date-picker
+              v-model:value="form.delivery_date"
+              style="width: 100%"
+              format="YYYY-MM-DD"
+            />
+          </div>
+          <div class="note-row">
+            <label class="note-label">到货日期：</label>
+            <a-date-picker
+              v-model:value="form.arrival_date"
+              style="width: 100%"
+              format="YYYY-MM-DD"
+            />
+          </div>
+
+          <!-- 采购费用登记 -->
+          <div class="expenses-section" style="grid-column: span 2">
+            <div class="expenses-label">采购费用登记</div>
+            <div class="expenses-row">
+              <div class="expense-item">
+                <label>交通费</label>
+                <a-input-number
+                  v-model:value="form.expenses.transportationFee"
+                  :min="0"
+                  :precision="2"
+                  style="width: 100%"
+                  class="expense-input"
+                />
+              </div>
+              <div class="expense-item">
+                <label>招待费</label>
+                <a-input-number
+                  v-model:value="form.expenses.entertainmentFee"
+                  :min="0"
+                  :precision="2"
+                  style="width: 100%"
+                  class="expense-input"
+                />
+              </div>
+              <div class="expense-item">
+                <label>礼品费</label>
+                <a-input-number
+                  v-model:value="form.expenses.giftFee"
+                  :min="0"
+                  :precision="2"
+                  style="width: 100%"
+                  class="expense-input"
+                />
+              </div>
+              <div class="expense-item">
+                <label>其他</label>
+                <a-input-number
+                  v-model:value="form.expenses.otherFee"
+                  :min="0"
+                  :precision="2"
+                  style="width: 100%"
+                  class="expense-input"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="note-row">
+            <label class="note-label">备注：</label>
+            <a-textarea v-model:value="form.remarks" :rows="3" />
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <a-space>
+            <a-button @click="handleCancel">取消</a-button>
+            <a-button type="primary" @click="handleSubmit">保存</a-button>
+          </a-space>
+        </div>
+      </div>
+    </div>
   </a-modal>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { message } from 'ant-design-vue'
+import { PlusOutlined } from '@ant-design/icons-vue'
 import { purchaseOrdersApi } from '@/api/purchaseOrders'
 import { suppliersApi } from '@/api/suppliers'
-
-// 设置 dayjs locale
-dayjs.locale('zh-cn')
 import { productsApi } from '@/api/products'
-import { paymentMethodsApi } from '@/api/paymentMethods'
 import { businessCategoriesApi } from '@/api/businessCategories'
-import type { PurchaseOrder, CreatePurchaseOrderRequest, SupplierOption, ProductOption, PaymentMethodOption, BusinessCategoryOption } from '@/types'
+import { useUserStore } from '@/stores/user'
+import type {
+  CreatePurchaseOrderRequest,
+  PurchaseItem,
+  SupplierOption,
+  ProductOption,
+  BusinessCategoryOption,
+} from '@/types'
+
+const userStore = useUserStore()
 
 const props = defineProps<{
   visible: boolean
   isEdit: boolean
-  orderData?: Partial<PurchaseOrder>
+  purchaseOrderData?: any
 }>()
+
+dayjs.locale('zh-cn')
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
-  'success': []
+  success: []
 }>()
 
-const formRef = ref()
 const orderNumber = ref('')
 const submitting = ref(false)
 const loading = reactive({
   suppliers: false,
   products: false,
-  paymentMethods: false,
-  businessCategories: false
+  businessCategories: false,
 })
 
 const supplierOptions = ref<SupplierOption[]>([])
 const productOptions = ref<ProductOption[]>([])
-const paymentMethodOptions = ref<PaymentMethodOption[]>([])
 const businessCategoryOptions = ref<BusinessCategoryOption[]>([])
 
-const form = reactive<CreatePurchaseOrderRequest>({
+const form = reactive<
+  CreatePurchaseOrderRequest & { purchase_items: PurchaseItem[]; expenses: any }
+>({
   contract_number: '',
   supplier_name: '',
   supplier_code: '',
-  payment_method: '',
-  business_category: '',
-  product_name: '',
-  model: '',
-  description: '',
-  product_code: '',
-  unit: '',
-  quantity: 1,
-  tax_included_price: 0,
-  tax_rate: 0.13,
-  tax_excluded_price: 0,
-  tax_included_amount: 0,
-  tax_excluded_amount: 0,
-  tax_amount: 0,
+  purchase_items: [],
   currency: 'CNY',
-  exchange_rate: 1,
+  exchange_rate: 1.0,
   delivery_date: undefined,
   arrival_date: undefined,
-  remarks: ''
+  remarks: '',
+  purchase_person: '',
+  expenses: {
+    transportationFee: 0,
+    entertainmentFee: 0,
+    giftFee: 0,
+    otherFee: 0,
+  },
 })
 
-const rules = {
-  supplier_name: [
-    { required: true, message: '请选择供应商', trigger: 'change' }
-  ],
-  payment_method: [
-    { required: true, message: '请选择结算方式', trigger: 'change' }
-  ],
-  business_category: [
-    { required: true, message: '请选择业务分类', trigger: 'change' }
-  ],
-  product_name: [
-    { required: true, message: '请选择产品', trigger: 'change' }
-  ],
-  quantity: [
-    { required: true, message: '请输入数量', trigger: 'blur' }
-  ],
-  tax_included_price: [
-    { required: true, message: '请输入含税单价', trigger: 'blur' }
-  ],
-  tax_rate: [
-    { required: true, message: '请输入税率', trigger: 'blur' }
-  ]
-}
+const itemColumns = [
+  { title: '编号', key: 'no', width: '3%', align: 'center' },
+  { title: '业务分类', key: 'business_category', width: '8%' },
+  { title: '产品名称', key: 'product_name', width: '10%' },
+  { title: '产品代码', key: 'product_code', width: '8%' },
+  { title: '规格型号', key: 'model', width: '5%' },
+  { title: '规格描述', key: 'description', width: '7%' },
+  { title: '单位', key: 'unit', width: '5%' },
+  { title: '数量', key: 'quantity', width: '6%' },
+  { title: '入库数', key: 'inbound_quantity', width: '6%' },
+  { title: '税率（%）', key: 'tax_rate', width: '6%' },
+  { title: '含税单价', key: 'tax_included_price', width: '6%', align: 'right' },
+  { title: '未税单价', key: 'tax_excluded_price', width: '6%', align: 'right' },
+  { title: '含税金额', key: 'tax_included_amount', width: '6%', align: 'right' },
+  { title: '未税金额', key: 'tax_excluded_amount', width: '6%', align: 'right' },
+  { title: '税额', key: 'tax_amount', width: '6%', align: 'right' },
+  { title: '状态', key: 'status', width: '5%' },
+  { title: '备注', key: 'remarks', width: '7%' },
+  { title: '总价', key: 'total_price', width: '6%', align: 'right' },
+  { title: '操作', key: 'actions', width: '5%', fixed: 'right' },
+]
+
+const totalAmount = computed(() => {
+  return form.purchase_items.reduce((sum, item) => sum + (item.total_price || 0), 0)
+})
 
 const getNewOrderNumber = async () => {
   try {
     const { order_number } = await purchaseOrdersApi.getNewOrderNumber()
     orderNumber.value = order_number
   } catch (error) {
-    message.error('获取订单号失败')
+    message.error('获取采购订单编号失败')
   }
 }
 
 const handleSupplierSearch = async (value: string) => {
   if (!value) {
     supplierOptions.value = await suppliersApi.getAllList()
+    console.log('upplierOptions.value', supplierOptions.value);
     return
   }
   loading.suppliers = true
@@ -326,7 +472,7 @@ const handleSupplierSearch = async (value: string) => {
     supplierOptions.value = response.data.map((s: any) => ({
       supplier_id: s.supplier_id || s.id,
       supplier_name: s.supplier_name || s.name,
-      supplier_code: s.supplier_code || s.code
+      supplier_code: s.supplier_code || s.code,
     }))
   } catch (error) {
     message.error('获取供应商列表失败')
@@ -341,7 +487,7 @@ const handleSupplierChange = (value: string) => {
   }
 }
 
-const handleProductSearch = async (value: string) => {
+const handleProductSearch = async (value: string, index: number) => {
   if (!value) {
     productOptions.value = await productsApi.getAllList()
     return
@@ -355,7 +501,7 @@ const handleProductSearch = async (value: string) => {
       product_code: p.product_code || p.code,
       model: p.model,
       description: p.description,
-      unit: p.unit
+      unit: p.unit,
     }))
   } catch (error) {
     message.error('获取产品列表失败')
@@ -363,109 +509,113 @@ const handleProductSearch = async (value: string) => {
   loading.products = false
 }
 
-const handleProductChange = (value: string) => {
+const handleProductChange = (value: string, index: number) => {
   const product = productOptions.value.find(p => p.product_name === value)
+  
   if (product) {
-    form.product_code = product.product_code
-    form.model = product.model || ''
-    form.description = product.description || ''
-    form.unit = product.unit || ''
+    form.purchase_items[index].product_code = product.product_code || ''
+    form.purchase_items[index].model = product.model || ''
+    form.purchase_items[index].description = product.description || ''
+    form.purchase_items[index].unit = product.unit || ''
   }
 }
 
-const handlePaymentMethodSearch = async (value: string) => {
-  if (!value) {
-    paymentMethodOptions.value = await paymentMethodsApi.getAllList()
-    return
-  }
-  loading.paymentMethods = true
-  try {
-    const response = await paymentMethodsApi.getAll({ name: value })
-    paymentMethodOptions.value = response.data.map((m: any) => ({
-      payment_method_id: m.payment_method_id || m.id,
-      payment_method_name: m.payment_method_name || m.name
-    }))
-  } catch (error) {
-    message.error('获取结算方式失败')
-  }
-  loading.paymentMethods = false
+const calculateRowTotal = (index: number) => {
+  const item = form.purchase_items[index]
+  const taxRateDecimal = item.tax_rate / 100
+
+  item.tax_excluded_price = parseFloat((item.tax_included_price / (1 + taxRateDecimal)).toFixed(2))
+
+  item.tax_included_amount = parseFloat((item.quantity * item.tax_included_price).toFixed(2))
+
+  item.tax_excluded_amount = parseFloat((item.quantity * item.tax_excluded_price).toFixed(2))
+
+  item.tax_amount = parseFloat((item.tax_included_amount * taxRateDecimal).toFixed(2))
+
+  item.total_price = item.tax_included_amount
 }
 
-const handleBusinessCategorySearch = async (value: string) => {
-  if (!value) {
-    businessCategoryOptions.value = await businessCategoriesApi.getAllList()
-    return
-  }
-  loading.businessCategories = true
-  try {
-    const response = await businessCategoriesApi.getAll({ name: value })
-    businessCategoryOptions.value = response.data.map((b: any) => ({
-      business_category_id: b.business_category_id || b.id,
-      business_category_name: b.business_category_name || b.name
-    }))
-  } catch (error) {
-    message.error('获取业务分类失败')
-  }
-  loading.businessCategories = false
+const deleteItem = (index: number) => {
+  form.purchase_items.splice(index, 1)
 }
 
-const calculateAmounts = () => {
-  const quantity = Number(form.quantity)
-  const taxIncludedPrice = Number(form.tax_included_price)
-  const taxRate = Number(form.tax_rate)
-
-  if (quantity && taxIncludedPrice && taxRate) {
-    form.tax_excluded_price = parseFloat((taxIncludedPrice / (1 + taxRate)).toFixed(2))
-    form.tax_included_amount = parseFloat((quantity * taxIncludedPrice).toFixed(2))
-    form.tax_excluded_amount = parseFloat((quantity * form.tax_excluded_price).toFixed(2))
-    form.tax_amount = parseFloat((form.tax_included_amount * taxRate).toFixed(2))
-  } else {
-    form.tax_excluded_price = 0
-    form.tax_included_amount = 0
-    form.tax_excluded_amount = 0
-    form.tax_amount = 0
-  }
+const addNewItem = () => {
+  form.purchase_items.push({
+    no: form.purchase_items.length + 1,
+    business_category: '',
+    product_name: '',
+    product_code: '',
+    model: '',
+    description: '',
+    unit: '',
+    quantity: 1,
+    inbound_quantity: 0,
+    tax_rate: 0,
+    tax_included_price: 0,
+    tax_excluded_price: 0,
+    tax_included_amount: 0,
+    tax_excluded_amount: 0,
+    tax_amount: 0,
+    status: 1,
+    remarks: '',
+    total_price: 0,
+  })
 }
 
 const handleSubmit = async () => {
+  if (!form.supplier_name) {
+    message.error('请选择供应商')
+    return
+  }
+  if (form.purchase_items.length === 0) {
+    message.error('请添加采购商品')
+    return
+  }
+  const hasMissingCategory = form.purchase_items.some((item: any) => !item.business_category)
+  if (hasMissingCategory) {
+    message.error('请填写所有商品的业务分类')
+    return
+  }
+
+  const formatDate = (date: any) => {
+    if (!date) return undefined
+    if (typeof date === 'string') return date
+    try {
+      return dayjs(date).format('YYYY-MM-DD')
+    } catch {
+      return undefined
+    }
+  }
+
   try {
-    await formRef.value.validate()
     submitting.value = true
 
-    // 确保日期是字符串格式
-    const formatDate = (date: any) => {
-      if (!date) return undefined
-      if (typeof date === 'string') return date
-      try {
-        return dayjs(date).format('YYYY-MM-DD')
-      } catch {
-        return undefined
-      }
-    }
-
-    const submitData = {
-      ...form,
+    const submitData: CreatePurchaseOrderRequest = {
+      contract_number: form.contract_number,
+      supplier_name: form.supplier_name,
+      supplier_code: form.supplier_code,
+      purchase_items: form.purchase_items,
+      currency: form.currency,
+      exchange_rate: form.exchange_rate,
       delivery_date: formatDate(form.delivery_date),
-      arrival_date: formatDate(form.arrival_date)
+      arrival_date: formatDate(form.arrival_date),
+      remarks: form.remarks,
+      expenses: form.expenses,
+      purchase_person: userStore.user?.username || '',
     }
 
-    if (props.isEdit && props.orderData?.purchase_order_id) {
-      await purchaseOrdersApi.update(props.orderData.purchase_order_id, submitData)
+    if (props.isEdit && props.purchaseOrderData?.purchase_order_id) {
+      await purchaseOrdersApi.update(props.purchaseOrderData.purchase_order_id, submitData)
       message.success('采购订单更新成功')
-      emit('success')
     } else {
       await purchaseOrdersApi.create(submitData)
       message.success('采购订单创建成功')
-      emit('success')
     }
 
+    emit('success')
     emit('update:visible', false)
   } catch (error: any) {
-    if (error?.errorFields) {
-      message.error('请检查表单填写是否正确')
-    } else {
-      message.error(error?.message || '操作失败')
-    }
+    message.error(error?.message || '操作失败')
   } finally {
     submitting.value = false
   }
@@ -475,43 +625,72 @@ const handleCancel = () => {
   emit('update:visible', false)
 }
 
-watch(() => props.visible, (visible) => {
-  if (visible) {
-    if (!props.isEdit) {
-      getNewOrderNumber()
-      resetForm()
-    } else if (props.orderData) {
-      Object.assign(form, props.orderData)
-      // 将日期字符串转换为 dayjs 对象
-      if (props.orderData.delivery_date) {
-        form.delivery_date = dayjs(props.orderData.delivery_date)
-      } else {
-        form.delivery_date = undefined
+watch(
+  () => props.visible,
+  visible => {
+    if (visible) {
+      loadBasicData()
+      if (!props.isEdit) {
+        getNewOrderNumber()
+        resetForm()
+        form.purchase_person = userStore.user?.username || ''
+      } else if (props.purchaseOrderData) {
+        form.contract_number = props.purchaseOrderData.contract_number || ''
+        form.supplier_name = props.purchaseOrderData.supplier_name
+        form.supplier_code = props.purchaseOrderData.supplier_code
+        form.currency = props.purchaseOrderData.currency || 'CNY'
+        form.purchase_person = props.purchaseOrderData.purchase_person || ''
+        form.exchange_rate = props.purchaseOrderData.exchange_rate || 1.0
+        if (props.purchaseOrderData.delivery_date) {
+          form.delivery_date = dayjs(props.purchaseOrderData.delivery_date)
+        } else {
+          form.delivery_date = undefined
+        }
+        if (props.purchaseOrderData.arrival_date) {
+          form.arrival_date = dayjs(props.purchaseOrderData.arrival_date)
+        } else {
+          form.arrival_date = undefined
+        }
+        form.remarks = props.purchaseOrderData.remarks || ''
+        orderNumber.value = props.purchaseOrderData.order_number || ''
+        try {
+          form.purchase_items = JSON.parse(props.purchaseOrderData.purchase_items || '[]')
+        } catch {
+          form.purchase_items = []
+        }
+        try {
+          form.expenses = props.purchaseOrderData.expenses
+            ? JSON.parse(props.purchaseOrderData.expenses)
+            : { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+        } catch {
+          form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+        }
       }
-      if (props.orderData.arrival_date) {
-        form.arrival_date = dayjs(props.orderData.arrival_date)
-      } else {
-        form.arrival_date = undefined
-      }
-      orderNumber.value = props.orderData.order_number || ''
     }
-
-    loadBasicData()
   }
-})
+)
+
+watch(
+  () => props.visible,
+  visible => {
+    if (visible && !props.isEdit) {
+      if (form.purchase_items.length === 0) {
+        addNewItem()
+      }
+    }
+  }
+)
 
 const loadBasicData = async () => {
   try {
-    const [suppliers, products, paymentMethods, businessCategories] = await Promise.all([
+    const [suppliers, products, businessCategories] = await Promise.all([
       suppliersApi.getAllList(),
       productsApi.getAllList(),
-      paymentMethodsApi.getAllList(),
-      businessCategoriesApi.getAllList()
+      businessCategoriesApi.getAllList(),
     ])
-
     supplierOptions.value = suppliers
+        console.log('upplierOptions.value', supplierOptions.value);
     productOptions.value = products
-    paymentMethodOptions.value = paymentMethods
     businessCategoryOptions.value = businessCategories
   } catch (error) {
     message.error('加载基础数据失败')
@@ -519,30 +698,206 @@ const loadBasicData = async () => {
 }
 
 const resetForm = () => {
-  Object.assign(form, {
-    contract_number: '',
-    supplier_name: '',
-    supplier_code: '',
-    payment_method: '',
-    business_category: '',
-    product_name: '',
-    model: '',
-    description: '',
-    product_code: '',
-    unit: '',
-    quantity: 1,
-    tax_included_price: 0,
-    tax_rate: 0.13,
-    tax_excluded_price: 0,
-    tax_included_amount: 0,
-    tax_excluded_amount: 0,
-    tax_amount: 0,
-    currency: 'CNY',
-    exchange_rate: 1,
-    delivery_date: undefined,
-    arrival_date: undefined,
-    remarks: ''
-  })
+  form.contract_number = ''
+  form.supplier_name = ''
+  form.supplier_code = ''
+  form.purchase_items = []
+  form.currency = 'CNY'
+  form.exchange_rate = 1.0
+  form.delivery_date = undefined
+  form.arrival_date = undefined
+  form.remarks = ''
+  form.purchase_person = ''
+  form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
   orderNumber.value = ''
 }
 </script>
+
+<style scoped lang="scss">
+.purchase-order-form {
+  padding: 20px;
+}
+
+.purchase-order-header {
+  text-align: center;
+  margin-bottom: 30px;
+
+  .company-name {
+    font-size: 22px;
+    font-weight: bold;
+    margin: 0 0 12px 0;
+    color: #000;
+  }
+
+  .purchase-order-title {
+    font-size: 20px;
+    font-weight: bold;
+    margin: 0;
+    color: #000;
+  }
+}
+
+.purchase-order-content {
+  margin-bottom: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+
+  .form-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+
+    .supplier-name-input {
+      min-width: 300px !important;
+    }
+
+    .form-label {
+      white-space: nowrap;
+      margin-right: 8px;
+      min-width: 100px;
+      font-size: 14px;
+    }
+
+    .form-input {
+      flex: 1;
+    }
+  }
+}
+
+.table-container {
+  margin-bottom: 20px;
+
+  :deep(.ant-table) {
+    .ant-table-tbody > tr > td {
+      padding: 4px 8px;
+    }
+  }
+}
+
+.table-footer {
+  padding: 12px;
+
+  .total-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    .total-label {
+      font-weight: bold;
+      font-size: 16px;
+      white-space: nowrap;
+    }
+  }
+
+  .add-row {
+    text-align: right;
+    padding-top: 12px;
+  }
+}
+
+.purchase-order-note {
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+
+  .note-row {
+    display: flex;
+    align-items: center;
+
+    &:nth-child(n + 3):nth-child(-n + 4) {
+      margin-top: 12px;
+    }
+
+    .note-label {
+      white-space: nowrap;
+      margin-right: 12px;
+      min-width: 100px;
+      font-size: 14px;
+    }
+
+    .note-input {
+      flex: 1;
+    }
+  }
+}
+
+.expenses-section {
+  margin: 20px 0;
+  padding: 16px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  border: 1px solid #e8e8e8;
+
+  .expenses-label {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 12px;
+    color: #333;
+  }
+
+  .expenses-row {
+    display: flex;
+    gap: 20px;
+
+    .expense-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      label {
+        font-size: 13px;
+        color: #666;
+      }
+
+      .expense-input {
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        padding: 4px 8px;
+
+        &:hover {
+          border-color: #40a9ff;
+        }
+      }
+    }
+  }
+}
+
+.form-footer {
+  text-align: right;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.invisible-input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 4px 8px !important;
+
+  &:hover {
+    background: #f5f5f5 !important;
+    border: 1px dashed #d9d9d9 !important;
+  }
+}
+
+.invisible-select {
+  :deep(.ant-select-selector) {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  :deep(.ant-select-arrow) {
+    display: none !important;
+  }
+}
+</style>

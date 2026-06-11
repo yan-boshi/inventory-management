@@ -1,0 +1,496 @@
+<template>
+  <div class="delivery-expense-report-container">
+    <div class="header">
+      <h1>出库费用明细表</h1>
+    </div>
+
+    <a-card>
+      <div class="search-bar">
+        <a-form layout="inline">
+          <a-form-item label="出库时间">
+            <a-range-picker
+              v-model:value="dateRange"
+              format="YYYY-MM-DD"
+              :placeholder="['开始日期', '结束日期']"
+              style="width: 240px"
+            />
+          </a-form-item>
+
+          <a-form-item label="出库单号">
+            <a-input
+              v-model:value="searchParams.orderNumber"
+              placeholder="请输入出库单号"
+              allowClear
+              style="width: 160px"
+            />
+          </a-form-item>
+
+          <a-form-item label="销售订单号">
+            <a-input
+              v-model:value="searchParams.salesOrderNumber"
+              placeholder="请输入销售订单号"
+              allowClear
+              style="width: 160px"
+            />
+          </a-form-item>
+
+          <a-form-item label="商品关键字">
+            <a-input
+              v-model:value="searchParams.productKeyword"
+              placeholder="商品名称/编码"
+              allowClear
+              style="width: 140px"
+            />
+          </a-form-item>
+
+          <a-form-item>
+            <a-space>
+              <a-button type="primary" @click="handleSearch" :loading="loading">
+                <template #icon><SearchOutlined /></template>
+                查询
+              </a-button>
+              <a-button @click="handleReset">
+                <template #icon><ReloadOutlined /></template>
+                重置
+              </a-button>
+              <a-popover title="显示列" trigger="click" placement="bottomRight">
+                <template #content>
+                  <div class="column-settings">
+                    <div v-for="col in allFlatColumns" :key="col.key" class="column-item">
+                      <a-checkbox :checked="visibleColumnKeys.includes(col.key)" @change="(e: any) => handleColumnChange(col.key, e.target.checked)">
+                        {{ col.title }}
+                      </a-checkbox>
+                    </div>
+                  </div>
+                </template>
+                <a-button>
+                  <template #icon><SettingOutlined /></template>
+                  列设置
+                </a-button>
+              </a-popover>
+              <a-button @click="handlePrint" :disabled="reportData.length === 0">
+                <template #icon><PrinterOutlined /></template>
+                打印
+              </a-button>
+            </a-space>
+          </a-form-item>
+        </a-form>
+      </div>
+
+      <a-table
+        :columns="filteredColumns"
+        :data-source="reportData"
+        :loading="loading"
+        :pagination="pagination"
+        rowKey="delivery_order_id"
+        bordered
+        size="small"
+        @change="handleTableChange"
+        :scroll="{ x: 2800 }"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'delivery_time'">
+            {{ formatDate(record.delivery_time) }}
+          </template>
+          <template v-else-if="column.key === 'quantity'">
+            {{ formatNumber(record.quantity) }}
+          </template>
+          <template v-else-if="column.key === 'tax_included_price'">
+            {{ formatMoney(record.tax_included_price) }}
+          </template>
+          <template v-else-if="column.key === 'total_price'">
+            {{ formatMoney(record.total_price) }}
+          </template>
+          <template v-else-if="column.key === 'express_delivery_fee'">
+            {{ formatMoney(record.express_delivery_fee) }}
+          </template>
+          <template v-else-if="column.key === 'transportation_fee'">
+            {{ formatMoney(record.transportation_fee) }}
+          </template>
+          <template v-else-if="column.key === 'customs_fee'">
+            {{ formatMoney(record.customs_fee) }}
+          </template>
+          <template v-else-if="column.key === 'delivery_other_fee'">
+            {{ formatMoney(record.delivery_other_fee) }}
+          </template>
+          <template v-else-if="column.key === 'delivery_expense_subtotal'">
+            <strong>{{ formatMoney(record.delivery_expense_subtotal) }}</strong>
+          </template>
+          <template v-else-if="column.key === 'sales_transportation_fee'">
+            {{ formatMoney(record.sales_transportation_fee) }}
+          </template>
+          <template v-else-if="column.key === 'sales_entertainment_fee'">
+            {{ formatMoney(record.sales_entertainment_fee) }}
+          </template>
+          <template v-else-if="column.key === 'sales_gift_fee'">
+            {{ formatMoney(record.sales_gift_fee) }}
+          </template>
+          <template v-else-if="column.key === 'sales_other_fee'">
+            {{ formatMoney(record.sales_other_fee) }}
+          </template>
+          <template v-else-if="column.key === 'sales_expense_subtotal'">
+            <strong>{{ formatMoney(record.sales_expense_subtotal) }}</strong>
+          </template>
+          <template v-else-if="column.key === 'total_expenses'">
+            <span style="color: #f5222d; font-weight: bold">{{ formatMoney(record.total_expenses) }}</span>
+          </template>
+        </template>
+
+        <template #summary v-if="reportData.length > 0">
+          <a-table-summary fixed>
+            <a-table-summary-row>
+              <a-table-summary-cell :index="0" :colSpan="11" :align="'right'">
+                <strong>合计</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="11" :align="'right'">
+                <strong>{{ formatMoney(totals.total_price) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="12" :align="'right'">
+                {{ formatMoney(totals.express_delivery_fee) }}
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="13" :align="'right'">
+                {{ formatMoney(totals.transportation_fee) }}
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="14" :align="'right'">
+                {{ formatMoney(totals.customs_fee) }}
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="15" :align="'right'">
+                {{ formatMoney(totals.delivery_other_fee) }}
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="16" :align="'right'">
+                <strong>{{ formatMoney(totals.delivery_expense_subtotal) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="17" :align="'right'">
+                {{ formatMoney(totals.sales_transportation_fee) }}
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="18" :align="'right'">
+                {{ formatMoney(totals.sales_entertainment_fee) }}
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="19" :align="'right'">
+                {{ formatMoney(totals.sales_gift_fee) }}
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="20" :align="'right'">
+                {{ formatMoney(totals.sales_other_fee) }}
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="21" :align="'right'">
+                <strong>{{ formatMoney(totals.sales_expense_subtotal) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="22" :align="'right'">
+                <span style="color: #f5222d; font-weight: bold">{{ formatMoney(totals.total_expenses) }}</span>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="23" :colSpan="2" />
+            </a-table-summary-row>
+          </a-table-summary>
+        </template>
+      </a-table>
+    </a-card>
+
+    <DeliveryExpenseReportPrint
+      v-model:visible="printVisible"
+      :data="reportData"
+      :search-params="searchParams"
+      :visible-columns="visibleColumnKeys"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted } from 'vue'
+import { message } from 'ant-design-vue'
+import { SearchOutlined, ReloadOutlined, PrinterOutlined, SettingOutlined } from '@ant-design/icons-vue'
+import { deliveryExpenseReportApi } from '@/api/deliveryExpenseReport'
+import DeliveryExpenseReportPrint from '@/components/DeliveryExpenseReportPrint.vue'
+import type { DeliveryExpenseReportItem, DeliveryExpenseReportParams } from '@/types'
+import type { Dayjs } from 'dayjs'
+
+const loading = ref(false)
+const reportData = ref<DeliveryExpenseReportItem[]>([])
+const dateRange = ref<[Dayjs, Dayjs] | null>(null)
+const printVisible = ref(false)
+
+// 扁平化的列配置（用于列设置面板）
+const allFlatColumns = [
+  { title: '出库单号', key: 'order_number' },
+  { title: '出库时间', key: 'delivery_time' },
+  { title: '销售订单号', key: 'sales_order_number' },
+  { title: '客户名称', key: 'customer_name' },
+  { title: '商品编码', key: 'product_code' },
+  { title: '商品名称', key: 'product_name' },
+  { title: '规格型号', key: 'specification' },
+  { title: '单位', key: 'unit' },
+  { title: '出库数量', key: 'quantity' },
+  { title: '含税单价', key: 'tax_included_price' },
+  { title: '含税金额', key: 'total_price' },
+  { title: '快递费', key: 'express_delivery_fee' },
+  { title: '运杂费', key: 'transportation_fee' },
+  { title: '报关费', key: 'customs_fee' },
+  { title: '其他(出库)', key: 'delivery_other_fee' },
+  { title: '小计(出库)', key: 'delivery_expense_subtotal' },
+  { title: '交通费', key: 'sales_transportation_fee' },
+  { title: '招待费', key: 'sales_entertainment_fee' },
+  { title: '礼品费', key: 'sales_gift_fee' },
+  { title: '其他(销售)', key: 'sales_other_fee' },
+  { title: '小计(销售)', key: 'sales_expense_subtotal' },
+  { title: '费用合计', key: 'total_expenses' },
+  { title: '出库人', key: 'delivery_person' },
+  { title: '备注', key: 'remarks' },
+]
+
+const visibleColumnKeys = ref<string[]>(allFlatColumns.map(col => col.key))
+
+const handleColumnChange = (key: string, checked: boolean) => {
+  if (checked) {
+    if (!visibleColumnKeys.value.includes(key)) {
+      visibleColumnKeys.value.push(key)
+    }
+  } else {
+    visibleColumnKeys.value = visibleColumnKeys.value.filter(k => k !== key)
+  }
+}
+
+// 判断列是否可见
+const isColumnVisible = (key: string) => visibleColumnKeys.value.includes(key)
+
+// 获取可见的列（带分组）
+const filteredColumns = computed(() => {
+  const result: any[] = []
+
+  // 基础列
+  const basicKeys = ['order_number', 'delivery_time', 'sales_order_number', 'customer_name', 'product_code', 'product_name', 'specification', 'unit', 'quantity', 'tax_included_price', 'total_price']
+  basicKeys.forEach(key => {
+    if (isColumnVisible(key)) {
+      const col = columns.find(c => c.key === key)
+      if (col) result.push(col)
+    }
+  })
+
+  // 出库费用分组
+  const expenseKeys = ['express_delivery_fee', 'transportation_fee', 'customs_fee', 'delivery_other_fee', 'delivery_expense_subtotal']
+  const visibleExpenseCols = expenseKeys.filter(key => isColumnVisible(key))
+  if (visibleExpenseCols.length > 0) {
+    const expenseGroup = columns.find(c => c.title === '出库费用')
+    if (expenseGroup && expenseGroup.children) {
+      result.push({
+        title: '出库费用',
+        children: expenseGroup.children.filter((c: any) => isColumnVisible(c.key))
+      })
+    }
+  }
+
+  // 销售费用分组
+  const salesKeys = ['sales_transportation_fee', 'sales_entertainment_fee', 'sales_gift_fee', 'sales_other_fee', 'sales_expense_subtotal']
+  const visibleSalesCols = salesKeys.filter(key => isColumnVisible(key))
+  if (visibleSalesCols.length > 0) {
+    const salesGroup = columns.find(c => c.title === '销售费用')
+    if (salesGroup && salesGroup.children) {
+      result.push({
+        title: '销售费用',
+        children: salesGroup.children.filter((c: any) => isColumnVisible(c.key))
+      })
+    }
+  }
+
+  // 尾部列
+  const tailKeys = ['total_expenses', 'delivery_person', 'remarks']
+  tailKeys.forEach(key => {
+    if (isColumnVisible(key)) {
+      const col = columns.find(c => c.key === key)
+      if (col) result.push(col)
+    }
+  })
+
+  return result
+})
+
+const searchParams = reactive<DeliveryExpenseReportParams>({
+  startDate: undefined,
+  endDate: undefined,
+  orderNumber: undefined,
+  salesOrderNumber: undefined,
+  productKeyword: undefined,
+})
+
+const pagination = reactive({
+  current: 1,
+  pageSize: 20,
+  total: 0,
+  showSizeChanger: true,
+  showQuickJumper: true,
+  showTotal: (total: number) => `共 ${total} 条记录`,
+  pageSizeOptions: ['10', '20', '50', '100'],
+})
+
+// 计算同一出库单号的行合并信息
+const getMergeRowSpan = (_record: DeliveryExpenseReportItem, recordIndex: number): number => {
+  const data = reportData.value
+  if (!data.length) return 1
+  const orderNo = data[recordIndex].order_number
+  let start = recordIndex
+  while (start > 0 && data[start - 1].order_number === orderNo) {
+    start--
+  }
+  if (start !== recordIndex) return 0
+  let count = 1
+  while (start + count < data.length && data[start + count].order_number === orderNo) {
+    count++
+  }
+  return count
+}
+
+const columns = [
+  { title: '出库单号', dataIndex: 'order_number', key: 'order_number', width: 160, fixed: 'left' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+  { title: '出库时间', dataIndex: 'delivery_time', key: 'delivery_time', width: 110, fixed: 'left' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+  { title: '销售订单号', dataIndex: 'sales_order_number', key: 'sales_order_number', width: 160, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+  { title: '客户名称', dataIndex: 'customer_name', key: 'customer_name', width: 140, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+  { title: '商品编码', dataIndex: 'product_code', key: 'product_code', width: 120 },
+  { title: '商品名称', dataIndex: 'product_name', key: 'product_name', width: 150 },
+  { title: '规格型号', dataIndex: 'specification', key: 'specification', width: 100 },
+  { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' as const },
+  { title: '出库数量', dataIndex: 'quantity', key: 'quantity', width: 90, align: 'right' as const },
+  { title: '含税单价', dataIndex: 'tax_included_price', key: 'tax_included_price', width: 100, align: 'right' as const },
+  { title: '含税金额', dataIndex: 'total_price', key: 'total_price', width: 100, align: 'right' as const },
+  {
+    title: '出库费用',
+    children: [
+      { title: '快递费', dataIndex: 'express_delivery_fee', key: 'express_delivery_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+      { title: '运杂费', dataIndex: 'transportation_fee', key: 'transportation_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+      { title: '报关费', dataIndex: 'customs_fee', key: 'customs_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+      { title: '其他', dataIndex: 'delivery_other_fee', key: 'delivery_other_fee', width: 80, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+      { title: '小计', dataIndex: 'delivery_expense_subtotal', key: 'delivery_expense_subtotal', width: 100, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+    ],
+  },
+  {
+    title: '销售费用',
+    children: [
+      { title: '交通费', dataIndex: 'sales_transportation_fee', key: 'sales_transportation_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+      { title: '招待费', dataIndex: 'sales_entertainment_fee', key: 'sales_entertainment_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+      { title: '礼品费', dataIndex: 'sales_gift_fee', key: 'sales_gift_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+      { title: '其他', dataIndex: 'sales_other_fee', key: 'sales_other_fee', width: 80, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+      { title: '小计', dataIndex: 'sales_expense_subtotal', key: 'sales_expense_subtotal', width: 100, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+    ],
+  },
+  { title: '费用合计', dataIndex: 'total_expenses', key: 'total_expenses', width: 110, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+  { title: '出库人', dataIndex: 'delivery_person', key: 'delivery_person', width: 80, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+  { title: '备注', dataIndex: 'remarks', key: 'remarks', width: 120, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+]
+
+// 汇总计算
+const totals = computed(() => {
+  return reportData.value.reduce((acc, item) => {
+    acc.total_price += item.total_price || 0
+    acc.express_delivery_fee += item.express_delivery_fee || 0
+    acc.transportation_fee += item.transportation_fee || 0
+    acc.customs_fee += item.customs_fee || 0
+    acc.delivery_other_fee += item.delivery_other_fee || 0
+    acc.delivery_expense_subtotal += item.delivery_expense_subtotal || 0
+    acc.sales_transportation_fee += item.sales_transportation_fee || 0
+    acc.sales_entertainment_fee += item.sales_entertainment_fee || 0
+    acc.sales_gift_fee += item.sales_gift_fee || 0
+    acc.sales_other_fee += item.sales_other_fee || 0
+    acc.sales_expense_subtotal += item.sales_expense_subtotal || 0
+    acc.total_expenses += item.total_expenses || 0
+    return acc
+  }, {
+    total_price: 0,
+    express_delivery_fee: 0,
+    transportation_fee: 0,
+    customs_fee: 0,
+    delivery_other_fee: 0,
+    delivery_expense_subtotal: 0,
+    sales_transportation_fee: 0,
+    sales_entertainment_fee: 0,
+    sales_gift_fee: 0,
+    sales_other_fee: 0,
+    sales_expense_subtotal: 0,
+    total_expenses: 0,
+  })
+})
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return ''
+  return dateStr.substring(0, 10)
+}
+
+const formatNumber = (value: number) => {
+  return value != null ? value.toLocaleString('zh-CN', { maximumFractionDigits: 4 }) : '0'
+}
+
+const formatMoney = (value: number) => {
+  return value != null ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'
+}
+
+const fetchReport = async () => {
+  loading.value = true
+  try {
+    const params: DeliveryExpenseReportParams = { ...searchParams }
+    if (dateRange.value) {
+      params.startDate = dateRange.value[0].format('YYYY-MM-DD')
+      params.endDate = dateRange.value[1].format('YYYY-MM-DD')
+    }
+    const response = await deliveryExpenseReportApi.getReport(params)
+    reportData.value = response || []
+    pagination.total = reportData.value.length
+  } catch (error) {
+    message.error('获取报表数据失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleSearch = () => {
+  pagination.current = 1
+  fetchReport()
+}
+
+const handleReset = () => {
+  dateRange.value = null
+  searchParams.startDate = undefined
+  searchParams.endDate = undefined
+  searchParams.orderNumber = undefined
+  searchParams.salesOrderNumber = undefined
+  searchParams.productKeyword = undefined
+  pagination.current = 1
+  fetchReport()
+}
+
+const handleTableChange = (pag: any) => {
+  pagination.current = pag.current
+  pagination.pageSize = pag.pageSize
+}
+
+const handlePrint = () => {
+  printVisible.value = true
+}
+
+onMounted(() => {
+  fetchReport()
+})
+</script>
+
+<style scoped>
+.delivery-expense-report-container {
+  padding: 0;
+}
+
+.header {
+  margin-bottom: 16px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.search-bar {
+  margin-bottom: 16px;
+}
+
+.column-settings {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.column-item {
+  padding: 4px 0;
+}
+</style>

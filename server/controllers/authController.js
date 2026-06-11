@@ -10,7 +10,7 @@ console.log('JWT_EXPIRES_IN', JWT_EXPIRES_IN)
 export const register = async (req, res) => {
   console.log('req.body', req.body)
   try {
-    const { username, password, contact, remarks } = req.body
+    const { username, password, phone, email, remarks } = req.body
 
     if (!username || !password) {
       return res.status(400).json({ success: false, message: 'Username and password are required' })
@@ -25,7 +25,8 @@ export const register = async (req, res) => {
       username,
       password,
       role: 'normal',
-      contact,
+      phone,
+      email,
       remarks
     })
     console.log('user', user)
@@ -44,7 +45,8 @@ export const register = async (req, res) => {
           userId: user.user_id,
           username: user.username,
           role: user.role,
-          contact: user.contact
+          phone: user.phone,
+          email: user.email
         },
         token
       }
@@ -112,7 +114,8 @@ export const getCurrentUser = async (req, res) => {
         userId: user.user_id,
         username: user.username,
         role: user.role,
-        contact: user.contact,
+        phone: user.phone,
+        email: user.email,
         remarks: user.remarks
       }
     })

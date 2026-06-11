@@ -75,8 +75,8 @@
           </template>
 
           <template v-else-if="column.key === 'status'">
-            <a-tag :color="record.status == 2 ? 'red' : 'green'">
-              {{ record.status == 2 ? '已退货' : '正常' }}
+            <a-tag :color="getStatusColor(record.status)">
+              {{ getStatusText(record.status) }}
             </a-tag>
           </template>
 
@@ -103,7 +103,7 @@
                 type="link"
                 size="small"
                 @click="handleEdit(record)"
-                :disabled="record.status === 2"
+                :disabled="record.status === 4"
               >
                 编辑
               </a-button>
@@ -112,7 +112,7 @@
                 size="small"
                 danger
                 @click="handleDelete(record)"
-                :disabled="record.status === 2"
+                :disabled="record.status === 4"
               >
                 删除
               </a-button>
@@ -120,7 +120,7 @@
                 type="link"
                 size="small"
                 @click="handleReturn(record)"
-                :disabled="record.status === 2"
+                :disabled="record.status === 4"
               >
                 退货
               </a-button>
@@ -234,6 +234,13 @@ const columns = [
     title: '币种',
     key: 'currency',
     width: 120,
+  },
+  {
+    title: '销售人',
+    dataIndex: 'sales_person',
+    key: 'sales_person',
+    width: 80,
+    align: 'center',
   },
   {
     title: '操作',
@@ -366,7 +373,7 @@ const handleSuccess = () => {
 
 const formatMoney = (amount: number | string) => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
-  return `¥${(numAmount || 0).toFixed(2)}`
+  return `${(numAmount || 0).toFixed(2)}`
 }
 
 const formatDate = (dateString: string) => {
@@ -380,6 +387,26 @@ const getItemCount = (salesItems: string) => {
   } catch {
     return 0
   }
+}
+
+const getStatusColor = (status: number) => {
+  const colorMap: Record<number, string> = {
+    1: 'blue',    // 未出库
+    2: 'green',   // 已全部出库
+    3: 'orange',  // 已部分出库
+    4: 'red',     // 退货
+  }
+  return colorMap[status] || 'default'
+}
+
+const getStatusText = (status: number) => {
+  const textMap: Record<number, string> = {
+    1: '未出库',
+    2: '已全部出库',
+    3: '已部分出库',
+    4: '退货',
+  }
+  return textMap[status] || '未知'
 }
 
 const getTotalAmount = (salesItems: string) => {

@@ -1,0 +1,333 @@
+<template>
+  <a-modal
+    title="打印预览"
+    :width="1200"
+    :visible="visible"
+    @cancel="handleCancel"
+    :footer="null"
+  >
+    <div class="print-container">
+      <div class="print-header">
+        <h1 class="report-title">出库费用明细表</h1>
+      </div>
+
+      <div class="print-filters">
+        <span class="filter-label">筛选条件：</span>
+        <span v-if="searchParams.startDate" class="filter-item">
+          出库时间：{{ searchParams.startDate }} 至 {{ searchParams.endDate }}
+        </span>
+        <span v-if="searchParams.orderNumber" class="filter-item">
+          出库单号：{{ searchParams.orderNumber }}
+        </span>
+        <span v-if="searchParams.salesOrderNumber" class="filter-item">
+          销售订单号：{{ searchParams.salesOrderNumber }}
+        </span>
+        <span v-if="searchParams.productKeyword" class="filter-item">
+          商品关键字：{{ searchParams.productKeyword }}
+        </span>
+        <span v-if="!hasFilters" class="filter-item">全部数据</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="print-table">
+          <thead>
+            <tr>
+              <th v-if="isVisible('order_number')" rowspan="2">出库单号</th>
+              <th v-if="isVisible('delivery_time')" rowspan="2">出库时间</th>
+              <th v-if="isVisible('sales_order_number')" rowspan="2">销售订单号</th>
+              <th v-if="isVisible('customer_name')" rowspan="2">客户名称</th>
+              <th v-if="isVisible('product_code')" rowspan="2">商品编码</th>
+              <th v-if="isVisible('product_name')" rowspan="2">商品名称</th>
+              <th v-if="isVisible('specification')" rowspan="2">规格型号</th>
+              <th v-if="isVisible('unit')" rowspan="2">单位</th>
+              <th v-if="isVisible('quantity')" rowspan="2">出库数量</th>
+              <th v-if="isVisible('tax_included_price')" rowspan="2">含税单价</th>
+              <th v-if="isVisible('total_price')" rowspan="2">含税金额</th>
+              <th v-if="hasVisibleExpenseCols" :colspan="visibleExpenseColCount">出库费用</th>
+              <th v-if="hasVisibleSalesCols" :colspan="visibleSalesColCount">销售费用</th>
+              <th v-if="isVisible('total_expenses')" rowspan="2">费用合计</th>
+              <th v-if="isVisible('delivery_person')" rowspan="2">出库人</th>
+              <th v-if="isVisible('remarks')" rowspan="2">备注</th>
+            </tr>
+            <tr>
+              <th v-if="isVisible('express_delivery_fee')">快递费</th>
+              <th v-if="isVisible('transportation_fee')">运杂费</th>
+              <th v-if="isVisible('customs_fee')">报关费</th>
+              <th v-if="isVisible('delivery_other_fee')">其他</th>
+              <th v-if="isVisible('delivery_expense_subtotal')">小计</th>
+              <th v-if="isVisible('sales_transportation_fee')">交通费</th>
+              <th v-if="isVisible('sales_entertainment_fee')">招待费</th>
+              <th v-if="isVisible('sales_gift_fee')">礼品费</th>
+              <th v-if="isVisible('sales_other_fee')">其他</th>
+              <th v-if="isVisible('sales_expense_subtotal')">小计</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, index) in data" :key="index">
+              <td v-if="isVisible('order_number')">{{ item.order_number }}</td>
+              <td v-if="isVisible('delivery_time')">{{ formatDate(item.delivery_time) }}</td>
+              <td v-if="isVisible('sales_order_number')">{{ item.sales_order_number || '-' }}</td>
+              <td v-if="isVisible('customer_name')">{{ item.customer_name || '-' }}</td>
+              <td v-if="isVisible('product_code')">{{ item.product_code }}</td>
+              <td v-if="isVisible('product_name')">{{ item.product_name }}</td>
+              <td v-if="isVisible('specification')">{{ item.specification || '-' }}</td>
+              <td v-if="isVisible('unit')" class="text-center">{{ item.unit || '-' }}</td>
+              <td v-if="isVisible('quantity')" class="text-right">{{ formatNumber(item.quantity) }}</td>
+              <td v-if="isVisible('tax_included_price')" class="text-right">{{ formatMoney(item.tax_included_price) }}</td>
+              <td v-if="isVisible('total_price')" class="text-right">{{ formatMoney(item.total_price) }}</td>
+              <td v-if="isVisible('express_delivery_fee')" class="text-right">{{ formatMoney(item.express_delivery_fee) }}</td>
+              <td v-if="isVisible('transportation_fee')" class="text-right">{{ formatMoney(item.transportation_fee) }}</td>
+              <td v-if="isVisible('customs_fee')" class="text-right">{{ formatMoney(item.customs_fee) }}</td>
+              <td v-if="isVisible('delivery_other_fee')" class="text-right">{{ formatMoney(item.delivery_other_fee) }}</td>
+              <td v-if="isVisible('delivery_expense_subtotal')" class="text-right"><strong>{{ formatMoney(item.delivery_expense_subtotal) }}</strong></td>
+              <td v-if="isVisible('sales_transportation_fee')" class="text-right">{{ formatMoney(item.sales_transportation_fee) }}</td>
+              <td v-if="isVisible('sales_entertainment_fee')" class="text-right">{{ formatMoney(item.sales_entertainment_fee) }}</td>
+              <td v-if="isVisible('sales_gift_fee')" class="text-right">{{ formatMoney(item.sales_gift_fee) }}</td>
+              <td v-if="isVisible('sales_other_fee')" class="text-right">{{ formatMoney(item.sales_other_fee) }}</td>
+              <td v-if="isVisible('sales_expense_subtotal')" class="text-right"><strong>{{ formatMoney(item.sales_expense_subtotal) }}</strong></td>
+              <td v-if="isVisible('total_expenses')" class="text-right" style="color: #f5222d; font-weight: bold">
+                {{ formatMoney(item.total_expenses) }}
+              </td>
+              <td v-if="isVisible('delivery_person')">{{ item.delivery_person || '-' }}</td>
+              <td v-if="isVisible('remarks')">{{ item.remarks || '-' }}</td>
+            </tr>
+          </tbody>
+          <tfoot v-if="data.length > 0">
+            <tr class="summary-row">
+              <td :colspan="basicColCount" class="text-right"><strong>合计</strong></td>
+              <td v-if="isVisible('total_price')" class="text-right"><strong>{{ formatMoney(totals.total_price) }}</strong></td>
+              <td v-if="isVisible('express_delivery_fee')" class="text-right">{{ formatMoney(totals.express_delivery_fee) }}</td>
+              <td v-if="isVisible('transportation_fee')" class="text-right">{{ formatMoney(totals.transportation_fee) }}</td>
+              <td v-if="isVisible('customs_fee')" class="text-right">{{ formatMoney(totals.customs_fee) }}</td>
+              <td v-if="isVisible('delivery_other_fee')" class="text-right">{{ formatMoney(totals.delivery_other_fee) }}</td>
+              <td v-if="isVisible('delivery_expense_subtotal')" class="text-right"><strong>{{ formatMoney(totals.delivery_expense_subtotal) }}</strong></td>
+              <td v-if="isVisible('sales_transportation_fee')" class="text-right">{{ formatMoney(totals.sales_transportation_fee) }}</td>
+              <td v-if="isVisible('sales_entertainment_fee')" class="text-right">{{ formatMoney(totals.sales_entertainment_fee) }}</td>
+              <td v-if="isVisible('sales_gift_fee')" class="text-right">{{ formatMoney(totals.sales_gift_fee) }}</td>
+              <td v-if="isVisible('sales_other_fee')" class="text-right">{{ formatMoney(totals.sales_other_fee) }}</td>
+              <td v-if="isVisible('sales_expense_subtotal')" class="text-right"><strong>{{ formatMoney(totals.sales_expense_subtotal) }}</strong></td>
+              <td v-if="isVisible('total_expenses')" class="text-right" style="color: #f5222d; font-weight: bold">
+                {{ formatMoney(totals.total_expenses) }}
+              </td>
+              <td v-if="isVisible('delivery_person')"></td>
+              <td v-if="isVisible('remarks')"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="print-actions">
+        <a-button type="primary" @click="handlePrint">打印</a-button>
+        <a-button @click="handleCancel" style="margin-left: 8px">取消</a-button>
+      </div>
+    </div>
+  </a-modal>
+</template>
+
+<script lang="ts">
+const defaultVisibleColumns = [
+  'order_number', 'delivery_time', 'sales_order_number', 'customer_name', 'product_code', 'product_name', 'specification', 'unit',
+  'quantity', 'tax_included_price', 'total_price', 'express_delivery_fee', 'transportation_fee', 'customs_fee',
+  'delivery_other_fee', 'delivery_expense_subtotal', 'sales_transportation_fee', 'sales_entertainment_fee',
+  'sales_gift_fee', 'sales_other_fee', 'sales_expense_subtotal', 'total_expenses', 'delivery_person', 'remarks'
+]
+</script>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { DeliveryExpenseReportItem, DeliveryExpenseReportParams } from '@/types'
+
+const props = withDefaults(defineProps<{
+  visible: boolean
+  data: DeliveryExpenseReportItem[]
+  searchParams: DeliveryExpenseReportParams
+  visibleColumns?: string[]
+}>(), {
+  visibleColumns: () => defaultVisibleColumns
+})
+
+const emit = defineEmits<{
+  'update:visible': [value: boolean]
+}>()
+
+const isVisible = (key: string) => props.visibleColumns.includes(key)
+
+const hasFilters = computed(() => {
+  return props.searchParams.startDate || props.searchParams.orderNumber ||
+    props.searchParams.salesOrderNumber || props.searchParams.productKeyword
+})
+
+// 出库费用列
+const expenseKeys = ['express_delivery_fee', 'transportation_fee', 'customs_fee', 'delivery_other_fee', 'delivery_expense_subtotal']
+const hasVisibleExpenseCols = computed(() => expenseKeys.some(key => isVisible(key)))
+const visibleExpenseColCount = computed(() => expenseKeys.filter(key => isVisible(key)).length)
+
+// 销售费用列
+const salesKeys = ['sales_transportation_fee', 'sales_entertainment_fee', 'sales_gift_fee', 'sales_other_fee', 'sales_expense_subtotal']
+const hasVisibleSalesCols = computed(() => salesKeys.some(key => isVisible(key)))
+const visibleSalesColCount = computed(() => salesKeys.filter(key => isVisible(key)).length)
+
+// 基础列数量
+const basicColCount = computed(() => {
+  const basicKeys = ['order_number', 'delivery_time', 'sales_order_number', 'customer_name', 'product_code', 'product_name', 'specification', 'unit', 'quantity', 'tax_included_price']
+  return basicKeys.filter(key => isVisible(key)).length
+})
+
+const totals = computed(() => {
+  return props.data.reduce((acc, item) => {
+    acc.total_price += item.total_price || 0
+    acc.express_delivery_fee += item.express_delivery_fee || 0
+    acc.transportation_fee += item.transportation_fee || 0
+    acc.customs_fee += item.customs_fee || 0
+    acc.delivery_other_fee += item.delivery_other_fee || 0
+    acc.delivery_expense_subtotal += item.delivery_expense_subtotal || 0
+    acc.sales_transportation_fee += item.sales_transportation_fee || 0
+    acc.sales_entertainment_fee += item.sales_entertainment_fee || 0
+    acc.sales_gift_fee += item.sales_gift_fee || 0
+    acc.sales_other_fee += item.sales_other_fee || 0
+    acc.sales_expense_subtotal += item.sales_expense_subtotal || 0
+    acc.total_expenses += item.total_expenses || 0
+    return acc
+  }, {
+    total_price: 0,
+    express_delivery_fee: 0,
+    transportation_fee: 0,
+    customs_fee: 0,
+    delivery_other_fee: 0,
+    delivery_expense_subtotal: 0,
+    sales_transportation_fee: 0,
+    sales_entertainment_fee: 0,
+    sales_gift_fee: 0,
+    sales_other_fee: 0,
+    sales_expense_subtotal: 0,
+    total_expenses: 0,
+  })
+})
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '-'
+  return dateStr.substring(0, 10)
+}
+
+const formatNumber = (value: number) => {
+  return value != null ? value.toLocaleString('zh-CN', { maximumFractionDigits: 4 }) : '0'
+}
+
+const formatMoney = (value: number) => {
+  return value != null ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'
+}
+
+const handleCancel = () => {
+  emit('update:visible', false)
+}
+
+const handlePrint = () => {
+  window.print()
+}
+</script>
+
+<style scoped lang="scss">
+.print-container {
+  padding: 20px;
+  font-size: 12px;
+}
+
+.print-header {
+  text-align: center;
+  margin-bottom: 20px;
+
+  .report-title {
+    font-size: 22px;
+    font-weight: bold;
+    margin: 0;
+    color: #000;
+  }
+}
+
+.print-filters {
+  margin-bottom: 20px;
+  padding: 10px;
+  background: #f5f5f5;
+  border-radius: 4px;
+
+  .filter-label {
+    font-weight: bold;
+    margin-right: 10px;
+  }
+
+  .filter-item {
+    margin-right: 20px;
+  }
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  min-width: 1100px;
+
+  th,
+  td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  th {
+    background: #f5f5f5;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .text-right {
+    text-align: right;
+  }
+
+  .summary-row {
+    background: #fafafa;
+
+    td {
+      font-weight: bold;
+    }
+  }
+}
+
+.print-actions {
+  text-align: center;
+  margin-top: 20px;
+}
+
+@media print {
+  .print-actions {
+    display: none !important;
+  }
+
+  .print-container {
+    padding: 0;
+  }
+
+  .table-wrapper {
+    overflow: visible;
+  }
+
+  .print-filters {
+    background: none;
+    padding: 0;
+    margin-bottom: 10px;
+  }
+
+  :deep(.ant-modal-close),
+  :deep(.ant-modal-header) {
+    display: none !important;
+  }
+}
+</style>

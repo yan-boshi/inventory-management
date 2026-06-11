@@ -35,7 +35,7 @@ export const getAllSalesOrders = async (req, res) => {
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
-    const result = await SalesOrder.paginate({
+    const result = await SalesOrder.paginateWithStatus({
       where: whereClause,
       orderBy: 'sales_date DESC',
       page,
@@ -65,7 +65,9 @@ export const getSalesOrderById = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, message: 'Sales order not found' })
     }
-    res.json({ success: true, data: order })
+    // 计算动态状态
+    const status = await SalesOrder.calculateStatus(id)
+    res.json({ success: true, data: { ...order, status } })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
@@ -83,7 +85,8 @@ export const createSalesOrder = async (req, res) => {
       exchange_rate,
       delivery_date,
       remarks,
-      tax_included_amount
+      tax_included_amount,
+      expenses
     } = req.body
 
     if (!customer_name || !customer_code) {
@@ -100,7 +103,8 @@ export const createSalesOrder = async (req, res) => {
       exchange_rate,
       delivery_date,
       remarks,
-      tax_included_amount
+      tax_included_amount,
+      expenses
     })
     res.status(201).json({ success: true, data: order })
   } catch (error) {
@@ -122,7 +126,8 @@ export const updateSalesOrder = async (req, res) => {
       delivery_date,
       remarks,
       status,
-      tax_included_amount
+      tax_included_amount,
+      expenses
     } = req.body
 
     const existing = await SalesOrder.findById(id)
@@ -142,6 +147,7 @@ export const updateSalesOrder = async (req, res) => {
     if (remarks !== undefined) updateData.remarks = remarks
     if (status !== undefined) updateData.status = parseInt(status)
     if (tax_included_amount !== undefined) updateData.tax_included_amount = parseFloat(tax_included_amount)
+    if (expenses !== undefined) updateData.expenses = expenses
 
     const order = await SalesOrder.update(id, updateData)
     res.json({ success: true, data: order })
@@ -175,7 +181,7 @@ export const returnSalesOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Sales order not found' })
     }
 
-    const updated = await SalesOrder.update(id, { status: 2 })
+    const updated = await SalesOrder.update(id, { status: 4 })
     res.json({ success: true, data: updated })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })

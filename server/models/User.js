@@ -18,7 +18,8 @@ class User extends BaseModel {
       username: userData.username,
       password: hashedPassword,
       role: userData.role || 'normal',
-      contact: userData.contact || null,
+      phone: userData.phone || null,
+      email: userData.email || null,
       remarks: userData.remarks || null
     }
     return super.create(data)

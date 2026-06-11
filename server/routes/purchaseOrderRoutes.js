@@ -6,7 +6,7 @@ import {
   createPurchaseOrder,
   updatePurchaseOrder,
   deletePurchaseOrder,
-  returnPurchaseOrder,
+  updatePurchaseOrderStatus,
   getNewOrderNumber
 } from '../controllers/purchaseOrderController.js'
 
@@ -17,7 +17,7 @@ router.get('/new-order-number', authMiddleware, getNewOrderNumber)
 router.get('/:id', authMiddleware, getPurchaseOrderById)
 router.post('/', authMiddleware, createPurchaseOrder)
 router.put('/:id', authMiddleware, updatePurchaseOrder)
+router.put('/:id/status', authMiddleware, updatePurchaseOrderStatus)
 router.delete('/:id', authMiddleware, deletePurchaseOrder)
-router.post('/:id/return', authMiddleware, returnPurchaseOrder)
 
 export default router

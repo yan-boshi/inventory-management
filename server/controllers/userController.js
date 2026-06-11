@@ -55,7 +55,7 @@ export const getUserById = async (req, res) => {
 
 export const createUser = async (req, res) => {
   try {
-    const { username, password, role, contact, remarks } = req.body
+    const { username, password, role, phone, email, remarks } = req.body
 
     if (!username || !password) {
       return res.status(400).json({ success: false, message: 'Username and password are required' })
@@ -71,7 +71,7 @@ export const createUser = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid role' })
     }
 
-    const user = await User.create({ username, password, role, contact, remarks })
+    const user = await User.create({ username, password, role, phone, email, remarks })
     res.status(201).json({ success: true, data: user })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
@@ -81,7 +81,7 @@ export const createUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params
-    const { username, password, role, contact, remarks } = req.body
+    const { username, password, role, phone, email, remarks } = req.body
 
     const existingUser = await User.findById(id)
     if (!existingUser) {
@@ -103,7 +103,8 @@ export const updateUser = async (req, res) => {
     const updateData = {}
     if (username !== undefined) updateData.username = username
     if (role !== undefined) updateData.role = role
-    if (contact !== undefined) updateData.contact = contact
+    if (phone !== undefined) updateData.phone = phone
+    if (email !== undefined) updateData.email = email
     if (remarks !== undefined) updateData.remarks = remarks
 
     let user

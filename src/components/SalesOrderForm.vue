@@ -27,6 +27,10 @@
             <label class="form-label">销售合同编号：</label>
             <a-input v-model:value="form.contract_number" class="invisible-input note-input" />
           </div>
+          <!-- <div class="form-item">
+            <label class="form-label">销售人：</label>
+            <a-input v-model:value="form.sales_person" class="invisible-input note-input" disabled />
+          </div> -->
         </div>
         <div class="sales-order-content">
           <div class="form-row">
@@ -120,9 +124,16 @@
                       :key="product.product_id"
                       :value="product.product_name"
                     >
-                      {{ product.product_name }} ({{ product.product_code }})
+                      {{ product.product_name }}
                     </a-select-option>
                   </a-select>
+                </template>
+               <template v-else-if="column.key === 'product_code'">
+                  <a-input
+                    v-model:value="record.product_code"
+                    style="width: 100%"
+                    class="invisible-input"
+                  />
                 </template>
 
                 <template v-else-if="column.key === 'model'">
@@ -156,6 +167,14 @@
                     :precision="0"
                     style="width: 100%"
                     @change="() => taxIncludedPriceRowTotal(index)"
+                    class="invisible-input"
+                  />
+                </template>
+                <template v-else-if="column.key === 'outbound_quantity'">
+                  <a-input
+                    v-model:value="record.outbound_quantity"
+                    style="width: 100%"
+                    disabled="true"
                     class="invisible-input"
                   />
                 </template>
@@ -220,14 +239,9 @@
                 </template>
 
                 <template v-else-if="column.key === 'status'">
-                  <a-select
-                    v-model:value="record.status"
-                    style="width: 100%"
-                    class="invisible-select"
-                  >
-                    <a-select-option :value="1">正常</a-select-option>
-                    <a-select-option :value="2">已退货</a-select-option>
-                  </a-select>
+                  <a-tag :color="getStatusColor(record.status)">
+                    {{ getStatusText(record.status) }}
+                  </a-tag>
                 </template>
 
                 <template v-else-if="column.key === 'remarks'">
@@ -289,6 +303,54 @@
                 format="YYYY-MM-DD"
               />
             </div>
+
+            <!-- 销售费用登记 -->
+            <div class="expenses-section">
+              <div class="expenses-label">销售费用登记</div>
+              <div class="expenses-row">
+                <div class="expense-item">
+                  <label>交通费</label>
+                  <a-input-number
+                    v-model:value="form.expenses.transportationFee"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                    class="expense-input"
+                  />
+                </div>
+                <div class="expense-item">
+                  <label>招待费</label>
+                  <a-input-number
+                    v-model:value="form.expenses.entertainmentFee"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                    class="expense-input"
+                  />
+                </div>
+                <div class="expense-item">
+                  <label>礼品费</label>
+                  <a-input-number
+                    v-model:value="form.expenses.giftFee"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                    class="expense-input"
+                  />
+                </div>
+                <div class="expense-item">
+                  <label>其他</label>
+                  <a-input-number
+                    v-model:value="form.expenses.otherFee"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                    class="expense-input"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div class="note-row">
               <label class="note-label">备注：</label>
               <a-textarea v-model:value="form.remarks" :rows="3" />
@@ -321,6 +383,7 @@ import { customersApi } from '@/api/customers'
 import { productsApi } from '@/api/products'
 import { paymentMethodsApi } from '@/api/paymentMethods'
 import { businessCategoriesApi } from '@/api/businessCategories'
+import { useUserStore } from '@/stores/user'
 import type {
   CreateSalesOrderRequest,
   SalesOrderItem,
@@ -329,6 +392,8 @@ import type {
   PaymentMethodOption,
   BusinessCategoryOption,
 } from '@/types'
+
+const userStore = useUserStore()
 
 const props = defineProps<{
   visible: boolean
@@ -350,12 +415,32 @@ const loading = reactive({
   products: false,
 })
 
+const getStatusColor = (status: number) => {
+  const colorMap: Record<number, string> = {
+    1: 'blue', // 未出库
+    2: 'green', // 已全部出库
+    3: 'orange', // 已部分出库
+    4: 'red', // 退货
+  }
+  return colorMap[status] || 'default'
+}
+
+const getStatusText = (status: number) => {
+  const textMap: Record<number, string> = {
+    1: '未出库',
+    2: '已全部出库',
+    3: '已部分出库',
+    4: '退货',
+  }
+  return textMap[status] || '未知'
+}
+
 const customerOptions = ref<CustomerOption[]>([])
 const productOptions = ref<ProductOption[]>([])
 const paymentMethodOptions = ref<PaymentMethodOption[]>([])
 const businessCategoryOptions = ref<BusinessCategoryOption[]>([])
 
-const form = reactive<CreateSalesOrderRequest & { sales_items: SalesOrderItem[] }>({
+const form = reactive<CreateSalesOrderRequest & { sales_items: SalesOrderItem[]; expenses: any }>({
   customer_name: '',
   customer_code: '',
   payment_method: '',
@@ -363,16 +448,25 @@ const form = reactive<CreateSalesOrderRequest & { sales_items: SalesOrderItem[] 
   currency: 'CNY',
   delivery_date: '',
   remarks: '',
+  sales_person: '',
+  expenses: {
+    transportationFee: 0,
+    entertainmentFee: 0,
+    giftFee: 0,
+    otherFee: 0,
+  },
 })
 
 const itemColumns = [
   { title: '编号', key: 'no', width: '3%', align: 'center' },
   { title: '业务分类', key: 'business_category', width: '8%' },
-  { title: '产品名称', key: 'product_name', width: '10%' },
+  { title: '产品名称', key: 'product_name', width: '8%' },
+  { title: '产品代码', key: 'product_code', width: '8%' },
   { title: '规格型号', key: 'model', width: '5%' },
   { title: '规格描述', key: 'description', width: '7%' },
   { title: '单位', key: 'unit', width: '5%' },
   { title: '数量', key: 'quantity', width: '8%' },
+  { title: '出库数', key: 'outbound_quantity', width: '6%' },
   { title: '税率（%）', key: 'tax_rate', width: '7%' },
   { title: '含税单价', key: 'tax_included_price', width: '6%', align: 'right' },
   { title: '未税单价', key: 'tax_encluded_price', width: '6%', align: 'right' },
@@ -612,6 +706,7 @@ const addNewItem = () => {
     description: '',
     unit: '',
     quantity: 1,
+    outbound_quantity: 0,
     tax_rate: 0,
     tax_included_price: 0,
     tax_encluded_price: 0,
@@ -677,6 +772,8 @@ const handleSubmit = async () => {
       delivery_date: formatDate(form.delivery_date),
       tax_included_amount: totalAmount.value,
       remarks: form.remarks,
+      expenses: form.expenses,
+      sales_person: userStore.user?.username || '',
     }
 
     if (props.isEdit && props.salesOrderData?.sales_order_id) {
@@ -744,6 +841,7 @@ watch(
         } else {
           getNewSalesOrderNumber()
           resetForm()
+          form.sales_person = userStore.user?.username || ''
         }
       } else if (props.salesOrderData) {
         form.contract_number = props.salesOrderData.contract_number || ''
@@ -751,6 +849,7 @@ watch(
         form.customer_code = props.salesOrderData.customer_code
         form.payment_method = props.salesOrderData.payment_method
         form.currency = props.salesOrderData.currency || 'CNY'
+        form.sales_person = props.salesOrderData.sales_person || ''
         if (props.salesOrderData.delivery_date) {
           form.delivery_date = dayjs(props.salesOrderData.delivery_date)
         } else {
@@ -762,6 +861,13 @@ watch(
           form.sales_items = JSON.parse(props.salesOrderData.sales_items || '[]')
         } catch {
           form.sales_items = []
+        }
+        try {
+          form.expenses = props.salesOrderData.expenses
+            ? JSON.parse(props.salesOrderData.expenses)
+            : { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+        } catch {
+          form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
         }
       }
 
@@ -797,6 +903,8 @@ const resetForm = () => {
   form.currency = 'CNY'
   form.delivery_date = ''
   form.remarks = ''
+  form.sales_person = ''
+  form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
   orderNumber.value = ''
 }
 
@@ -928,6 +1036,48 @@ watch(
 
     .note-input {
       flex: 1;
+    }
+  }
+}
+
+.expenses-section {
+  margin: 20px 0;
+  padding: 16px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  border: 1px solid #e8e8e8;
+
+  .expenses-label {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 12px;
+    color: #333;
+  }
+
+  .expenses-row {
+    display: flex;
+    gap: 20px;
+
+    .expense-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+
+      label {
+        font-size: 13px;
+        color: #666;
+      }
+
+      .expense-input {
+        border: 1px solid #d9d9d9;
+        border-radius: 4px;
+        padding: 4px 8px;
+
+        &:hover {
+          border-color: #40a9ff;
+        }
+      }
     }
   }
 }

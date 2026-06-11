@@ -1,3 +1,10 @@
+export interface Expenses {
+  transportationFee?: number
+  entertainmentFee?: number
+  giftFee?: number
+  otherFee?: number
+}
+
 export interface Customer {
   customer_id: string
   customer_name: string
@@ -35,7 +42,7 @@ export interface CreateCustomerRequest {
   remarks?: string
 }
 
-export interface UpdateCustomerRequest extends Partial<CreateCustomerRequest> {}
+export interface UpdateCustomerRequest extends Partial<CreateCustomerRequest> { }
 
 export interface CustomerQueryParams {
   page?: number
@@ -77,7 +84,7 @@ export interface CreateSupplierRequest {
   remarks?: string
 }
 
-export interface UpdateSupplierRequest extends Partial<CreateSupplierRequest> {}
+export interface UpdateSupplierRequest extends Partial<CreateSupplierRequest> { }
 
 export interface SupplierQueryParams {
   page?: number
@@ -105,7 +112,7 @@ export interface CreatePaymentMethodRequest {
   remarks?: string
 }
 
-export interface UpdatePaymentMethodRequest extends Partial<CreatePaymentMethodRequest> {}
+export interface UpdatePaymentMethodRequest extends Partial<CreatePaymentMethodRequest> { }
 
 export interface PaymentMethodQueryParams {
   page?: number
@@ -120,6 +127,9 @@ export interface Product {
   description?: string
   product_code: string
   unit?: string
+  stock?: number
+  tax_included_price?: number
+  tax_excluded_price?: number
   remarks?: string
   created_at: string
   updated_at: string
@@ -131,16 +141,108 @@ export interface CreateProductRequest {
   description?: string
   product_code: string
   unit?: string
+  stock?: number
+  tax_included_price?: number
+  tax_excluded_price?: number
   remarks?: string
 }
 
-export interface UpdateProductRequest extends Partial<CreateProductRequest> {}
+export interface UpdateProductRequest extends Partial<CreateProductRequest> { }
 
 export interface ProductQueryParams {
   page?: number
   pageSize?: number
   name?: string
   code?: string
+}
+
+export interface WarehousingExpenseReportParams {
+  startDate?: string
+  endDate?: string
+  orderNumber?: string
+  purchaseOrderNumber?: string
+  productKeyword?: string
+}
+
+export interface WarehousingExpenseReportItem {
+  warehousing_order_id: string
+  order_number: string
+  warehousing_time: string
+  purchase_order_number: string
+  currency: string
+  remarks: string
+  product_code: string
+  product_name: string
+  model: string
+  unit: string
+  quantity: number
+  tax_included_price: number
+  total_price: number
+  express_delivery_fee: number
+  transportation_fee: number
+  customs_fee: number
+  warehousing_other_fee: number
+  warehousing_expense_subtotal: number
+  purchase_transportation_fee: number
+  purchase_entertainment_fee: number
+  purchase_gift_fee: number
+  purchase_other_fee: number
+  purchase_expense_subtotal: number
+  total_expenses: number
+  warehousing_person: string
+}
+
+export interface DeliveryExpenseReportParams {
+  startDate?: string
+  endDate?: string
+  orderNumber?: string
+  salesOrderNumber?: string
+  productKeyword?: string
+}
+
+export interface DeliveryExpenseReportItem {
+  delivery_order_id: string
+  order_number: string
+  delivery_time: string
+  sales_order_number: string
+  customer_name: string
+  currency: string
+  remarks: string
+  product_code: string
+  product_name: string
+  specification: string
+  unit: string
+  quantity: number
+  tax_included_price: number
+  total_price: number
+  express_delivery_fee: number
+  transportation_fee: number
+  customs_fee: number
+  delivery_other_fee: number
+  delivery_expense_subtotal: number
+  sales_transportation_fee: number
+  sales_entertainment_fee: number
+  sales_gift_fee: number
+  sales_other_fee: number
+  sales_expense_subtotal: number
+  total_expenses: number
+  delivery_person: string
+}
+
+export interface InventoryReportItem {
+  product_id: string
+  product_name: string
+  product_code: string
+  model: string
+  unit: string
+  opening_stock: number
+  inbound_quantity: number
+  outbound_quantity: number
+  closing_stock: number
+  tax_included_price: number
+  tax_excluded_price: number
+  tax_included_amount: number
+  tax_excluded_amount: number
 }
 
 export interface BusinessCategory {
@@ -156,7 +258,7 @@ export interface CreateBusinessCategoryRequest {
   remarks?: string
 }
 
-export interface UpdateBusinessCategoryRequest extends Partial<CreateBusinessCategoryRequest> {}
+export interface UpdateBusinessCategoryRequest extends Partial<CreateBusinessCategoryRequest> { }
 
 export interface BusinessCategoryQueryParams {
   page?: number
@@ -172,6 +274,7 @@ export interface SalesOrderItem {
   description?: string
   unit?: string
   quantity: number
+  outbound_quantity: number
   tax_rate: number
   tax_included_price: number
   tax_excluded_price: number
@@ -198,6 +301,8 @@ export interface SalesOrder {
   exchange_rate: number
   delivery_date?: string
   remarks?: string
+  expenses?: string
+  sales_person?: string
   created_at: string
   updated_at: string
 }
@@ -212,9 +317,11 @@ export interface CreateSalesOrderRequest {
   exchange_rate?: number
   delivery_date?: string
   remarks?: string
+  expenses?: Expenses
+  sales_person?: string
 }
 
-export interface UpdateSalesOrderRequest extends Partial<CreateSalesOrderRequest> {}
+export interface UpdateSalesOrderRequest extends Partial<CreateSalesOrderRequest> { }
 
 export interface SalesOrderQueryParams {
   page?: number
@@ -269,36 +376,42 @@ export interface PaginatedResponse<T> {
   }
 }
 
+export interface PurchaseItem {
+  no: number
+  business_category: string
+  product_name: string
+  product_code: string
+  model?: string
+  description?: string
+  unit?: string
+  quantity: number
+  inbound_quantity: number
+  tax_rate: number
+  tax_included_price: number
+  tax_excluded_price: number
+  tax_included_amount: number
+  tax_excluded_amount: number
+  tax_amount: number
+  status: number
+  remarks?: string
+  total_price?: number
+}
+
 export interface PurchaseOrder {
   purchase_order_id: string
   order_number: string
   contract_number?: string
   supplier_name: string
   supplier_code: string
-  register_address?: string
-  contact?: string
-  contact_phone?: string
-  supplier_email?: string
-  payment_method: string
-  business_category: string
-  product_name: string
-  model?: string
-  description?: string
-  product_code: string
-  unit?: string
-  quantity: number
-  tax_included_price: number
-  tax_rate: number
-  tax_excluded_price: number
-  tax_included_amount: number
-  tax_excluded_amount: number
-  tax_amount: number
+  purchase_items: string
   currency: string
   exchange_rate: number
   delivery_date?: string
   arrival_date?: string
+  status: 1 | 2
   remarks?: string
-  is_returned: boolean
+  expenses?: string
+  purchase_person?: string
   created_at: string
   updated_at: string
 }
@@ -307,28 +420,17 @@ export interface CreatePurchaseOrderRequest {
   contract_number?: string
   supplier_name: string
   supplier_code: string
-  payment_method: string
-  business_category: string
-  product_name: string
-  model?: string
-  description?: string
-  product_code: string
-  unit?: string
-  quantity: number
-  tax_included_price: number
-  tax_rate?: number
-  tax_excluded_price?: number
-  tax_included_amount?: number
-  tax_excluded_amount?: number
-  tax_amount?: number
+  purchase_items: PurchaseItem[]
   currency?: string
   exchange_rate?: number
   delivery_date?: string
   arrival_date?: string
   remarks?: string
+  expenses?: Expenses
+  purchase_person?: string
 }
 
-export interface UpdatePurchaseOrderRequest extends Partial<CreatePurchaseOrderRequest> {}
+export interface UpdatePurchaseOrderRequest extends Partial<CreatePurchaseOrderRequest> { }
 
 export interface PurchaseOrderQueryParams {
   page?: number
@@ -442,7 +544,7 @@ export interface CreateQuotationRequest {
   remarks?: string
 }
 
-export interface UpdateQuotationRequest extends Partial<CreateQuotationRequest> {}
+export interface UpdateQuotationRequest extends Partial<CreateQuotationRequest> { }
 
 export interface QuotationQueryParams {
   page?: number
@@ -467,4 +569,146 @@ export interface QuotationResponse {
   delivery_method?: string
   tax_rate?: number
   updated_at: string
+}
+
+export interface WarehousingItem {
+  no: number
+  product_code: string
+  product_name: string
+  description?: string
+  unit?: string
+  quantity: number
+  max_quantity?: number
+  remarks?: string
+  total_price?: number
+  model?: string
+  tax_rate?: number
+  tax_included_price?: number
+}
+
+export interface WarehousingExpenses {
+  expressDeliveryFee?: number
+  transportationFee?: number
+  customsFee?: number
+  otherFee?: number
+}
+
+export interface WarehousingOrder {
+  warehousing_order_id: string
+  order_number: string
+  purchase_order_number?: string
+  warehousing_items: string
+  warehousing_time: string
+  customer_name?: string
+  customer_address?: string
+  total_amount: number
+  currency: string
+  warehousing_person?: string
+  contact_phone?: string
+  remarks?: string
+  expenses?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateWarehousingOrderRequest {
+  purchase_order_number?: string
+  warehousing_items?: WarehousingItem[]
+  warehousing_time?: string
+  customer_name?: string
+  customer_address?: string
+  total_amount?: number
+  currency?: string
+  warehousing_person?: string
+  contact_phone?: string
+  remarks?: string
+  expenses?: WarehousingExpenses
+}
+
+export interface UpdateWarehousingOrderRequest extends Partial<CreateWarehousingOrderRequest> { }
+
+export interface WarehousingOrderQueryParams {
+  page?: number
+  pageSize?: number
+  productName?: string
+  productCode?: string
+  orderNumber?: string
+  warehousingDate?: string
+}
+
+export interface DeliveryExpenses {
+  expressDeliveryFee?: number
+  transportationFee?: number
+  customsFee?: number
+  otherFee?: number
+}
+
+export interface DeliveryItem {
+  no: number
+  product_code: string
+  product_name: string
+  specification: string
+  unit: string
+  quantity: number
+  max_quantity?: number
+  tax_rate?: number
+  tax_included_price?: number
+  amount?: number
+  remarks?: string
+}
+
+export interface DeliveryOrder {
+  delivery_order_id: string
+  order_number: string
+  sales_order_number?: string
+  customer_name: string
+  customer_address: string
+  delivery_items: string
+  delivery_time: string
+  delivery_date?: string
+  currency: string
+  total_amount: number
+  expenses?: string
+  delivery_person: string
+  contact_phone: string
+  remarks?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateDeliveryOrderRequest {
+  sales_order_number?: string
+  customer_name: string
+  customer_address: string
+  delivery_items: DeliveryItem[] | string
+  delivery_time?: string
+  delivery_date?: string
+  currency?: string
+  total_amount?: number
+  delivery_person?: string
+  contact_phone?: string
+  remarks?: string
+  expenses?: DeliveryExpenses
+}
+
+export interface UpdateDeliveryOrderRequest extends Partial<CreateDeliveryOrderRequest> { }
+
+export interface DeliveryOrderQueryParams {
+  page?: number
+  pageSize?: number
+  productName?: string
+  productCode?: string
+  orderNumber?: string
+  deliveryDate?: string
+}
+
+export interface UndeliveredSalesOrder {
+  sales_order_id: string
+  order_number: string
+  customer_name: string
+  customer_address: string
+  sales_items: string
+  currency: string
+  total_amount: number
+  remarks?: string
 }

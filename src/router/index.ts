@@ -34,6 +34,12 @@ const router = createRouter({
           meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
         },
         {
+          path: 'warehousing-orders',
+          name: 'WarehousingOrders',
+          component: () => import('@/views/warehousing/WarehousingOrders.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
           path: 'customers',
           name: 'Customers',
           component: () => import('@/views/customers/Customers.vue'),
@@ -64,10 +70,34 @@ const router = createRouter({
           meta: { roles: ['advanced', 'admin'] as UserRole[] }
         },
         {
+          path: 'delivery-orders',
+          name: 'DeliveryOrders',
+          component: () => import('@/views/delivery/DeliveryOrders.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
           path: 'users',
           name: 'Users',
           component: () => import('@/views/users/Users.vue'),
           meta: { roles: ['admin'] as UserRole[] }
+        },
+        {
+          path: 'inventory-report',
+          name: 'InventoryReport',
+          component: () => import('@/views/reports/InventoryReport.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'warehousing-expense-report',
+          name: 'WarehousingExpenseReport',
+          component: () => import('@/views/reports/WarehousingExpenseReport.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'delivery-expense-report',
+          name: 'DeliveryExpenseReport',
+          component: () => import('@/views/reports/DeliveryExpenseReport.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
         }
       ]
     },

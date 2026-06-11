@@ -12,7 +12,11 @@
       "Bash(curl *)",
       "Bash(node -c models/Quotation.js)",
       "Bash(node -c controllers/quotationController.js)",
-      "Bash(node -c routes/quotationRoutes.js)"
+      "Bash(node -c routes/quotationRoutes.js)",
+      "Bash(node *)",
+      "Bash(mysql *)",
+      "Bash(python -m json.tool)",
+      "Bash(npx vite *)"
     ]
   }
 }

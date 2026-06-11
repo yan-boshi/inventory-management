@@ -53,26 +53,24 @@
             <th>Unit Price</th>
             <th>Amount</th>
             <th>Delivery Date</th>
-            <th style="width: 150px;">Remarks</th>
+            <th style="width: 150px">Remarks</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>1</td>
-            <td>{{ orderData?.product_code || '-' }}</td>
+          <tr v-for="item in JSON.parse(orderData?.purchase_items || '[]')" :key="item.no">
+            <td>{{ item.no }}</td>
+            <td>{{ item.product_code || '-' }}</td>
             <td>
-              <div>{{ orderData?.product_name || '-' }}</div>
-              <div class="product-extra">{{ orderData?.model || '' }}</div>
+              <div>{{ item.product_name || '-' }}</div>
+              <div class="product-extra">{{ item.model || '' }}</div>
             </td>
-            <td>{{ orderData?.quantity || '-' }}</td>
-            <td>{{ orderData?.unit || '-' }}</td>
-            <td>{{ formatPrice(orderData?.tax_included_price) }}</td>
-            <td>{{ formatPrice(calculateAmount()) }}</td>
-            <td>{{ formatDate(orderData?.delivery_date) }}</td>
+            <td>{{ item.quantity || '-' }}</td>
+            <td>{{ item.unit || '-' }}</td>
+            <td>{{ fitem.tax_included_price }}</td>
+            <td>{{ item.tax_included_amount }}</td>
+            <td>{{ formatDate(orderData.arrival_date) }}</td>
             <td>
-              <span class="value editable" @click="handleEdit('remarks')">
-                {{ formData.remarks || orderData?.remarks || '-' }}
-              </span>
+              <span class="value editable" @click="handleEdit('remarks')"> - </span>
             </td>
           </tr>
           <!-- 金额总计行 -->
@@ -88,28 +86,41 @@
         <h3>Terms and Conditions</h3>
         <ol class="terms-list">
           <li>
-            The materials must be consistent with the above brand and model, and must be brand new original products. Counterfeits will be compensated at ten times the price.
+            The materials must be consistent with the above brand and model, and must be brand new
+            original products. Counterfeits will be compensated at ten times the price.
           </li>
           <li>
-            The materials must be in original packaging with oxidized pins. If the materials are not in original packaging, Party A has the right to return the goods at any time.
+            The materials must be in original packaging with oxidized pins. If the materials are not
+            in original packaging, Party A has the right to return the goods at any time.
           </li>
           <li>
-            Within six months, if any product quality problem is found, regardless of whether it has been put into production or not, Party B shall refund the full payment to Party A within one week upon presentation of the test report or quality report issued by our customer. Party A reserves the right to claim additional processing costs caused by component quality issues from Party B.
+            Within six months, if any product quality problem is found, regardless of whether it has
+            been put into production or not, Party B shall refund the full payment to Party A within
+            one week upon presentation of the test report or quality report issued by our customer.
+            Party A reserves the right to claim additional processing costs caused by component
+            quality issues from Party B.
           </li>
           <li>
-            Upon receipt of the order, please confirm and return it with bank information. If the supplier provides incorrect bank information, all consequences shall be borne by the supplier.
+            Upon receipt of the order, please confirm and return it with bank information. If the
+            supplier provides incorrect bank information, all consequences shall be borne by the
+            supplier.
           </li>
           <li>
-            If Party B has confirmed the order but ultimately cancels the order and fails to deliver on time, Party B shall pay 5% of the total order amount as compensation.
+            If Party B has confirmed the order but ultimately cancels the order and fails to deliver
+            on time, Party B shall pay 5% of the total order amount as compensation.
           </li>
           <li>
-            If Party A has paid a deposit to Party B but ultimately cancels the order and fails to deliver on time, Party B shall, in addition to returning the deposit, pay an amount equal to the deposit as compensation.
+            If Party A has paid a deposit to Party B but ultimately cancels the order and fails to
+            deliver on time, Party B shall, in addition to returning the deposit, pay an amount
+            equal to the deposit as compensation.
           </li>
           <li>
-            If the goods and delivery date of Party B do not meet the requirements of Party A's order, Party A has the right to cancel the order.
+            If the goods and delivery date of Party B do not meet the requirements of Party A's
+            order, Party A has the right to cancel the order.
           </li>
           <li>
-            If the goods cannot be delivered on time beyond the supplier's commitment, the supplier shall pay in full the additional costs for the customer to purchase spot goods.
+            If the goods cannot be delivered on time beyond the supplier's commitment, the supplier
+            shall pay in full the additional costs for the customer to purchase spot goods.
           </li>
         </ol>
       </div>
@@ -154,7 +165,8 @@
             <div class="footer-item">
               <span class="footer-label">Address：</span>
               <span class="footer-value"
-                >Room 602, Jingfeng Building, No. 42 Wuhe Avenue (South), Nankeng Community, Bantian Street, Longgang District, Shenzhen</span
+                >Room 602, Jingfeng Building, No. 42 Wuhe Avenue (South), Nankeng Community, Bantian
+                Street, Longgang District, Shenzhen</span
               >
             </div>
             <div class="footer-item">

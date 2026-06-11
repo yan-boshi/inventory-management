@@ -4,17 +4,18 @@ import type { CustomerOption, PaginatedResponse, Customer, CreateCustomerRequest
 const API_BASE_URL = '/customers'
 
 export const customersApi = {
-  getAllList: async () => {
+  getAllList: async (): Promise<CustomerOption[]> => {
     const response = await instance.get<{ success: boolean; data: CustomerOption[] }>(`${API_BASE_URL}/list`)
-    return response.data
+    return response.data as unknown as CustomerOption[]
   },
 
   getAll: async (params = {}) => {
     return instance.get<PaginatedResponse<Customer>>(`${API_BASE_URL}`, { params })
   },
 
-  getById: async (id: string) => {
-    return instance.get<Customer>(`${API_BASE_URL}/${id}`)
+  getById: async (id: string): Promise<Customer> => {
+    const response = await instance.get<{ success: boolean; data: Customer }>(`${API_BASE_URL}/${id}`)
+    return response.data as unknown as Customer
   },
 
   create: async (data: CreateCustomerRequest) => {

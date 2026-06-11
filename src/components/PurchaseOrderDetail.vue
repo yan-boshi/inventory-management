@@ -17,6 +17,7 @@
             <a-descriptions-item label="采购合同编号">{{ order.contract_number || '-' }}</a-descriptions-item>
             <a-descriptions-item label="供应商名称">{{ order.supplier_name }}</a-descriptions-item>
             <a-descriptions-item label="供应商代码">{{ order.supplier_code }}</a-descriptions-item>
+            <a-descriptions-item label="采购人">{{ order.purchase_person || '-' }}</a-descriptions-item>
             <a-descriptions-item label="结算方式">{{ order.payment_method }}</a-descriptions-item>
             <a-descriptions-item label="业务分类">{{ order.business_category }}</a-descriptions-item>
             <a-descriptions-item label="产品名称">{{ order.product_name }}</a-descriptions-item>
@@ -48,11 +49,21 @@
         <div style="grid-column: span 2;">
           <h4>状态</h4>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <a-tag :color="order.is_returned ? 'red' : 'green'">
-              {{ order.is_returned ? '已退货' : '正常' }}
+            <a-tag :color="getStatusColor(order.status)">
+              {{ getStatusText(order.status) }}
             </a-tag>
             <span style="color: #999;">最后更新: {{ formatDateTime(order.updated_at) }}</span>
           </div>
+        </div>
+
+        <div style="grid-column: span 2;">
+          <h4>采购费用登记</h4>
+          <div v-if="getValidExpenses(order.expenses).length > 0" style="display: flex; gap: 20px; padding: 12px; background: #f5f7fa; border-radius: 4px;">
+            <a-tag v-for="item in getValidExpenses(order.expenses)" :key="item.key" color="blue">
+              {{ item.label }}: {{ item.value.toFixed(2) }}
+            </a-tag>
+          </div>
+          <span v-else style="color: #999;">无费用登记</span>
         </div>
 
         <div style="grid-column: span 2;">
@@ -66,6 +77,7 @@
 
 <script setup lang="ts">
 import dayjs from 'dayjs'
+import { getValidExpenses } from '@/utils/expense'
 import type { PurchaseOrder } from '@/types'
 
 defineProps<{
@@ -79,6 +91,26 @@ const emit = defineEmits<{
 
 const formatDateTime = (dateString: string) => {
   return dayjs(dateString).format('YYYY-MM-DD HH:mm:ss')
+}
+
+const getStatusColor = (status: number | string) => {
+  const statusMap: Record<string, string> = {
+    '1': 'blue',
+    '2': 'green',
+    '3': 'orange',
+    '4': 'red',
+  }
+  return statusMap[String(status)] || 'default'
+}
+
+const getStatusText = (status: number | string) => {
+  const statusMap: Record<string, string> = {
+    '1': '未入库',
+    '2': '已全部入库',
+    '3': '已部分入库',
+    '4': '已退货',
+  }
+  return statusMap[String(status)] || '未知'
 }
 
 const handleCancel = () => {

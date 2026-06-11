@@ -53,26 +53,24 @@
             <th>含税单价</th>
             <th>金额</th>
             <th>交期</th>
-            <th style="width: 150px;">备注</th>
+            <th style="width: 150px">备注</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>1</td>
-            <td>{{ orderData?.product_code || '-' }}</td>
+          <tr v-for="item in JSON.parse(orderData?.purchase_items || '[]')" :key="item.no">
+            <td>{{ item.no }}</td>
+            <td>{{ item.product_code || '-' }}</td>
             <td>
-              <div>{{ orderData?.product_name || '-' }}</div>
-              <div class="product-extra">{{ orderData?.model || '' }}</div>
+              <div>{{ item.product_name || '-' }}</div>
+              <div class="product-extra">{{ item.model || '' }}</div>
             </td>
-            <td>{{ orderData?.quantity || '-' }}</td>
-            <td>{{ orderData?.unit || '-' }}</td>
-            <td>{{ formatPrice(orderData?.tax_included_price) }}</td>
-            <td>{{ formatPrice(calculateAmount()) }}</td>
-            <td>{{ formatDate(orderData?.delivery_date) }}</td>
+            <td>{{ item.quantity || '-' }}</td>
+            <td>{{ item.unit || '-' }}</td>
+            <td>{{ item.tax_included_price }}</td>
+            <td>{{ item.tax_included_amount }}</td>
+            <td>{{ formatDate(orderData.arrival_date) }}</td>
             <td>
-              <span class="value editable" @click="handleEdit('remarks')">
-                {{ formData.remarks || orderData?.remarks || '-' }}
-              </span>
+              <span class="value editable" @click="handleEdit('remarks')"> - </span>
             </td>
           </tr>
           <!-- 金额总计行 -->
@@ -82,7 +80,7 @@
           </tr>
           <tr class="total-row">
             <td colspan="6" class="total-label">金额总计：</td>
-            <td colspan="3">{{ formatPrice(formData.total) }}</td>
+            <td colspan="3">{{ formData.total }}</td>
           </tr>
         </tbody>
       </table>

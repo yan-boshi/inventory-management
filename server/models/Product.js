@@ -21,6 +21,8 @@ class Product extends BaseModel {
       description: data.description || null,
       product_code: data.product_code,
       unit: data.unit || null,
+      tax_included_price: data.tax_included_price || null,
+      tax_excluded_price: data.tax_excluded_price || null,
       remarks: data.remarks || null
     }
     return super.create(productData)

@@ -30,6 +30,37 @@
           </template>
           <span>报价单</span>
         </a-menu-item>
+        <a-menu-item
+          key="WarehousingOrders"
+          @click="navigateTo('/warehousing-orders')"
+          v-if="userStore.isAdvanced"
+        >
+          <template #icon>
+            <FileTextOutlined />
+          </template>
+          <span>入库单</span>
+        </a-menu-item>
+        <a-menu-item key="DeliveryOrders" @click="navigateTo('/delivery-orders')">
+          <template #icon>
+            <FileTextOutlined />
+          </template>
+          <span>出库单</span>
+        </a-menu-item>
+        <a-sub-menu key="Reports">
+          <template #icon>
+            <BarChartOutlined />
+          </template>
+          <template #title>报表中心</template>
+          <a-menu-item key="InventoryReport" @click="navigateTo('/inventory-report')">
+            进销存明细表
+          </a-menu-item>
+          <a-menu-item key="WarehousingExpenseReport" @click="navigateTo('/warehousing-expense-report')">
+            入库费用明细表
+          </a-menu-item>
+          <a-menu-item key="DeliveryExpenseReport" @click="navigateTo('/delivery-expense-report')">
+            出库费用明细表
+          </a-menu-item>
+        </a-sub-menu>
         <a-menu-item key="Customers" @click="navigateTo('/customers')" v-if="userStore.isAdvanced">
           <template #icon>
             <TeamOutlined />
@@ -48,13 +79,21 @@
           </template>
           <span>产品管理</span>
         </a-menu-item>
-        <a-menu-item key="PaymentMethods" @click="navigateTo('/payment-methods')" v-if="userStore.isAdvanced">
+        <a-menu-item
+          key="PaymentMethods"
+          @click="navigateTo('/payment-methods')"
+          v-if="userStore.isAdvanced"
+        >
           <template #icon>
             <PayCircleOutlined />
           </template>
           <span>结算方式</span>
         </a-menu-item>
-        <a-menu-item key="BusinessCategories" @click="navigateTo('/business-categories')" v-if="userStore.isAdvanced">
+        <a-menu-item
+          key="BusinessCategories"
+          @click="navigateTo('/business-categories')"
+          v-if="userStore.isAdvanced"
+        >
           <template #icon>
             <AppstoreAddOutlined />
           </template>
@@ -72,11 +111,7 @@
       <a-layout-header style="background: #fff; padding: 0">
         <div class="header-content">
           <div class="left">
-            <MenuUnfoldOutlined
-              v-if="collapsed"
-              class="trigger"
-              @click="toggleCollapsed"
-            />
+            <MenuUnfoldOutlined v-if="collapsed" class="trigger" @click="toggleCollapsed" />
             <MenuFoldOutlined v-else class="trigger" @click="toggleCollapsed" />
           </div>
           <div class="right">
@@ -127,11 +162,12 @@ import {
   AppstoreAddOutlined,
   SettingOutlined,
   FileTextOutlined,
+  BarChartOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,
   UserOutlined,
   DownOutlined,
-  LogoutOutlined
+  LogoutOutlined,
 } from '@ant-design/icons-vue'
 
 const router = useRouter()
@@ -157,7 +193,7 @@ const handleLogout = () => {
 
 watch(
   () => route.name,
-  (name) => {
+  name => {
     if (name) {
       selectedKeys.value = [name as string]
     }

@@ -1,4 +1,5 @@
 import BaseModel from './BaseModel.js'
+import pool from '../config/database.js'
 
 class PurchaseOrder extends BaseModel {
   constructor() {
@@ -8,8 +9,8 @@ class PurchaseOrder extends BaseModel {
   generateOrderNumber() {
     const date = new Date()
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-    return `XSD-P${dateStr}-${random}`
+    const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0')
+    return `XSD-P-${dateStr}${random}`
   }
 
   generateUUID() {
@@ -40,11 +41,62 @@ class PurchaseOrder extends BaseModel {
     return parseFloat((taxIncludedAmount * taxRate).toFixed(2))
   }
 
+  async updateStatus(id, status) {
+    return await this.update(id, { status })
+  }
+
+  async update(id, data) {
+    if (data.expenses !== undefined) {
+      data.expenses = data.expenses ? JSON.stringify(data.expenses) : null
+    }
+
+    if (data.purchase_items !== undefined) {
+      const purchaseItems = typeof data.purchase_items === 'string' ? JSON.parse(data.purchase_items) : data.purchase_items
+      const calculatedItems = purchaseItems.map((item) => {
+        const taxRateDecimal = item.tax_rate / 100
+        const taxExcludedPrice = this.calculateTaxExcludedPrice(item.tax_included_price, taxRateDecimal)
+        const taxIncludedAmount = this.calculateTaxIncludedAmount(item.quantity, item.tax_included_price)
+        const taxExcludedAmount = this.calculateTaxExcludedAmount(item.quantity, taxExcludedPrice)
+        const taxAmount = this.calculateTaxAmount(taxIncludedAmount, taxRateDecimal)
+
+        return {
+          ...item,
+          tax_excluded_price: taxExcludedPrice,
+          tax_included_amount: taxIncludedAmount,
+          tax_excluded_amount: taxExcludedAmount,
+          tax_amount: taxAmount,
+          total_price: taxIncludedAmount
+        }
+      })
+      data.purchase_items = JSON.stringify(calculatedItems)
+    }
+
+    return super.update(id, data)
+  }
+
   async create(data) {
-    const taxExcludedPrice = this.calculateTaxExcludedPrice(data.tax_included_price, data.tax_rate)
-    const taxIncludedAmount = this.calculateTaxIncludedAmount(data.quantity, data.tax_included_price)
-    const taxExcludedAmount = this.calculateTaxExcludedAmount(data.quantity, taxExcludedPrice)
-    const taxAmount = this.calculateTaxAmount(taxIncludedAmount, data.tax_rate)
+    const purchaseItems = data.purchase_items || []
+    const expensesJson = data.expenses ? JSON.stringify(data.expenses) : null
+
+    const calculatedItems = purchaseItems.map((item, index) => {
+      const taxRateDecimal = item.tax_rate / 100
+      const taxExcludedPrice = this.calculateTaxExcludedPrice(item.tax_included_price, taxRateDecimal)
+      const taxIncludedAmount = this.calculateTaxIncludedAmount(item.quantity, item.tax_included_price)
+      const taxExcludedAmount = this.calculateTaxExcludedAmount(item.quantity, taxExcludedPrice)
+      const taxAmount = this.calculateTaxAmount(taxIncludedAmount, taxRateDecimal)
+
+      return {
+        ...item,
+        no: item.no || index + 1,
+        inbound_quantity: item.inbound_quantity || 0,
+        status: item.status || 1,
+        tax_excluded_price: taxExcludedPrice,
+        tax_included_amount: taxIncludedAmount,
+        tax_excluded_amount: taxExcludedAmount,
+        tax_amount: taxAmount,
+        total_price: taxIncludedAmount
+      }
+    })
 
     const orderData = {
       purchase_order_id: this.generateUUID(),
@@ -52,28 +104,148 @@ class PurchaseOrder extends BaseModel {
       contract_number: data.contract_number || null,
       supplier_name: data.supplier_name,
       supplier_code: data.supplier_code,
-      payment_method: data.payment_method,
-      business_category: data.business_category,
-      product_name: data.product_name,
-      model: data.model || null,
-      description: data.description || null,
-      product_code: data.product_code,
-      unit: data.unit || null,
-      quantity: data.quantity,
-      tax_included_price: data.tax_included_price,
-      tax_rate: data.tax_rate || 0.13,
-      tax_excluded_price: taxExcludedPrice,
-      tax_included_amount: taxIncludedAmount,
-      tax_excluded_amount: taxExcludedAmount,
-      tax_amount: taxAmount,
+      purchase_items: JSON.stringify(calculatedItems),
       currency: data.currency || 'CNY',
       exchange_rate: data.exchange_rate || 1.0,
       delivery_date: data.delivery_date || null,
       arrival_date: data.arrival_date || null,
+      status: data.status || 1,
       remarks: data.remarks || null,
-      is_returned: data.is_returned || false
+      expenses: expensesJson,
+      purchase_person: data.purchase_person || null
     }
     return super.create(orderData)
+  }
+
+  /**
+   * 计算采购订单的入库状态
+   * @param {string} orderId - 采购订单ID
+   * @returns {number} 状态值: 1=未入库, 2=已全部入库, 3=已部分入库, 4=退货
+   */
+  async calculateStatus(orderId) {
+    try {
+      // 获取采购订单
+      const order = await this.findById(orderId)
+      if (!order) return 1
+
+      // 如果已退货，直接返回4
+      if (order.status === '4') return 4
+
+      // 解析采购订单项
+      const purchaseItems = JSON.parse(order.purchase_items || '[]')
+      if (purchaseItems.length === 0) return 1
+
+      // 查询关联的入库单
+      const [warehousingOrders] = await pool.query(
+        `SELECT warehousing_items FROM warehousing_orders WHERE purchase_order_number = ?`,
+        [order.order_number]
+      )
+
+      // 如果没有入库单，返回未入库
+      if (warehousingOrders.length === 0) return 1
+
+      // 汇总已入库数量（按产品代码）
+      const warehousedQuantities = {}
+      for (const warehousingOrder of warehousingOrders) {
+        const items = JSON.parse(warehousingOrder.warehousing_items || '[]')
+        for (const item of items) {
+          const code = item.product_code
+          if (code) {
+            warehousedQuantities[code] = (warehousedQuantities[code] || 0) + (item.quantity || 0)
+          }
+        }
+      }
+
+      // 比较已入库数量与需求数量
+      let allWarehoused = true
+      let anyWarehoused = false
+
+      for (const purchaseItem of purchaseItems) {
+        const code = purchaseItem.product_code
+        const requiredQty = purchaseItem.quantity || 0
+        const warehousedQty = warehousedQuantities[code] || 0
+
+        if (warehousedQty > 0) {
+          anyWarehoused = true
+        }
+        if (warehousedQty < requiredQty) {
+          allWarehoused = false
+        }
+      }
+
+      if (allWarehoused && anyWarehoused) return 2  // 已全部入库
+      if (anyWarehoused) return 3  // 已部分入库
+      return 1  // 未入库
+    } catch (error) {
+      console.error('计算采购订单状态失败:', error)
+      return 1
+    }
+  }
+
+  /**
+   * 获取所有采购订单（带动态计算的状态）
+   */
+  async findAllWithStatus(options = {}) {
+    const { where = '', orderBy = 'created_at DESC', params = [] } = options
+
+    let query = `SELECT * FROM ${this.tableName}`
+    if (where) {
+      query += ` WHERE ${where}`
+    }
+    query += ` ORDER BY ${orderBy}`
+
+    const [rows] = await pool.query(query, params)
+
+    // 为每个订单计算状态
+    const ordersWithStatus = await Promise.all(
+      rows.map(async (order) => {
+        const status = await this.calculateStatus(order.purchase_order_id)
+        return { ...order, status }
+      })
+    )
+
+    return ordersWithStatus
+  }
+
+  /**
+   * 分页获取采购订单（带动态计算的状态）
+   */
+  async paginateWithStatus(options = {}) {
+    const { where = '', orderBy = 'created_at DESC', page = 1, pageSize = 10, params = [] } = options
+
+    // 查询总数
+    let countQuery = `SELECT COUNT(*) as total FROM ${this.tableName}`
+    if (where) {
+      countQuery += ` WHERE ${where}`
+    }
+    const [countResult] = await pool.query(countQuery, params)
+    const total = countResult[0]?.total || 0
+
+    // 查询分页数据
+    const offset = (page - 1) * pageSize
+    let query = `SELECT * FROM ${this.tableName}`
+    if (where) {
+      query += ` WHERE ${where}`
+    }
+    query += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`
+
+    const [rows] = await pool.query(query, [...params, parseInt(pageSize), parseInt(offset)])
+
+    // 为每个订单计算状态
+    const ordersWithStatus = await Promise.all(
+      rows.map(async (order) => {
+        const status = await this.calculateStatus(order.purchase_order_id)
+        return { ...order, status }
+      })
+    )
+
+    return {
+      data: ordersWithStatus,
+      total,
+      page: parseInt(page),
+      pageSize: parseInt(pageSize),
+      totalPages: Math.ceil(total / pageSize)
+    }
   }
 }
 

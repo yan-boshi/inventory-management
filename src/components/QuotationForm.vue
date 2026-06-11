@@ -472,7 +472,7 @@ const addNewItem = () => {
 
 // 格式化金额
 const formatMoney = (amount: number) => {
-  return `¥${(amount || 0).toFixed(2)}`
+  return `${(amount || 0).toFixed(2)}`
 }
 
 // 提交表单
