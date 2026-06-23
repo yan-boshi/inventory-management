@@ -369,8 +369,8 @@ const numberToChinese = (num: number): string => {
 // 获取新的报价编号
 const getNewQuotationNumber = async () => {
   try {
-    const { quotation_number } = await quotationsApi.getNewQuotationNumber()
-    quotationNumber.value = quotation_number
+    const res = await quotationsApi.getNewQuotationNumber()
+    quotationNumber.value = res.data.quotation_number
   } catch (error) {
     message.error('获取报价编号失败')
   }

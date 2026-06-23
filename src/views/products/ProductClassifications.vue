@@ -308,7 +308,7 @@ const handleSubmit = async () => {
 const handleManage = async (record: ProductClassification) => {
   try {
     const response = await productClassificationApi.getById(record.product_classification_id)
-    currentClassification.value = response
+    currentClassification.value = response.data
     detailVisible.value = true
   } catch (error) {
     message.error('获取分类详情失败')
@@ -319,7 +319,7 @@ const handleDetailRefresh = async () => {
   if (currentClassification.value) {
     try {
       const response = await productClassificationApi.getById(currentClassification.value.product_classification_id)
-      currentClassification.value = response
+      currentClassification.value = response.data
       loadClassifications()
     } catch (error) {
       message.error('刷新分类详情失败')

@@ -306,7 +306,7 @@ const handleViewDetail = async (quotation: Quotation) => {
   isEdit.value = true
   try {
     const detail = await quotationsApi.getById(quotation.quotation_id)
-    currentQuotation.value = detail
+    currentQuotation.value = detail.data
     formVisible.value = true
   } catch (error) {
     message.error('获取报价单详情失败')
@@ -338,15 +338,15 @@ const handleSuccess = () => {
 const handlePrint = async (quotation: Quotation, lang: 'zh' | 'en' = 'zh') => {
   try {
     const detail = await quotationsApi.getById(quotation.quotation_id)
-    currentQuotation.value = detail
+    currentQuotation.value = detail.data
     printData.value = {
-      quotation_number: detail.quotation_number,
-      customer_name: detail.customer_name,
-      customer_code: detail.customer_code,
-      quotation_items: detail.quotation_items || [],
-      validity_period: detail.validity_period,
-      delivery_method: detail.delivery_method,
-      tax_rate: detail.tax_rate,
+      quotation_number: detail.data.quotation_number,
+      customer_name: detail.data.customer_name,
+      customer_code: detail.data.customer_code,
+      quotation_items: detail.data.quotation_items || [],
+      validity_period: detail.data.validity_period,
+      delivery_method: detail.data.delivery_method,
+      tax_rate: detail.data.tax_rate,
     }
     if (lang === 'en') {
       printEnVisible.value = true
