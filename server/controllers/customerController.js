@@ -12,8 +12,8 @@ export const getAllCustomers = async (req, res) => {
     }
 
     if (code) {
-      where.push('customer_code LIKE ?')
-      params.push(`%${code}%`)
+      where.push('customer_code = ?')
+      params.push(code)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''

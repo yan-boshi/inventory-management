@@ -296,6 +296,7 @@
       <div class="form-footer">
         <a-space>
           <a-button @click="handleCancel">取消</a-button>
+          <a-button v-if="!isEdit" @click="handleSaveDraft">暂存</a-button>
           <a-button type="primary" @click="handlePrint">打印</a-button>
           <a-button type="primary" @click="handleSubmit">保存并打印</a-button>
           <a-button type="primary" @click="handleSubmit">保存</a-button>
@@ -317,6 +318,8 @@ import { suppliersApi } from '@/api/suppliers'
 import { ProductOption } from '@/types/index'
 import { productsApi } from '@/api/products'
 import { useUserStore } from '@/stores/user'
+import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
+import { Modal } from 'ant-design-vue'
 
 const userStore = useUserStore()
 
@@ -534,6 +537,7 @@ const handleSubmit = async () => {
     } else {
       await warehousingOrdersApi.create(submitData)
       message.success('入库单创建成功')
+      clearDraft(DRAFT_KEY)
       emit('success')
     }
 
@@ -576,6 +580,7 @@ watch(
         getNewOrderNumber()
         getPurchaseOrdersForWarehousing()
         resetForm()
+        checkDraft()
       } else if (props.warehousingOrderData) {
         orderNumber.value = props.warehousingOrderData.order_number || ''
         form.purchase_order_number = props.warehousingOrderData.purchase_order_number || ''
@@ -640,6 +645,68 @@ const resetForm = () => {
     otherFee: 0,
   }
 }
+
+// ==================== 暂存功能 ====================
+const DRAFT_KEY = 'warehousing_order'
+
+const handleSaveDraft = () => {
+  const draftData = {
+    purchase_order_number: form.purchase_order_number,
+    customer_name: form.customer_name,
+    customer_address: form.customer_address,
+    warehousing_items: form.warehousing_items,
+    total_amount: form.total_amount,
+    currency: form.currency,
+    warehousing_time: form.warehousing_time ? (typeof form.warehousing_time === 'string' ? form.warehousing_time : dayjs(form.warehousing_time).format('YYYY-MM-DD HH:mm')) : '',
+    warehousing_person: form.warehousing_person,
+    contact_phone: form.contact_phone,
+    remarks: form.remarks,
+    expenses: form.expenses,
+  }
+  const summary = form.customer_name ? `${form.customer_name} - ${form.warehousing_items.length}个商品` : `${form.warehousing_items.length}个商品`
+  saveDraft(DRAFT_KEY, draftData, summary)
+  message.success('暂存成功')
+}
+
+const restoreDraft = () => {
+  const draft = loadDraft(DRAFT_KEY)
+  if (!draft) return
+  form.purchase_order_number = draft.data.purchase_order_number || ''
+  form.customer_name = draft.data.customer_name || ''
+  form.customer_address = draft.data.customer_address || ''
+  form.warehousing_items = draft.data.warehousing_items || []
+  form.total_amount = draft.data.total_amount || 0
+  form.currency = draft.data.currency || 'CNY'
+  form.warehousing_time = draft.data.warehousing_time ? dayjs(draft.data.warehousing_time) : dayjs()
+  form.warehousing_person = draft.data.warehousing_person || currentUser.value?.username || ''
+  form.contact_phone = draft.data.contact_phone || currentUser.value?.phone || ''
+  form.remarks = draft.data.remarks || ''
+  form.expenses = draft.data.expenses || { expressDeliveryFee: 0, transportationFee: 0, customsFee: 0, otherFee: 0 }
+}
+
+const checkDraft = () => {
+  if (hasDraft(DRAFT_KEY)) {
+    const draft = loadDraft(DRAFT_KEY)
+    if (draft) {
+      const timeText = formatDraftTime(draft.timestamp)
+      Modal.confirm({
+        title: '恢复暂存内容',
+        content: `检测到上次暂存的内容（${draft.summary}，暂存于${timeText}），是否恢复？`,
+        okText: '恢复',
+        cancelText: '放弃',
+        zIndex: 1050,
+        onOk: () => {
+          restoreDraft()
+          message.success('已恢复暂存内容')
+        },
+        onCancel: () => {
+          clearDraft(DRAFT_KEY)
+        },
+      })
+    }
+  }
+}
+
 const supplierOptions = ref<any[]>([])
 const productOptions = ref<ProductOption[]>([])
 
@@ -661,7 +728,8 @@ watch(
 // 搜索产品
 const handleProductSearch = async (value: string, index: number) => {
   if (!value) {
-    productOptions.value = await productsApi.getAllList()
+    const res = await productsApi.getAllList()
+    productOptions.value = res.data || []
     return
   }
   loading.products = true
@@ -698,8 +766,8 @@ const loadBasicData = async () => {
       suppliersApi.getAllList(),
       productsApi.getAllList(),
     ])
-    supplierOptions.value = suppliersRes || []
-    productOptions.value = productsRes || []
+    supplierOptions.value = suppliersRes.data || []
+    productOptions.value = productsRes.data || []
   } catch (error) {
     message.error('加载基础数据失败')
   }
@@ -708,7 +776,7 @@ const loadBasicData = async () => {
 const handleSupplierSearch = async (value: string) => {
   if (!value) {
     const res = await suppliersApi.getAllList()
-    supplierOptions.value = res || []
+    supplierOptions.value = res.data || []
     return
   }
   loading.suppliers = true

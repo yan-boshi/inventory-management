@@ -130,13 +130,13 @@ EXIT;
 cd /var/www/inventory-management
 
 # 导入数据库结构
-mysql -u inventory_user -p inventory_management < server/init.sql
+mysql -u admin -p inventory_management < server/init.sql
 ```
 
 ### 3.3 验证数据库
 
 ```bash
-mysql -u inventory_user -p inventory_management -e "SHOW TABLES;"
+mysql -u admin -p inventory_management -e "SHOW TABLES;"
 ```
 
 应该看到以下表：
@@ -314,7 +314,7 @@ sudo nano /etc/nginx/sites-available/inventory
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;  # 替换为你的域名或 IP
+    server_name 47.115.77.82;  # 替换为你的域名或 IP
 
     # 前端静态文件
     root /var/www/html/inventory;

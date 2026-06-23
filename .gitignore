@@ -8,5 +8,4 @@ dist
 *.log
 .DS_Store
 coverage
-*.sql
 !.plan/**/*.md

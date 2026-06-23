@@ -120,6 +120,12 @@ export interface PaymentMethodQueryParams {
   name?: string
 }
 
+export interface ProductClassificationSelection {
+  classification_name: string
+  level1: string
+  level2: string
+}
+
 export interface Product {
   product_id: string
   product_name: string
@@ -130,6 +136,7 @@ export interface Product {
   stock?: number
   tax_included_price?: number
   tax_excluded_price?: number
+  product_classification?: string
   remarks?: string
   created_at: string
   updated_at: string
@@ -144,6 +151,7 @@ export interface CreateProductRequest {
   stock?: number
   tax_included_price?: number
   tax_excluded_price?: number
+  product_classification?: string
   remarks?: string
 }
 
@@ -235,14 +243,30 @@ export interface InventoryReportItem {
   product_code: string
   model: string
   unit: string
+  // 期初
   opening_stock: number
+  opening_stock_included_price: number
+  opening_stock_excluded_price: number
+  opening_stock_included_amount: number
+  opening_stock_excluded_amount: number
+  // 本期入库
   inbound_quantity: number
+  inbound_included_price: number
+  inbound_excluded_price: number
+  inbound_included_amount: number
+  inbound_excluded_amount: number
+  // 本期出库
   outbound_quantity: number
+  outbound_included_price: number
+  outbound_excluded_price: number
+  outbound_included_amount: number
+  outbound_excluded_amount: number
+  // 结余
   closing_stock: number
-  tax_included_price: number
-  tax_excluded_price: number
-  tax_included_amount: number
-  tax_excluded_amount: number
+  closing_stock_included_price: number
+  closing_stock_excluded_price: number
+  closing_stock_included_amount: number
+  closing_stock_excluded_amount: number
 }
 
 export interface BusinessCategory {
@@ -359,6 +383,49 @@ export interface PaymentMethodOption {
 export interface BusinessCategoryOption {
   business_category_id: string
   business_category_name: string
+}
+
+// 产品分类相关类型
+export interface ClassificationTree {
+  [level1Name: string]: {
+    [level2Name: string]: string
+  }
+}
+
+export interface ProductClassification {
+  product_classification_id: string
+  classification_name: string
+  classification_data: ClassificationTree
+  description?: string
+  creator?: string
+  remarks?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateProductClassificationRequest {
+  classification_name: string
+  classification_data?: ClassificationTree
+  description?: string
+  remarks?: string
+}
+
+export interface UpdateProductClassificationRequest {
+  classification_name?: string
+  classification_data?: ClassificationTree
+  description?: string
+  remarks?: string
+}
+
+export interface ProductClassificationQueryParams {
+  page?: number
+  pageSize?: number
+  name?: string
+}
+
+export interface ProductClassificationOption {
+  product_classification_id: string
+  classification_name: string
 }
 
 export interface ApiResponse<T> {

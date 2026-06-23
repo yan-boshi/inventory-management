@@ -379,7 +379,8 @@ const getNewQuotationNumber = async () => {
 // 搜索客户
 const handleCustomerSearch = async (value: string) => {
   if (!value) {
-    customerOptions.value = await customersApi.getAllList()
+    const res = await customersApi.getAllList()
+    customerOptions.value = res.data || []
     return
   }
   loading.customers = true
@@ -407,7 +408,8 @@ const handleCustomerChange = (value: string) => {
 // 搜索产品
 const handleProductSearch = async (value: string, index: number) => {
   if (!value) {
-    productOptions.value = await productsApi.getAllList()
+    const res = await productsApi.getAllList()
+    productOptions.value = res.data || []
     return
   }
   loading.products = true
@@ -581,8 +583,8 @@ const loadBasicData = async () => {
       customersApi.getAllList(),
       productsApi.getAllList(),
     ])
-    customerOptions.value = customers
-    productOptions.value = products
+    customerOptions.value = customers.data || []
+    productOptions.value = products.data || []
   } catch (error) {
     message.error('加载基础数据失败')
   }

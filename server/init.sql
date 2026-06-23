@@ -63,6 +63,19 @@ CREATE TABLE business_categories (
   INDEX idx_name (business_category_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Product Classifications Table
+CREATE TABLE product_classifications (
+  product_classification_id VARCHAR(36) PRIMARY KEY,
+  classification_name VARCHAR(100) NOT NULL COMMENT '分类方案名称',
+  classification_data TEXT NOT NULL COMMENT '分类数据（JSON字符串）',
+  description VARCHAR(500) DEFAULT NULL COMMENT '分类描述',
+  creator VARCHAR(50) DEFAULT NULL COMMENT '创建人',
+  remarks TEXT DEFAULT NULL COMMENT '备注',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_classification_name (classification_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='产品分类表';
+
 -- Payment Methods Table
 CREATE TABLE payment_methods (
   payment_method_id VARCHAR(36) PRIMARY KEY,
@@ -84,6 +97,7 @@ CREATE TABLE products (
   stock DECIMAL(15, 2) DEFAULT 0 COMMENT '库存数量',
   tax_included_price DECIMAL(10, 4) DEFAULT NULL COMMENT '含税单价（移动平均法）',
   tax_excluded_price DECIMAL(10, 4) DEFAULT NULL COMMENT '未税单价（移动平均法）',
+  product_classification TEXT COMMENT '产品分类（JSON字符串：分类方案/一级/二级/三级）',
   remarks TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

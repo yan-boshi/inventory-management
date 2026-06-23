@@ -1,5 +1,5 @@
 <template>
-  <a-modal v-model:open="visible" title="" width="900px" :footer="null" @cancel="handleCancel">
+  <a-modal v-model:open="visible" title="" width="900px" :footer="null" :closable="false" @cancel="handleCancel">
     <div ref="printContent" class="print-content">
       <!-- 页面头 -->
       <div class="page-header">
@@ -624,20 +624,177 @@ const handlePrint = () => {
   border-top: 1px solid #f0f0f0;
 }
 
+</style>
+
+<style lang="scss">
+@page {
+  margin: 5mm;
+  size: A4 portrait;
+}
+
 @media print {
-  .modal-footer,
-  :deep(.ant-modal-close),
-  :deep(.ant-modal-header),
-  :deep(.ant-modal-wrap) {
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body > #app {
+    display: none !important;
+  }
+
+  .ant-modal-mask {
+    display: none !important;
+  }
+
+  .ant-modal-wrap {
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  .ant-modal {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .ant-modal-content {
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .ant-modal-close,
+  .ant-modal-header {
+    display: none !important;
+  }
+
+  .ant-modal-body {
+    padding: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .modal-footer {
     display: none !important;
   }
 
   .print-content {
     padding: 0;
+    min-height: auto;
+    overflow: visible;
+    page-break-inside: auto;
+    font-size: 9px;
+    box-shadow: none !important;
   }
 
-  :deep(.ant-modal-body) {
-    padding: 0 !important;
+  // 页面标题
+  .page-header {
+    margin-bottom: 4px;
+
+    .title {
+      font-size: 14px;
+    }
+  }
+
+  // 顶部信息区域
+  .top-section {
+    margin-bottom: 4px;
+
+    .order-number-row {
+      margin-bottom: 4px;
+
+      .order-number {
+        font-size: 10px;
+      }
+    }
+
+    .info-row {
+      gap: 6px;
+    }
+
+    .info-item {
+      margin-bottom: 2px;
+      font-size: 8px;
+    }
+  }
+
+  // 表格
+  .product-table {
+    margin-bottom: 4px;
+
+    th {
+      padding: 2px 3px;
+      font-size: 8px;
+    }
+
+    td {
+      padding: 2px 3px;
+      font-size: 8px;
+
+      .product-extra {
+        font-size: 7px;
+        margin-top: 1px;
+      }
+    }
+  }
+
+  // 合同条款
+  .terms-section {
+    margin-bottom: 4px;
+    padding: 4px 6px;
+
+    h3 {
+      margin: 0 0 3px 0;
+      font-size: 9px;
+    }
+
+    .terms-list {
+      font-size: 7.5px;
+      line-height: 1.3;
+      padding-left: 12px;
+
+      li {
+        margin-bottom: 1px;
+      }
+    }
+  }
+
+  // 底部信息
+  .footer-section {
+    margin-top: 4px;
+    gap: 10px;
+
+    .footer-title {
+      font-size: 9px;
+      margin-bottom: 4px;
+    }
+
+    .footer-content {
+      padding: 4px 6px;
+    }
+
+    .footer-item {
+      margin-bottom: 2px;
+      font-size: 8px;
+
+      .footer-label {
+        min-width: 50px;
+      }
+    }
+
+    .sign-box {
+      margin-top: 4px;
+      padding-top: 4px;
+
+      .sign-label {
+        font-size: 8px;
+      }
+    }
   }
 }
 </style>

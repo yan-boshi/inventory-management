@@ -5,8 +5,7 @@ const API_BASE_URL = '/payment-methods'
 
 export const paymentMethodsApi = {
   getAllList: async () => {
-    const response = await instance.get<{ success: boolean; data: PaymentMethodOption[] }>(`${API_BASE_URL}/list`)
-    return response.data
+    return instance.get<{ success: boolean; data: PaymentMethodOption[] }>(`${API_BASE_URL}/list`)
   },
 
   getAll: async (params = {}) => {

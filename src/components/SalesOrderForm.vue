@@ -76,6 +76,24 @@
               </a-select>
             </div>
           </div>
+          <div class="form-row">
+            <div class="form-item">
+              <label class="form-label">币种：</label>
+              <a-select v-model:value="form.currency" class="invisible-select customer-name-input">
+                <a-select-option value="CNY">人民币</a-select-option>
+                <a-select-option value="USD">美元</a-select-option>
+                <a-select-option value="EUR">欧元</a-select-option>
+              </a-select>
+            </div>
+            <div class="form-item">
+              <label class="form-label">发货日期：</label>
+              <a-date-picker
+                v-model:value="form.delivery_date"
+                class="invisible-select customer-name-input"
+                format="YYYY-MM-DD"
+              />
+            </div>
+          </div>
 
           <!-- 报价内容表格 -->
           <div class="table-container">
@@ -287,23 +305,6 @@
 
           <!-- 销售订单说明 -->
           <div class="sales-order-note">
-            <div class="note-row">
-              <label class="note-label">币种：</label>
-              <a-select v-model:value="form.currency" style="width: 100%">
-                <a-select-option value="CNY">人民币</a-select-option>
-                <a-select-option value="USD">美元</a-select-option>
-                <a-select-option value="EUR">欧元</a-select-option>
-              </a-select>
-            </div>
-            <div class="note-row">
-              <label class="note-label">发货日期：</label>
-              <a-date-picker
-                v-model:value="form.delivery_date"
-                style="width: 100%"
-                format="YYYY-MM-DD"
-              />
-            </div>
-
             <!-- 销售费用登记 -->
             <div class="expenses-section">
               <div class="expenses-label">销售费用登记</div>
@@ -362,6 +363,7 @@
         <div class="form-footer">
           <a-space>
             <a-button @click="handleCancel">取消</a-button>
+            <a-button v-if="!isEdit" @click="handleSaveDraft">暂存</a-button>
             <!-- <a-button @click="handlePrint">打印</a-button> -->
             <!-- <a-button type="primary" @click="handleSaveAndPrint">保存并打印</a-button> -->
             <a-button type="primary" @click="handleSubmit">保存</a-button>
@@ -384,6 +386,8 @@ import { productsApi } from '@/api/products'
 import { paymentMethodsApi } from '@/api/paymentMethods'
 import { businessCategoriesApi } from '@/api/businessCategories'
 import { useUserStore } from '@/stores/user'
+import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
+import { Modal } from 'ant-design-vue'
 import type {
   CreateSalesOrderRequest,
   SalesOrderItem,
@@ -466,7 +470,7 @@ const itemColumns = [
   { title: '规格描述', key: 'description', width: '7%' },
   { title: '单位', key: 'unit', width: '5%' },
   { title: '数量', key: 'quantity', width: '8%' },
-  { title: '出库数', key: 'outbound_quantity', width: '6%' },
+  // { title: '出库数', key: 'outbound_quantity', width: '6%' },
   { title: '税率（%）', key: 'tax_rate', width: '7%' },
   { title: '含税单价', key: 'tax_included_price', width: '6%', align: 'right' },
   { title: '未税单价', key: 'tax_encluded_price', width: '6%', align: 'right' },
@@ -560,7 +564,8 @@ const getNewSalesOrderNumber = async () => {
 // 搜索结算方式
 const handlePaymentMethodSearch = async (value: string) => {
   if (!value) {
-    paymentMethodOptions.value = await paymentMethodsApi.getAllList()
+    const res = await paymentMethodsApi.getAllList()
+    paymentMethodOptions.value = res.data || []
     return
   }
   loading.paymentMethods = true
@@ -579,7 +584,8 @@ const handlePaymentMethodSearch = async (value: string) => {
 // 搜索业务分类
 const handleBusinessCategorySearch = async (value: string) => {
   if (!value) {
-    businessCategoryOptions.value = await businessCategoriesApi.getAllList()
+    const res = await businessCategoriesApi.getAllList()
+    businessCategoryOptions.value = res.data || []
     return
   }
   loading.businessCategories = true
@@ -598,7 +604,8 @@ const handleBusinessCategorySearch = async (value: string) => {
 // 搜索客户
 const handleCustomerSearch = async (value: string) => {
   if (!value) {
-    customerOptions.value = await customersApi.getAllList()
+    const res = await customersApi.getAllList()
+    customerOptions.value = res.data || []
     return
   }
   loading.customers = true
@@ -626,7 +633,8 @@ const handleCustomerChange = (value: string) => {
 // 搜索产品
 const handleProductSearch = async (value: string, index: number) => {
   if (!value) {
-    productOptions.value = await productsApi.getAllList()
+    const res = await productsApi.getAllList()
+    productOptions.value = res.data || []
     return
   }
   loading.products = true
@@ -783,6 +791,7 @@ const handleSubmit = async () => {
     } else {
       await salesOrdersApi.create(submitData)
       message.success('销售订单创建成功')
+      clearDraft(DRAFT_KEY)
       emit('success')
     }
 
@@ -828,6 +837,7 @@ watch(
       if (!props.isEdit) {
         // 从报价单转换的情况
         if (props.salesOrderData?.quotation_number) {
+          // 从报价单转换不检查暂存
           orderNumber.value = props.salesOrderData.quotation_number
           form.customer_name = props.salesOrderData.customer_name
           form.customer_code = props.salesOrderData.customer_code
@@ -842,6 +852,7 @@ watch(
           getNewSalesOrderNumber()
           resetForm()
           form.sales_person = userStore.user?.username || ''
+          checkDraft()
         }
       } else if (props.salesOrderData) {
         form.contract_number = props.salesOrderData.contract_number || ''
@@ -885,10 +896,10 @@ const loadBasicData = async () => {
       paymentMethodsApi.getAllList(),
       businessCategoriesApi.getAllList(),
     ])
-    customerOptions.value = customers
-    productOptions.value = products
-    paymentMethodOptions.value = paymentMethods
-    businessCategoryOptions.value = businessCategories
+    customerOptions.value = customers.data || []
+    productOptions.value = products.data || []
+    paymentMethodOptions.value = paymentMethods.data || []
+    businessCategoryOptions.value = businessCategories.data || []
   } catch (error) {
     message.error('加载基础数据失败')
   }
@@ -906,6 +917,68 @@ const resetForm = () => {
   form.sales_person = ''
   form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
   orderNumber.value = ''
+}
+
+// ==================== 暂存功能 ====================
+const DRAFT_KEY = 'sales_order'
+
+// 保存暂存
+const handleSaveDraft = () => {
+  const draftData = {
+    contract_number: form.contract_number,
+    customer_name: form.customer_name,
+    customer_code: form.customer_code,
+    payment_method: form.payment_method,
+    sales_items: form.sales_items,
+    currency: form.currency,
+    delivery_date: form.delivery_date ? (typeof form.delivery_date === 'string' ? form.delivery_date : dayjs(form.delivery_date).format('YYYY-MM-DD')) : '',
+    remarks: form.remarks,
+    expenses: form.expenses,
+  }
+  const summary = form.customer_name ? `${form.customer_name} - ${form.sales_items.length}个商品` : `${form.sales_items.length}个商品`
+  saveDraft(DRAFT_KEY, draftData, summary)
+  message.success('暂存成功')
+}
+
+// 恢复暂存
+const restoreDraft = () => {
+  const draft = loadDraft(DRAFT_KEY)
+  if (!draft) return
+
+  form.contract_number = draft.data.contract_number || ''
+  form.customer_name = draft.data.customer_name || ''
+  form.customer_code = draft.data.customer_code || ''
+  form.payment_method = draft.data.payment_method || ''
+  form.sales_items = draft.data.sales_items || []
+  form.currency = draft.data.currency || 'CNY'
+  // 将日期字符串转换为 dayjs 对象
+  form.delivery_date = draft.data.delivery_date ? dayjs(draft.data.delivery_date) : ''
+  form.remarks = draft.data.remarks || ''
+  form.expenses = draft.data.expenses || { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+}
+
+// 检查暂存并提示
+const checkDraft = () => {
+  if (hasDraft(DRAFT_KEY)) {
+    const draft = loadDraft(DRAFT_KEY)
+    if (draft) {
+      const timeText = formatDraftTime(draft.timestamp)
+      Modal.confirm({
+        title: '恢复暂存内容',
+        content: `检测到上次暂存的内容（${draft.summary}，暂存于${timeText}），是否恢复？`,
+        okText: '恢复',
+        cancelText: '放弃',
+        zIndex: 1050,
+        onOk: () => {
+          restoreDraft()
+          message.success('已恢复暂存内容')
+        },
+        onCancel: () => {
+          clearDraft(DRAFT_KEY)
+        },
+      })
+    }
+  }
 }
 
 // 初始化时添加一行

@@ -1,9 +1,10 @@
 <template>
   <a-modal
     v-model:open="visible"
-    title="出库单打印"
+    title="装箱清单"
     width="900px"
     :footer="null"
+    :closable="false"
     @cancel="handleCancel"
     :destroyOnClose="true"
   >
@@ -17,6 +18,7 @@
       <!-- 客户信息 -->
       <div class="customer-section">
         <div class="order-number-row">
+          <span class="label order-number">单据编号：</span>
           <span class="value order-number">{{ orderData?.order_number || '-' }}</span>
         </div>
         <div class="customer-info-row">
@@ -76,18 +78,6 @@
       <!-- 底部信息 -->
       <div class="footer-section">
         <div class="footer-row">
-          <span class="footer-label">总计：</span>
-          <span class="footer-value editable total-value" @click="handleEdit('total')">{{
-            formData.total
-          }}</span>
-        </div>
-        <div class="footer-row">
-          <span class="footer-label">币种：</span>
-          <span class="footer-value editable" @click="handleEdit('currency')">{{
-            formData.currency
-          }}</span>
-        </div>
-        <div class="footer-row">
           <span class="footer-label">快递单号：</span>
           <span
             v-if="formData.expressNumber"
@@ -100,12 +90,20 @@
           >
         </div>
         <div class="footer-row">
-          <span class="footer-label">发货人：</span>
-          <span class="footer-value">{{ formData.deliveryPerson || '-' }}</span>
+          <span class="footer-label">件数：</span>
+          <span class="footer-value invisible-input" @click="handleEdit('packages')">{{
+            formData.packages || '____'
+          }}</span>
         </div>
-        <div class="footer-row">
-          <span class="footer-label">联系电话：</span>
-          <span class="footer-value">{{ formData.contactPhone || '-' }}</span>
+        <div class="footer-right-section">
+          <div class="footer-row">
+            <span class="footer-label">发货人：</span>
+            <span class="footer-value">{{ formData.deliveryPerson || '-' }}</span>
+          </div>
+          <div class="footer-row">
+            <span class="footer-label">联系电话：</span>
+            <span class="footer-value">{{ formData.contactPhone || '-' }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -170,6 +168,7 @@ const formData = reactive({
   total: 0,
   currency: 'CNY',
   expressNumber: '',
+  packages: '',
   deliveryPerson: '',
   contactPhone: '',
 })
@@ -186,6 +185,7 @@ const editFieldTitle = computed(() => {
     total: '总计',
     currency: '币种',
     expressNumber: '快递单号',
+    packages: '件数',
     remarks: '备注',
   }
   return titles[editField.value] || '编辑'
@@ -247,6 +247,9 @@ const handleEdit = (field: string) => {
     case 'expressNumber':
       editValue.value = formData.expressNumber
       break
+    case 'packages':
+      editValue.value = formData.packages
+      break
     case 'remarks':
       editValue.value = formData.remarks
       break
@@ -270,6 +273,9 @@ const handleEditConfirm = () => {
       break
     case 'expressNumber':
       formData.expressNumber = editValue.value
+      break
+    case 'packages':
+      formData.packages = editValue.value
       break
     case 'remarks':
       formData.remarks = editValue.value
@@ -454,6 +460,11 @@ const handlePrint = () => {
       }
     }
   }
+
+  .footer-right-section {
+    margin-top: 16px;
+    margin-left: 50%;
+  }
 }
 
 .modal-footer {
@@ -462,20 +473,64 @@ const handlePrint = () => {
   border-top: 1px solid #f0f0f0;
 }
 
+</style>
+
+<style lang="scss">
+@page {
+  margin: 0;
+}
+
 @media print {
-  .modal-footer,
-  :deep(.ant-modal-close),
-  :deep(.ant-modal-header),
-  :deep(.ant-modal-wrap) {
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body > #app {
+    display: none !important;
+  }
+
+  .ant-modal-mask {
+    display: none !important;
+  }
+
+  .ant-modal-wrap {
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  .ant-modal {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .ant-modal-content {
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .ant-modal-close,
+  .ant-modal-header {
+    display: none !important;
+  }
+
+  .ant-modal-body {
+    padding: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .modal-footer {
     display: none !important;
   }
 
   .print-content {
     padding: 0;
-  }
-
-  :deep(.ant-modal-body) {
-    padding: 0 !important;
+    box-shadow: none !important;
   }
 }
 </style>

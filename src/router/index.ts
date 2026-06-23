@@ -70,6 +70,12 @@ const router = createRouter({
           meta: { roles: ['advanced', 'admin'] as UserRole[] }
         },
         {
+          path: 'product-classifications',
+          name: 'ProductClassifications',
+          component: () => import('@/views/products/ProductClassifications.vue'),
+          meta: { roles: ['advanced', 'admin'] as UserRole[] }
+        },
+        {
           path: 'delivery-orders',
           name: 'DeliveryOrders',
           component: () => import('@/views/delivery/DeliveryOrders.vue'),
@@ -135,7 +141,7 @@ router.beforeEach((to, _from, next) => {
 
   if (to.meta.guest) {
     if (userStore.isLoggedIn) {
-      next('/')
+      next('/customers')
     } else {
       next()
     }
@@ -145,7 +151,7 @@ router.beforeEach((to, _from, next) => {
     } else {
       const roles = to.meta.roles as UserRole[] | undefined
       if (roles && !roles.includes(userStore.user?.role as UserRole)) {
-        next('/')
+        next('/customers')
       } else {
         next()
       }

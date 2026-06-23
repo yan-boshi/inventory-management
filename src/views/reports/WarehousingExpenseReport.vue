@@ -428,7 +428,7 @@ const fetchReport = async () => {
       params.endDate = dateRange.value[1].format('YYYY-MM-DD')
     }
     const response = await warehousingExpenseReportApi.getReport(params)
-    reportData.value = response || []
+    reportData.value = response.data || []
     pagination.total = reportData.value.length
   } catch (error) {
     message.error('获取报表数据失败')

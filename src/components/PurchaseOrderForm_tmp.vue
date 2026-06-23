@@ -317,7 +317,8 @@ const getNewOrderNumber = async () => {
 
 const handleSupplierSearch = async (value: string) => {
   if (!value) {
-    supplierOptions.value = await suppliersApi.getAllList()
+    const res = await suppliersApi.getAllList()
+    supplierOptions.value = res.data || []
     return
   }
   loading.suppliers = true
@@ -343,7 +344,8 @@ const handleSupplierChange = (value: string) => {
 
 const handleProductSearch = async (value: string) => {
   if (!value) {
-    productOptions.value = await productsApi.getAllList()
+    const res = await productsApi.getAllList()
+    productOptions.value = res.data || []
     return
   }
   loading.products = true
@@ -375,7 +377,8 @@ const handleProductChange = (value: string) => {
 
 const handlePaymentMethodSearch = async (value: string) => {
   if (!value) {
-    paymentMethodOptions.value = await paymentMethodsApi.getAllList()
+    const res = await paymentMethodsApi.getAllList()
+    paymentMethodOptions.value = res.data || []
     return
   }
   loading.paymentMethods = true
@@ -393,7 +396,8 @@ const handlePaymentMethodSearch = async (value: string) => {
 
 const handleBusinessCategorySearch = async (value: string) => {
   if (!value) {
-    businessCategoryOptions.value = await businessCategoriesApi.getAllList()
+    const res = await businessCategoriesApi.getAllList()
+    businessCategoryOptions.value = res.data || []
     return
   }
   loading.businessCategories = true
@@ -509,10 +513,10 @@ const loadBasicData = async () => {
       businessCategoriesApi.getAllList()
     ])
 
-    supplierOptions.value = suppliers
-    productOptions.value = products
-    paymentMethodOptions.value = paymentMethods
-    businessCategoryOptions.value = businessCategories
+    supplierOptions.value = suppliers.data || []
+    productOptions.value = products.data || []
+    paymentMethodOptions.value = paymentMethods.data || []
+    businessCategoryOptions.value = businessCategories.data || []
   } catch (error) {
     message.error('加载基础数据失败')
   }

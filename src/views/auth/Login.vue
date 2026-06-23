@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-card">
       <h1 class="title">
-        库存管理系统
+        旭思达ERP系统
       </h1>
       <a-form
         :model="formData"
@@ -91,7 +91,7 @@ const handleLogin = async () => {
         res.data.token
       )
       message.success('登录成功')
-      router.push('/')
+      router.push('/customers')
     }
   } catch (error) {
     const err = error as { response?: { data?: { message?: string } } }

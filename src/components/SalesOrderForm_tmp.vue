@@ -446,7 +446,8 @@ const getNewOrderNumber = async () => {
 // 搜索客户
 const handleCustomerSearch = async (value: string) => {
   if (!value) {
-    customerOptions.value = await customersApi.getAllList()
+    const res = await customersApi.getAllList()
+    customerOptions.value = res.data || []
     return
   }
   loading.customers = true
@@ -474,7 +475,8 @@ const handleCustomerChange = (value: string) => {
 // 搜索产品
 const handleProductSearch = async (value: string) => {
   if (!value) {
-    productOptions.value = await productsApi.getAllList()
+    const res = await productsApi.getAllList()
+    productOptions.value = res.data || []
     return
   }
   loading.products = true
@@ -508,7 +510,8 @@ const handleProductChange = (value: string) => {
 // 搜索结算方式
 const handlePaymentMethodSearch = async (value: string) => {
   if (!value) {
-    paymentMethodOptions.value = await paymentMethodsApi.getAllList()
+    const res = await paymentMethodsApi.getAllList()
+    paymentMethodOptions.value = res.data || []
     return
   }
   loading.paymentMethods = true
@@ -527,7 +530,8 @@ const handlePaymentMethodSearch = async (value: string) => {
 // 搜索业务分类
 const handleBusinessCategorySearch = async (value: string) => {
   if (!value) {
-    businessCategoryOptions.value = await businessCategoriesApi.getAllList()
+    const res = await businessCategoriesApi.getAllList()
+    businessCategoryOptions.value = res.data || []
     return
   }
   loading.businessCategories = true
@@ -650,10 +654,10 @@ const loadBasicData = async () => {
       businessCategoriesApi.getAllList()
     ])
 
-    customerOptions.value = customers
-    productOptions.value = products
-    paymentMethodOptions.value = paymentMethods
-    businessCategoryOptions.value = businessCategories
+    customerOptions.value = customers.data || []
+    productOptions.value = products.data || []
+    paymentMethodOptions.value = paymentMethods.data || []
+    businessCategoryOptions.value = businessCategories.data || []
   } catch (error) {
     message.error('加载基础数据失败')
   }

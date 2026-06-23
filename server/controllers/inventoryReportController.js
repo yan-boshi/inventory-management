@@ -112,20 +112,24 @@ export const getInventoryReport = async (req, res) => {
     // 生成报表数据
     const report = products.map(product => {
       const currentStock = parseFloat(product.stock) || 0
-      const totalInboundBefore = inboundBeforeMap[product.product_code] || 0
-      const totalOutboundBefore = outboundBeforeMap[product.product_code] || 0
-      // 期初库存 = 当前总库存 - 期间之前的入库 + 期间之前的出库
-      // 即：期初库存 = 当前库存 - (总入库 - 期初后入库) + (总出库 - 期初后出库)
-      // 简化：期初库存 = 当前库存 - 期间入库总量(全部) + 期间出库总量(全部)
-      // 但实际上：期初库存 = 当前库存 - 期间入库 + 期间出库
-      // 当前库存 = 期初库存 + 期间入库 - 期间出库
       // 期初库存 = 当前库存 - 期间入库 + 期间出库
       const inbound = inboundMap[product.product_code] || 0
       const outbound = outboundMap[product.product_code] || 0
       const openingStock = currentStock - inbound + outbound
       const closingStock = currentStock
       const taxIncludedPrice = parseFloat(product.tax_included_price) || 0
-      const taxExcludedPrice = parseFloat(product.tax_excluded_price) || 0
+      // 如果未税单价为空，则根据含税单价和默认税率(13%)计算
+      const taxExcludedPrice = parseFloat(product.tax_excluded_price) || (taxIncludedPrice > 0 ? Math.round(taxIncludedPrice / 1.13 * 100) / 100 : 0)
+
+      // 计算各项目的金额
+      const openingStockIncludedAmount = Math.round(openingStock * taxIncludedPrice * 100) / 100
+      const openingStockExcludedAmount = Math.round(openingStock * taxExcludedPrice * 100) / 100
+      const inboundIncludedAmount = Math.round(inbound * taxIncludedPrice * 100) / 100
+      const inboundExcludedAmount = Math.round(inbound * taxExcludedPrice * 100) / 100
+      const outboundIncludedAmount = Math.round(outbound * taxIncludedPrice * 100) / 100
+      const outboundExcludedAmount = Math.round(outbound * taxExcludedPrice * 100) / 100
+      const closingIncludedAmount = Math.round(closingStock * taxIncludedPrice * 100) / 100
+      const closingExcludedAmount = Math.round(closingStock * taxExcludedPrice * 100) / 100
 
       return {
         product_id: product.product_id,
@@ -133,14 +137,30 @@ export const getInventoryReport = async (req, res) => {
         product_code: product.product_code,
         model: product.model || '',
         unit: product.unit || '',
+        // 期初
         opening_stock: Math.round(openingStock * 10000) / 10000,
+        opening_stock_included_price: taxIncludedPrice,
+        opening_stock_excluded_price: taxExcludedPrice,
+        opening_stock_included_amount: openingStockIncludedAmount,
+        opening_stock_excluded_amount: openingStockExcludedAmount,
+        // 本期入库
         inbound_quantity: Math.round(inbound * 10000) / 10000,
+        inbound_included_price: taxIncludedPrice,
+        inbound_excluded_price: taxExcludedPrice,
+        inbound_included_amount: inboundIncludedAmount,
+        inbound_excluded_amount: inboundExcludedAmount,
+        // 本期出库
         outbound_quantity: Math.round(outbound * 10000) / 10000,
+        outbound_included_price: taxIncludedPrice,
+        outbound_excluded_price: taxExcludedPrice,
+        outbound_included_amount: outboundIncludedAmount,
+        outbound_excluded_amount: outboundExcludedAmount,
+        // 结余（期末）
         closing_stock: Math.round(closingStock * 10000) / 10000,
-        tax_included_price: taxIncludedPrice,
-        tax_excluded_price: taxExcludedPrice,
-        tax_included_amount: Math.round(closingStock * taxIncludedPrice * 100) / 100,
-        tax_excluded_amount: Math.round(closingStock * taxExcludedPrice * 100) / 100,
+        closing_stock_included_price: taxIncludedPrice,
+        closing_stock_excluded_price: taxExcludedPrice,
+        closing_stock_included_amount: closingIncludedAmount,
+        closing_stock_excluded_amount: closingExcludedAmount,
       }
     })
 

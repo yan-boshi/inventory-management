@@ -1,6 +1,6 @@
 <template>
   <a-modal
-    title="打印预览"
+    title=""
     :width="1200"
     :visible="visible"
     @cancel="handleCancel"
@@ -306,13 +306,55 @@ const handlePrint = () => {
   margin-top: 20px;
 }
 
+</style>
+
+<style lang="scss">
+@page {
+  size: landscape;
+}
+
 @media print {
+
+  body > #app {
+    display: none !important;
+  }
+
+  .ant-modal-mask {
+    display: none !important;
+  }
+
+  .ant-modal-wrap {
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  .ant-modal {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    top: 0 !important;
+    left: 0 !important;
+  }
+
+  .ant-modal-close,
+  .ant-modal-header {
+    display: none !important;
+  }
+
+  .ant-modal-body {
+    padding: 0 !important;
+  }
+
   .print-actions {
     display: none !important;
   }
 
   .print-container {
     padding: 0;
+    font-size: 10px;
   }
 
   .table-wrapper {
@@ -322,12 +364,23 @@ const handlePrint = () => {
   .print-filters {
     background: none;
     padding: 0;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
+    font-size: 10px;
   }
 
-  :deep(.ant-modal-close),
-  :deep(.ant-modal-header) {
-    display: none !important;
+  .print-header .report-title {
+    font-size: 16px;
+  }
+
+  .print-table {
+    min-width: 0 !important;
+
+    th, td {
+      padding: 1px 3px;
+      font-size: 8px;
+      white-space: normal !important;
+      word-break: break-all;
+    }
   }
 }
 </style>

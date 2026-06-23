@@ -2,15 +2,26 @@
   <a-layout style="min-height: 100vh">
     <a-layout-sider v-model:collapsed="collapsed" collapsible>
       <div class="logo">
-        <h3 v-if="!collapsed">库存管理</h3>
-        <h3 v-else>库存</h3>
+        <h3>旭思达ERP系统</h3>
       </div>
       <a-menu v-model:selectedKeys="selectedKeys" theme="dark" mode="inline">
-        <a-menu-item key="Dashboard" @click="navigateTo('/')">
+        <!-- <a-menu-item key="Dashboard" @click="navigateTo('/')">
           <template #icon>
             <DashboardOutlined />
           </template>
           <span>仪表盘</span>
+        </a-menu-item> -->
+        <a-menu-item key="Customers" @click="navigateTo('/customers')" v-if="userStore.isAdvanced">
+          <template #icon>
+            <TeamOutlined />
+          </template>
+          <span>客户管理</span>
+        </a-menu-item>
+        <a-menu-item key="Suppliers" @click="navigateTo('/suppliers')" v-if="userStore.isAdvanced">
+          <template #icon>
+            <ShopOutlined />
+          </template>
+          <span>供应商管理</span>
         </a-menu-item>
         <a-menu-item key="SalesOrders" @click="navigateTo('/sales-orders')">
           <template #icon>
@@ -61,18 +72,6 @@
             出库费用明细表
           </a-menu-item>
         </a-sub-menu>
-        <a-menu-item key="Customers" @click="navigateTo('/customers')" v-if="userStore.isAdvanced">
-          <template #icon>
-            <TeamOutlined />
-          </template>
-          <span>客户管理</span>
-        </a-menu-item>
-        <a-menu-item key="Suppliers" @click="navigateTo('/suppliers')" v-if="userStore.isAdvanced">
-          <template #icon>
-            <ShopOutlined />
-          </template>
-          <span>供应商管理</span>
-        </a-menu-item>
         <a-menu-item key="Products" @click="navigateTo('/products')" v-if="userStore.isAdvanced">
           <template #icon>
             <AppstoreOutlined />
@@ -98,6 +97,16 @@
             <AppstoreAddOutlined />
           </template>
           <span>业务分类</span>
+        </a-menu-item>
+        <a-menu-item
+          key="ProductClassifications"
+          @click="navigateTo('/product-classifications')"
+          v-if="userStore.isAdvanced"
+        >
+          <template #icon>
+            <TagsOutlined />
+          </template>
+          <span>产品分类</span>
         </a-menu-item>
         <a-menu-item key="Users" @click="navigateTo('/users')" v-if="userStore.isAdmin">
           <template #icon>
@@ -160,6 +169,7 @@ import {
   AppstoreOutlined,
   PayCircleOutlined,
   AppstoreAddOutlined,
+  TagsOutlined,
   SettingOutlined,
   FileTextOutlined,
   BarChartOutlined,

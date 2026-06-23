@@ -139,24 +139,6 @@ const columns = [
     width: 80,
   },
   {
-    title: '库存',
-    dataIndex: 'stock',
-    key: 'stock',
-    width: 100,
-  },
-  {
-    title: '含税单价',
-    dataIndex: 'tax_included_price',
-    key: 'tax_included_price',
-    width: 100,
-  },
-  {
-    title: '未税单价',
-    dataIndex: 'tax_excluded_price',
-    key: 'tax_excluded_price',
-    width: 100,
-  },
-  {
     title: '创建时间',
     dataIndex: 'created_at',
     key: 'created_at',

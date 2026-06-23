@@ -5,8 +5,7 @@ const API_BASE_URL = '/business-categories'
 
 export const businessCategoriesApi = {
   getAllList: async () => {
-    const response = await instance.get<{ success: boolean; data: BusinessCategoryOption[] }>(`${API_BASE_URL}/list`)
-    return response.data
+    return instance.get<{ success: boolean; data: BusinessCategoryOption[] }>(`${API_BASE_URL}/list`)
   },
 
   getAll: async (params = {}) => {

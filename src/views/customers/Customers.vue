@@ -124,7 +124,7 @@ const columns = [
     width: 120,
   },
   {
-    title: '客户税号',
+    title: '信用代码',
     dataIndex: 'customer_tax_number',
     key: 'customer_tax_number',
     width: 150,
@@ -142,7 +142,7 @@ const columns = [
     width: 100,
   },
   {
-    title: '联系邮箱',
+    title: '邮箱',
     dataIndex: 'customer_email',
     key: 'customer_email',
     width: 180,

@@ -129,7 +129,7 @@ const handleRegister = async () => {
         res.data.token
       )
       message.success('注册成功')
-      router.push('/')
+      router.push('/customers')
     }
   } catch (error) {
     console.log('注册返回错误信息', error)

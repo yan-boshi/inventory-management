@@ -350,6 +350,7 @@
         <div class="form-footer">
           <a-space>
             <a-button @click="handleCancel">取消</a-button>
+            <a-button v-if="!isEdit" @click="handleSaveDraft">暂存</a-button>
             <a-button type="primary" @click="handleSubmit">保存</a-button>
           </a-space>
         </div>
@@ -369,6 +370,8 @@ import { suppliersApi } from '@/api/suppliers'
 import { productsApi } from '@/api/products'
 import { businessCategoriesApi } from '@/api/businessCategories'
 import { useUserStore } from '@/stores/user'
+import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
+import { Modal } from 'ant-design-vue'
 import type {
   CreatePurchaseOrderRequest,
   PurchaseItem,
@@ -462,8 +465,8 @@ const getNewOrderNumber = async () => {
 
 const handleSupplierSearch = async (value: string) => {
   if (!value) {
-    supplierOptions.value = await suppliersApi.getAllList()
-    console.log('upplierOptions.value', supplierOptions.value);
+    const res = await suppliersApi.getAllList()
+    supplierOptions.value = res.data || []
     return
   }
   loading.suppliers = true
@@ -489,7 +492,8 @@ const handleSupplierChange = (value: string) => {
 
 const handleProductSearch = async (value: string, index: number) => {
   if (!value) {
-    productOptions.value = await productsApi.getAllList()
+    const res = await productsApi.getAllList()
+    productOptions.value = res.data || []
     return
   }
   loading.products = true
@@ -610,6 +614,7 @@ const handleSubmit = async () => {
     } else {
       await purchaseOrdersApi.create(submitData)
       message.success('采购订单创建成功')
+      clearDraft(DRAFT_KEY)
     }
 
     emit('success')
@@ -634,6 +639,7 @@ watch(
         getNewOrderNumber()
         resetForm()
         form.purchase_person = userStore.user?.username || ''
+        checkDraft()
       } else if (props.purchaseOrderData) {
         form.contract_number = props.purchaseOrderData.contract_number || ''
         form.supplier_name = props.purchaseOrderData.supplier_name
@@ -688,10 +694,9 @@ const loadBasicData = async () => {
       productsApi.getAllList(),
       businessCategoriesApi.getAllList(),
     ])
-    supplierOptions.value = suppliers
-        console.log('upplierOptions.value', supplierOptions.value);
-    productOptions.value = products
-    businessCategoryOptions.value = businessCategories
+    supplierOptions.value = suppliers.data || []
+    productOptions.value = products.data || []
+    businessCategoryOptions.value = businessCategories.data || []
   } catch (error) {
     message.error('加载基础数据失败')
   }
@@ -710,6 +715,66 @@ const resetForm = () => {
   form.purchase_person = ''
   form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
   orderNumber.value = ''
+}
+
+// ==================== 暂存功能 ====================
+const DRAFT_KEY = 'purchase_order'
+
+const handleSaveDraft = () => {
+  const draftData = {
+    contract_number: form.contract_number,
+    supplier_name: form.supplier_name,
+    supplier_code: form.supplier_code,
+    purchase_items: form.purchase_items,
+    currency: form.currency,
+    exchange_rate: form.exchange_rate,
+    delivery_date: form.delivery_date ? (typeof form.delivery_date === 'string' ? form.delivery_date : dayjs(form.delivery_date).format('YYYY-MM-DD')) : '',
+    arrival_date: form.arrival_date ? (typeof form.arrival_date === 'string' ? form.arrival_date : dayjs(form.arrival_date).format('YYYY-MM-DD')) : '',
+    remarks: form.remarks,
+    expenses: form.expenses,
+  }
+  const summary = form.supplier_name ? `${form.supplier_name} - ${form.purchase_items.length}个商品` : `${form.purchase_items.length}个商品`
+  saveDraft(DRAFT_KEY, draftData, summary)
+  message.success('暂存成功')
+}
+
+const restoreDraft = () => {
+  const draft = loadDraft(DRAFT_KEY)
+  if (!draft) return
+  form.contract_number = draft.data.contract_number || ''
+  form.supplier_name = draft.data.supplier_name || ''
+  form.supplier_code = draft.data.supplier_code || ''
+  form.purchase_items = draft.data.purchase_items || []
+  form.currency = draft.data.currency || 'CNY'
+  form.exchange_rate = draft.data.exchange_rate || 1.0
+  // 将日期字符串转换为 dayjs 对象
+  form.delivery_date = draft.data.delivery_date ? dayjs(draft.data.delivery_date) : undefined
+  form.arrival_date = draft.data.arrival_date ? dayjs(draft.data.arrival_date) : undefined
+  form.remarks = draft.data.remarks || ''
+  form.expenses = draft.data.expenses || { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+}
+
+const checkDraft = () => {
+  if (hasDraft(DRAFT_KEY)) {
+    const draft = loadDraft(DRAFT_KEY)
+    if (draft) {
+      const timeText = formatDraftTime(draft.timestamp)
+      Modal.confirm({
+        title: '恢复暂存内容',
+        content: `检测到上次暂存的内容（${draft.summary}，暂存于${timeText}），是否恢复？`,
+        okText: '恢复',
+        cancelText: '放弃',
+        zIndex: 1050,
+        onOk: () => {
+          restoreDraft()
+          message.success('已恢复暂存内容')
+        },
+        onCancel: () => {
+          clearDraft(DRAFT_KEY)
+        },
+      })
+    }
+  }
 }
 </script>
 

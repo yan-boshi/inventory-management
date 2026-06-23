@@ -283,6 +283,7 @@
       <div class="form-footer">
         <a-space>
           <a-button @click="handleCancel">取消</a-button>
+          <a-button v-if="!isEdit" @click="handleSaveDraft">暂存</a-button>
           <a-button type="primary" @click="handlePrint">打印</a-button>
           <a-button type="primary" @click="handleSaveAndPrint">保存并打印</a-button>
           <a-button type="primary" @click="handleSave" :loading="saving">保存</a-button>
@@ -304,6 +305,8 @@ import { productsApi } from '@/api/products'
 import { customersApi } from '@/api/customers'
 import type { ProductOption, CustomerOption } from '@/types/index'
 import { useUserStore } from '@/stores/user'
+import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
+import { Modal } from 'ant-design-vue'
 
 dayjs.locale('zh-cn')
 
@@ -445,7 +448,8 @@ const handleSalesOrderChange = async (value: string) => {
       const customer = customerOptions.value.find(c => c.customer_name === order.customer_name)
       if (customer) {
         try {
-          const fullCustomer = await customersApi.getById(customer.customer_id)
+          const response = await customersApi.getById(customer.customer_id)
+          const fullCustomer = response.data || response
           formData.customer_address = fullCustomer.receiver_address || ''
         } catch {
           formData.customer_address = ''
@@ -499,7 +503,8 @@ const handleProductChange = (value: string, index: number) => {
 // 搜索客户
 const handleCustomerSearch = async (value: string) => {
   if (!value) {
-    customerOptions.value = await customersApi.getAllList()
+    const res = await customersApi.getAllList()
+    customerOptions.value = res.data || []
     return
   }
   loading.customers = true
@@ -522,7 +527,8 @@ const handleCustomerChange = async (value: string) => {
   const customer = customerOptions.value.find(c => c.customer_name === value)
   if (customer) {
     try {
-      const fullCustomer = await customersApi.getById(customer.customer_id)
+      const response = await customersApi.getById(customer.customer_id)
+      const fullCustomer = response.data || response
       formData.customer_address = fullCustomer.receiver_address || ''
     } catch {
       formData.customer_address = ''
@@ -623,6 +629,7 @@ const handleSave = async () => {
     } else {
       await deliveryOrdersApi.create(submitData)
       message.success('出库单创建成功')
+      clearDraft(DRAFT_KEY)
     }
 
     emit('success')
@@ -684,6 +691,69 @@ const resetForm = () => {
   formData.expenses = { ...defaultExpenses }
 }
 
+// ==================== 暂存功能 ====================
+const DRAFT_KEY = 'delivery_order'
+
+const handleSaveDraft = () => {
+  const draftData = {
+    sales_order_number: formData.sales_order_number,
+    customer_name: formData.customer_name,
+    customer_address: formData.customer_address,
+    delivery_items: formData.delivery_items,
+    total_amount: formData.total_amount,
+    currency: formData.currency,
+    delivery_time: formData.delivery_time ? (typeof formData.delivery_time === 'string' ? formData.delivery_time : dayjs(formData.delivery_time).format('YYYY-MM-DD HH:mm')) : '',
+    delivery_date: formData.delivery_date ? (typeof formData.delivery_date === 'string' ? formData.delivery_date : dayjs(formData.delivery_date).format('YYYY-MM-DD')) : '',
+    delivery_person: formData.delivery_person,
+    contact_phone: formData.contact_phone,
+    remarks: formData.remarks,
+    expenses: formData.expenses,
+  }
+  const summary = formData.customer_name ? `${formData.customer_name} - ${formData.delivery_items.length}个商品` : `${formData.delivery_items.length}个商品`
+  saveDraft(DRAFT_KEY, draftData, summary)
+  message.success('暂存成功')
+}
+
+const restoreDraft = () => {
+  const draft = loadDraft(DRAFT_KEY)
+  if (!draft) return
+  formData.sales_order_number = draft.data.sales_order_number || ''
+  formData.customer_name = draft.data.customer_name || ''
+  formData.customer_address = draft.data.customer_address || ''
+  formData.delivery_items = draft.data.delivery_items || []
+  formData.total_amount = draft.data.total_amount || 0
+  formData.currency = draft.data.currency || 'CNY'
+  formData.delivery_time = draft.data.delivery_time ? dayjs(draft.data.delivery_time) : dayjs()
+  formData.delivery_date = draft.data.delivery_date ? dayjs(draft.data.delivery_date) : dayjs()
+  formData.delivery_person = draft.data.delivery_person || currentUser.value?.username || ''
+  formData.contact_phone = draft.data.contact_phone || currentUser.value?.phone || ''
+  formData.remarks = draft.data.remarks || ''
+  formData.expenses = draft.data.expenses || { ...defaultExpenses }
+}
+
+const checkDraft = () => {
+  if (hasDraft(DRAFT_KEY)) {
+    const draft = loadDraft(DRAFT_KEY)
+    if (draft) {
+      const timeText = formatDraftTime(draft.timestamp)
+      Modal.confirm({
+        title: '恢复暂存内容',
+        content: `检测到上次暂存的内容（${draft.summary}，暂存于${timeText}），是否恢复？`,
+        okText: '恢复',
+        cancelText: '放弃',
+        zIndex: 1050,
+        onOk: () => {
+          restoreDraft()
+          message.success('已恢复暂存内容')
+        },
+        onCancel: () => {
+          clearDraft(DRAFT_KEY)
+        },
+      })
+    }
+  }
+}
+
 // 加载基础数据
 const loadBasicData = async () => {
   try {
@@ -698,7 +768,7 @@ const loadBasicData = async () => {
       description: p.description,
       unit: p.unit,
     }))
-    customerOptions.value = customers || []
+    customerOptions.value = customers.data || []
   } catch (error) {
     message.error('加载基础数据失败')
   }
@@ -714,6 +784,7 @@ watch(
         getNewOrderNumber()
         getSalesOrdersForDelivery()
         resetForm()
+        checkDraft()
         if (formData.delivery_items.length === 0) {
           addItem()
         }

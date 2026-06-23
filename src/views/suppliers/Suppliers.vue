@@ -142,7 +142,7 @@ const columns = [
     width: 100,
   },
   {
-    title: '联系邮箱',
+    title: '邮箱',
     dataIndex: 'supplier_email',
     key: 'supplier_email',
     width: 180,

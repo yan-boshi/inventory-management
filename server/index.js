@@ -18,6 +18,7 @@ import deliveryOrderRoutes from './routes/deliveryOrderRoutes.js'
 import inventoryReportRoutes from './routes/inventoryReportRoutes.js'
 import warehousingExpenseReportRoutes from './routes/warehousingExpenseReportRoutes.js'
 import deliveryExpenseReportRoutes from './routes/deliveryExpenseReportRoutes.js'
+import productClassificationRoutes from './routes/productClassificationRoutes.js'
 
 dotenv.config()
 
@@ -49,6 +50,7 @@ app.use('/api/delivery-orders', deliveryOrderRoutes)
 app.use('/api/inventory-report', inventoryReportRoutes)
 app.use('/api/warehousing-expense-report', warehousingExpenseReportRoutes)
 app.use('/api/delivery-expense-report', deliveryExpenseReportRoutes)
+app.use('/api/product-classifications', productClassificationRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

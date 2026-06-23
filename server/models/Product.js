@@ -17,6 +17,7 @@ class Product extends BaseModel {
       stock: data.stock || 0,
       tax_included_price: data.tax_included_price || null,
       tax_excluded_price: data.tax_excluded_price || null,
+      product_classification: data.product_classification || null,
       remarks: data.remarks || null
     }
     return super.create(productData)

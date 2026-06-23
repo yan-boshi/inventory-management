@@ -5,8 +5,7 @@ const API_BASE_URL = '/products'
 
 export const productsApi = {
   getAllList: async () => {
-    const response = await instance.get<{ success: boolean; data: ProductOption[] }>(`${API_BASE_URL}/list`)
-    return response.data
+    return instance.get<{ success: boolean; data: ProductOption[] }>(`${API_BASE_URL}/list`)
   },
 
   getAll: async (params = {}) => {

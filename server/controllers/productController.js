@@ -55,7 +55,7 @@ export const getProductById = async (req, res) => {
 
 export const createProduct = async (req, res) => {
   try {
-    const { product_name, model, description, product_code, unit, stock, tax_included_price, tax_excluded_price, remarks } = req.body
+    const { product_name, model, description, product_code, unit, stock, tax_included_price, tax_excluded_price, product_classification, remarks } = req.body
 
     if (!product_name || !product_code) {
       return res.status(400).json({ success: false, message: 'Product name and code are required' })
@@ -66,7 +66,7 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Product code already exists' })
     }
 
-    const product = await Product.create({ product_name, model, description, product_code, unit, stock, tax_included_price, tax_excluded_price, remarks })
+    const product = await Product.create({ product_name, model, description, product_code, unit, stock, tax_included_price, tax_excluded_price, product_classification, remarks })
     res.status(201).json({ success: true, data: product })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
@@ -76,7 +76,7 @@ export const createProduct = async (req, res) => {
 export const updateProduct = async (req, res) => {
   try {
     const { id } = req.params
-    const { product_name, model, description, product_code, unit, stock, tax_included_price, tax_excluded_price, remarks } = req.body
+    const { product_name, model, description, product_code, unit, stock, tax_included_price, tax_excluded_price, product_classification, remarks } = req.body
 
     const existing = await Product.findById(id)
     if (!existing) {
@@ -99,6 +99,7 @@ export const updateProduct = async (req, res) => {
     if (stock !== undefined) updateData.stock = stock
     if (tax_included_price !== undefined) updateData.tax_included_price = tax_included_price
     if (tax_excluded_price !== undefined) updateData.tax_excluded_price = tax_excluded_price
+    if (product_classification !== undefined) updateData.product_classification = product_classification
     if (remarks !== undefined) updateData.remarks = remarks
 
     const product = await Product.update(id, updateData)

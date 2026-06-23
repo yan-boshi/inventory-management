@@ -97,6 +97,30 @@ export const createDeliveryOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: '出库商品不能为空' })
     }
 
+    // 先校验库存是否充足（在创建出库单之前）
+    if (delivery_items) {
+      const parsedItems = typeof delivery_items === 'string' ? JSON.parse(delivery_items) : delivery_items
+      for (const item of parsedItems) {
+        if (!item.product_code || !item.quantity) continue
+        // 查询当前库存
+        const [productResult] = await pool.query(
+          'SELECT stock, product_name FROM products WHERE product_code = ?',
+          [item.product_code]
+        )
+        if (productResult.length > 0) {
+          const currentStock = parseFloat(productResult[0].stock || 0)
+          const outQuantity = parseFloat(item.quantity || 0)
+          // 校验库存是否充足
+          if (outQuantity > currentStock) {
+            return res.status(400).json({
+              success: false,
+              message: `商品 ${productResult[0].product_name}(${item.product_code}) 库存不足，当前库存: ${currentStock}，出库数量: ${outQuantity}`
+            })
+          }
+        }
+      }
+    }
+
     // 创建出库单
     const order = await DeliveryOrder.create({
       sales_order_number,
@@ -117,6 +141,7 @@ export const createDeliveryOrder = async (req, res) => {
       try {
         const parsedItems = typeof delivery_items === 'string' ? JSON.parse(delivery_items) : delivery_items
         for (const item of parsedItems) {
+          if (!item.product_code || !item.quantity) continue
           // 查询当前库存
           const [productResult] = await pool.query(
             'SELECT stock FROM products WHERE product_code = ?',
@@ -125,13 +150,6 @@ export const createDeliveryOrder = async (req, res) => {
           if (productResult.length > 0) {
             const currentStock = parseFloat(productResult[0].stock || 0)
             const newStock = currentStock - parseFloat(item.quantity || 0)
-            // 校验库存是否充足
-            if (newStock < 0) {
-              return res.status(400).json({
-                success: false,
-                message: `商品 ${item.product_code} 库存不足，当前库存: ${currentStock}，出库数量: ${item.quantity}`
-              })
-            }
             // 更新库存
             await pool.query(
               'UPDATE products SET stock = ? WHERE product_code = ?',

@@ -31,7 +31,6 @@ export const quotationsApi = {
 
   // 获取新的报价编号
   getNewQuotationNumber: async () => {
-    const response = await instance.get<{ success: boolean; data: { quotation_number: string } }>(`${API_BASE_URL}/new-quotation-number`)
-    return response.data
+    return instance.get<{ success: boolean; data: { quotation_number: string } }>(`${API_BASE_URL}/new-quotation-number`)
   }
 }

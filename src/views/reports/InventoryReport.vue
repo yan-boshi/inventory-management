@@ -45,10 +45,45 @@
               <a-popover title="显示列" trigger="click" placement="bottomRight">
                 <template #content>
                   <div class="column-settings">
-                    <div v-for="col in allColumns" :key="col.key" class="column-item">
-                      <a-checkbox :checked="visibleColumnKeys.includes(col.key)" @change="(e: any) => handleColumnChange(col.key, e.target.checked)">
-                        {{ col.title }}
-                      </a-checkbox>
+                    <div class="column-group">
+                      <div class="group-title">基础信息</div>
+                      <div v-for="col in basicColumns" :key="col.key" class="column-item">
+                        <a-checkbox :checked="visibleColumnKeys.includes(col.key)" @change="(e: any) => handleColumnChange(col.key, e.target.checked)">
+                          {{ col.title }}
+                        </a-checkbox>
+                      </div>
+                    </div>
+                    <div class="column-group">
+                      <div class="group-title">期初</div>
+                      <div v-for="col in openingColumns" :key="col.key" class="column-item">
+                        <a-checkbox :checked="visibleColumnKeys.includes(col.key)" @change="(e: any) => handleColumnChange(col.key, e.target.checked)">
+                          {{ col.title }}
+                        </a-checkbox>
+                      </div>
+                    </div>
+                    <div class="column-group">
+                      <div class="group-title">本期入库</div>
+                      <div v-for="col in inboundColumns" :key="col.key" class="column-item">
+                        <a-checkbox :checked="visibleColumnKeys.includes(col.key)" @change="(e: any) => handleColumnChange(col.key, e.target.checked)">
+                          {{ col.title }}
+                        </a-checkbox>
+                      </div>
+                    </div>
+                    <div class="column-group">
+                      <div class="group-title">本期出库</div>
+                      <div v-for="col in outboundColumns" :key="col.key" class="column-item">
+                        <a-checkbox :checked="visibleColumnKeys.includes(col.key)" @change="(e: any) => handleColumnChange(col.key, e.target.checked)">
+                          {{ col.title }}
+                        </a-checkbox>
+                      </div>
+                    </div>
+                    <div class="column-group">
+                      <div class="group-title">结余</div>
+                      <div v-for="col in closingColumns" :key="col.key" class="column-item">
+                        <a-checkbox :checked="visibleColumnKeys.includes(col.key)" @change="(e: any) => handleColumnChange(col.key, e.target.checked)">
+                          {{ col.title }}
+                        </a-checkbox>
+                      </div>
                     </div>
                   </div>
                 </template>
@@ -75,9 +110,10 @@
         bordered
         size="small"
         @change="handleTableChange"
-        :scroll="{ x: 1400 }"
+        :scroll="{ x: 2800 }"
       >
         <template #bodyCell="{ column, record }">
+          <!-- 数量列 -->
           <template v-if="column.key === 'opening_stock'">
             {{ formatNumber(record.opening_stock) }}
           </template>
@@ -90,17 +126,13 @@
           <template v-else-if="column.key === 'closing_stock'">
             <strong>{{ formatNumber(record.closing_stock) }}</strong>
           </template>
-          <template v-else-if="column.key === 'tax_included_price'">
-            {{ formatMoney(record.tax_included_price) }}
+          <!-- 单价列 -->
+          <template v-else-if="column.key.includes('_price')">
+            {{ formatMoney(record[column.key]) }}
           </template>
-          <template v-else-if="column.key === 'tax_excluded_price'">
-            {{ formatMoney(record.tax_excluded_price) }}
-          </template>
-          <template v-else-if="column.key === 'tax_included_amount'">
-            {{ formatMoney(record.tax_included_amount) }}
-          </template>
-          <template v-else-if="column.key === 'tax_excluded_amount'">
-            {{ formatMoney(record.tax_excluded_amount) }}
+          <!-- 金额列 -->
+          <template v-else-if="column.key.includes('_amount')">
+            {{ formatMoney(record[column.key]) }}
           </template>
         </template>
       </a-table>
@@ -129,21 +161,48 @@ const printVisible = ref(false)
 
 // 列配置
 const allColumns = [
-  { title: '产品名称', dataIndex: 'product_name', key: 'product_name', width: 150, fixed: 'left' as const },
-  { title: '产品代码', dataIndex: 'product_code', key: 'product_code', width: 120, fixed: 'left' as const },
-  { title: '规格型号', dataIndex: 'model', key: 'model', width: 120 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' as const },
-  { title: '期初库存', dataIndex: 'opening_stock', key: 'opening_stock', width: 100, align: 'right' as const },
-  { title: '本期入库', dataIndex: 'inbound_quantity', key: 'inbound_quantity', width: 100, align: 'right' as const },
-  { title: '本期出库', dataIndex: 'outbound_quantity', key: 'outbound_quantity', width: 100, align: 'right' as const },
-  { title: '期末库存', dataIndex: 'closing_stock', key: 'closing_stock', width: 100, align: 'right' as const },
-  { title: '含税单价', dataIndex: 'tax_included_price', key: 'tax_included_price', width: 100, align: 'right' as const },
-  { title: '未税单价', dataIndex: 'tax_excluded_price', key: 'tax_excluded_price', width: 100, align: 'right' as const },
-  { title: '期末金额(含税)', dataIndex: 'tax_included_amount', key: 'tax_included_amount', width: 130, align: 'right' as const },
-  { title: '期末金额(未税)', dataIndex: 'tax_excluded_amount', key: 'tax_excluded_amount', width: 130, align: 'right' as const },
+  { title: '产品名称', dataIndex: 'product_name', key: 'product_name', width: 120, fixed: 'left' as const },
+  { title: '产品代码', dataIndex: 'product_code', key: 'product_code', width: 100, fixed: 'left' as const },
+  { title: '规格型号', dataIndex: 'model', key: 'model', width: 100 },
+  { title: '单位', dataIndex: 'unit', key: 'unit', width: 50, align: 'center' as const },
+  // 期初
+  { title: '期初数量', dataIndex: 'opening_stock', key: 'opening_stock', width: 80, align: 'right' as const },
+  { title: '期初含税单价', dataIndex: 'opening_stock_included_price', key: 'opening_stock_included_price', width: 100, align: 'right' as const },
+  { title: '期初未税单价', dataIndex: 'opening_stock_excluded_price', key: 'opening_stock_excluded_price', width: 100, align: 'right' as const },
+  { title: '期初含税金额', dataIndex: 'opening_stock_included_amount', key: 'opening_stock_included_amount', width: 100, align: 'right' as const },
+  { title: '期初未税金额', dataIndex: 'opening_stock_excluded_amount', key: 'opening_stock_excluded_amount', width: 100, align: 'right' as const },
+  // 本期入库
+  { title: '入库数量', dataIndex: 'inbound_quantity', key: 'inbound_quantity', width: 80, align: 'right' as const },
+  { title: '入库含税单价', dataIndex: 'inbound_included_price', key: 'inbound_included_price', width: 100, align: 'right' as const },
+  { title: '入库未税单价', dataIndex: 'inbound_excluded_price', key: 'inbound_excluded_price', width: 100, align: 'right' as const },
+  { title: '入库含税金额', dataIndex: 'inbound_included_amount', key: 'inbound_included_amount', width: 100, align: 'right' as const },
+  { title: '入库未税金额', dataIndex: 'inbound_excluded_amount', key: 'inbound_excluded_amount', width: 100, align: 'right' as const },
+  // 本期出库
+  { title: '出库数量', dataIndex: 'outbound_quantity', key: 'outbound_quantity', width: 80, align: 'right' as const },
+  { title: '出库含税单价', dataIndex: 'outbound_included_price', key: 'outbound_included_price', width: 100, align: 'right' as const },
+  { title: '出库未税单价', dataIndex: 'outbound_excluded_price', key: 'outbound_excluded_price', width: 100, align: 'right' as const },
+  { title: '出库含税金额', dataIndex: 'outbound_included_amount', key: 'outbound_included_amount', width: 100, align: 'right' as const },
+  { title: '出库未税金额', dataIndex: 'outbound_excluded_amount', key: 'outbound_excluded_amount', width: 100, align: 'right' as const },
+  // 结余
+  { title: '结余数量', dataIndex: 'closing_stock', key: 'closing_stock', width: 80, align: 'right' as const },
+  { title: '结余含税单价', dataIndex: 'closing_stock_included_price', key: 'closing_stock_included_price', width: 100, align: 'right' as const },
+  { title: '结余未税单价', dataIndex: 'closing_stock_excluded_price', key: 'closing_stock_excluded_price', width: 100, align: 'right' as const },
+  { title: '结余含税金额', dataIndex: 'closing_stock_included_amount', key: 'closing_stock_included_amount', width: 100, align: 'right' as const },
+  { title: '结余未税金额', dataIndex: 'closing_stock_excluded_amount', key: 'closing_stock_excluded_amount', width: 100, align: 'right' as const },
 ]
 
-const visibleColumnKeys = ref<string[]>(allColumns.map(col => col.key))
+const visibleColumnKeys = ref<string[]>(
+  allColumns
+    .filter(col => !col.key.includes('_excluded_'))
+    .map(col => col.key)
+)
+
+// 分组列配置
+const basicColumns = allColumns.filter(col => ['product_name', 'product_code', 'model', 'unit'].includes(col.key))
+const openingColumns = allColumns.filter(col => col.key.startsWith('opening_'))
+const inboundColumns = allColumns.filter(col => col.key.startsWith('inbound_'))
+const outboundColumns = allColumns.filter(col => col.key.startsWith('outbound_'))
+const closingColumns = allColumns.filter(col => col.key.startsWith('closing_'))
 
 const filteredColumns = computed(() => {
   return allColumns.filter(col => visibleColumnKeys.value.includes(col.key))
@@ -193,7 +252,7 @@ const fetchReport = async () => {
       params.month = searchParams.month
     }
     const response = await inventoryReportApi.getReport(params)
-    reportData.value = response || []
+    reportData.value = response.data || []
     pagination.total = reportData.value.length
   } catch (error) {
     message.error('获取报表数据失败')
@@ -247,11 +306,28 @@ onMounted(() => {
 }
 
 .column-settings {
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
+  min-width: 200px;
+}
+
+.column-group {
+  margin-bottom: 12px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  .group-title {
+    font-weight: bold;
+    color: #1890ff;
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e8e8e8;
+  }
 }
 
 .column-item {
-  padding: 4px 0;
+  padding: 2px 0;
 }
 </style>

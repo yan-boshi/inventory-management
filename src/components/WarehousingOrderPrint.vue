@@ -1,8 +1,9 @@
 <template>
   <a-modal
-    title="打印预览"
+    title=""
     :width="800"
     :visible="visible"
+    :closable="false"
     @cancel="handleCancel"
     :footer="null"
   >
@@ -35,7 +36,7 @@
         </div>
         <div class="info-row">
           <span class="info-label">币种：</span>
-          <span class="info-value">{{ order.currency }}</span>
+          <span class="info-value">{{ order.currency || 'CNY' }}</span>
         </div>
       </div>
 
@@ -62,14 +63,17 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(item, index) in getParsedWarehousingItems()" :key="index">
+          <tr v-for="(item, index) in parsedItems" :key="index">
             <td>{{ index + 1 }}</td>
             <td>{{ item.product_code || '-' }}</td>
             <td>{{ item.product_name || '-' }}</td>
-            <td>{{ item.description || '-' }}</td>
+            <td>{{ item.description || item.specification || '-' }}</td>
             <td>{{ item.unit || '-' }}</td>
-            <td>{{ item.quantity }}</td>
+            <td>{{ item.quantity || '-' }}</td>
             <td>{{ item.remarks || '-' }}</td>
+          </tr>
+          <tr v-if="parsedItems.length === 0">
+            <td colspan="7" style="text-align: center; color: #999;">暂无入库商品</td>
           </tr>
         </tbody>
       </table>
@@ -77,7 +81,7 @@
       <div class="print-footer">
         <div class="footer-row">
           <span class="footer-label">总计：</span>
-          <span class="footer-value">{{ order.total_amount }}</span>
+          <span class="footer-value">{{ order.total_amount || 0 }}</span>
         </div>
         <div class="footer-row">
           <span class="footer-label">入库人：</span>
@@ -92,6 +96,13 @@
           <span class="footer-value">{{ order.remarks || '-' }}</span>
         </div>
       </div>
+    </div>
+
+    <div class="modal-footer">
+      <a-space>
+        <a-button @click="handleCancel">取消</a-button>
+        <a-button type="primary" @click="handlePrint">打印</a-button>
+      </a-space>
     </div>
   </a-modal>
 </template>
@@ -110,19 +121,24 @@ const emit = defineEmits<{
   'update:visible': [value: boolean]
 }>()
 
-const getParsedWarehousingItems = () => {
+const parsedItems = computed(() => {
   if (!props.order || !props.order.warehousing_items) return []
   try {
-    return JSON.parse(props.order.warehousing_items || '[]')
+    const items = typeof props.order.warehousing_items === 'string'
+      ? JSON.parse(props.order.warehousing_items)
+      : props.order.warehousing_items
+    return Array.isArray(items) ? items : []
   } catch {
     return []
   }
-}
+})
 
 const getExpenses = () => {
   if (!props.order || !props.order.expenses) return {}
   try {
-    return JSON.parse(props.order.expenses || '{}')
+    return typeof props.order.expenses === 'string'
+      ? JSON.parse(props.order.expenses)
+      : props.order.expenses || {}
   } catch {
     return {}
   }
@@ -130,7 +146,7 @@ const getExpenses = () => {
 
 const hasExpenses = () => {
   const expenses = getExpenses()
-  return Object.values(expenses).some(value => value > 0)
+  return Object.values(expenses).some((value: any) => value > 0)
 }
 
 const formatCurrency = (value: number) => {
@@ -144,6 +160,10 @@ const formatDateTime = (dateString: string) => {
 
 const handleCancel = () => {
   emit('update:visible', false)
+}
+
+const handlePrint = () => {
+  window.print()
 }
 </script>
 
@@ -199,7 +219,7 @@ const handleCancel = () => {
   td {
     border: 1px solid #000;
     padding: 8px 12px;
-    text-align: left;
+    text-align: center;
   }
 
   th {
@@ -243,14 +263,116 @@ const handleCancel = () => {
   }
 }
 
+.modal-footer {
+  text-align: right;
+  padding: 16px 0 0 0;
+  border-top: 1px solid #f0f0f0;
+}
+
+</style>
+
+<style lang="scss">
+@page {
+  margin: 5mm;
+  size: A4 portrait;
+}
+
 @media print {
-  .print-container {
-    font-size: 12pt;
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
-  th,
-  td {
-    border-color: #000 !important;
+  body > #app {
+    display: none !important;
+  }
+
+  .ant-modal-mask {
+    display: none !important;
+  }
+
+  .ant-modal-wrap {
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  .ant-modal {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .ant-modal-content {
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .ant-modal-close,
+  .ant-modal-header {
+    display: none !important;
+  }
+
+  .ant-modal-body {
+    padding: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .modal-footer {
+    display: none !important;
+  }
+
+  .print-container {
+    padding: 0;
+    font-size: 9px;
+  }
+
+  .print-header {
+    margin-bottom: 5px;
+
+    .company-name {
+      font-size: 14px;
+    }
+
+    .order-title {
+      font-size: 12px;
+    }
+  }
+
+  .print-info {
+    margin-bottom: 4px;
+
+    .info-row {
+      margin-bottom: 2px;
+      font-size: 8px;
+    }
+  }
+
+  .print-table {
+    margin-bottom: 4px;
+
+    th {
+      padding: 2px 3px;
+      font-size: 8px;
+    }
+
+    td {
+      padding: 2px 3px;
+      font-size: 8px;
+    }
+  }
+
+  .print-footer {
+    .footer-row {
+      margin-bottom: 2px;
+      font-size: 8px;
+    }
   }
 }
 </style>

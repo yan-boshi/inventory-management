@@ -363,6 +363,7 @@ const handleReturn = (order: SalesOrder) => {
 }
 
 const handlePrint = (order: SalesOrder) => {
+  console.log('order1111', order);
   currentOrder.value = order
   printVisible.value = true
 }
