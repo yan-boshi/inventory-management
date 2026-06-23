@@ -122,16 +122,7 @@ const router = createRouter({
     },
     {
       path: '/register',
-      name: 'Register',
-      component: () => import('@/layouts/AuthLayout.vue'),
-      children: [
-        {
-          path: '',
-          name: 'RegisterPage',
-          component: () => import('@/views/auth/Register.vue')
-        }
-      ],
-      meta: { guest: true }
+      redirect: '/login'
     }
   ]
 })
@@ -141,7 +132,7 @@ router.beforeEach((to, _from, next) => {
 
   if (to.meta.guest) {
     if (userStore.isLoggedIn) {
-      next('/customers')
+      next('/sales-orders')
     } else {
       next()
     }
@@ -151,7 +142,7 @@ router.beforeEach((to, _from, next) => {
     } else {
       const roles = to.meta.roles as UserRole[] | undefined
       if (roles && !roles.includes(userStore.user?.role as UserRole)) {
-        next('/customers')
+        next('/sales-orders')
       } else {
         next()
       }

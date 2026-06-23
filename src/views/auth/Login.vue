@@ -44,11 +44,6 @@
           </a-button>
         </a-form-item>
       </a-form>
-      <div class="register-link">
-        还没有账号？<router-link to="/register">
-          立即注册
-        </router-link>
-      </div>
     </div>
   </div>
 </template>
@@ -91,7 +86,7 @@ const handleLogin = async () => {
         res.data.token
       )
       message.success('登录成功')
-      router.push('/customers')
+      router.push('/sales-orders')
     }
   } catch (error) {
     const err = error as { response?: { data?: { message?: string } } }
@@ -129,19 +124,5 @@ const handleLogin = async () => {
 
 .login-form {
   margin-bottom: 16px;
-}
-
-.register-link {
-  text-align: center;
-  color: #666;
-
-  a {
-    color: #667eea;
-    text-decoration: none;
-
-    &:hover {
-      text-decoration: underline;
-    }
-  }
 }
 </style>
