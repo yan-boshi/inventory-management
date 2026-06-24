@@ -11,7 +11,7 @@
       <div class="top-section">
         <div class="contract-number-row">
           <span class="label">合同编号：</span>
-          <span class="value">{{ orderData?.order_number || '-' }}</span>
+          <span class="value">{{ orderData?.contract_number || '-' }}</span>
         </div>
         <div class="parties-row">
           <!-- 甲方（需方） -->
@@ -60,7 +60,8 @@
               <th>数量</th>
               <th>单位</th>
               <th>含税单价</th>
-              <th>合计</th>
+              <th>税额</th>
+              <th>含税金额</th>
               <th style="width: 100px">备注</th>
             </tr>
           </thead>
@@ -73,6 +74,7 @@
               <td>{{ item.quantity || '-' }}</td>
               <td>{{ item.unit || '-' }}</td>
               <td>{{ item.tax_included_price }}</td>
+              <td>{{ item.tax_amount }}</td>
               <td>{{ item.tax_included_amount }}</td>
               <td>
                 <span class="value editable" @click="handleEdit('remarks')">-</span>
@@ -80,11 +82,11 @@
             </tr>
             <!-- 金额总计行 -->
             <tr class="total-row">
-              <td colspan="7" class="total-label">金额总计（大写）：</td>
+              <td colspan="8" class="total-label">金额总计（大写）：</td>
               <td colspan="2">{{ formData.amountInWords }}</td>
             </tr>
             <tr class="total-row">
-              <td colspan="7" class="total-label">金额总计：</td>
+              <td colspan="8" class="total-label">金额总计：</td>
               <td colspan="2">{{ formatPrice(formData.total) }}</td>
             </tr>
           </tbody>

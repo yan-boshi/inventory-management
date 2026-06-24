@@ -84,9 +84,9 @@
               {{ index + 1 }}
             </template>
 
-            <template v-else-if="column.key === 'product_name'">
+            <template v-else-if="column.key === 'product_code'">
               <a-select
-                v-model:value="record.product_name"
+                v-model:value="record.product_code"
                 placeholder="请选择产品"
                 :loading="loading.products"
                 show-search
@@ -95,20 +95,21 @@
                 @change="value => handleProductChange(value, index)"
                 style="width: 100%"
                 class="invisible-select"
+                optionLabelProp="product_code"
               >
                 <a-select-option
                   v-for="product in productOptions"
                   :key="product.product_id"
-                  :value="product.product_name"
+                  :value="product.product_code"
                 >
-                  {{ product.product_name }}
+                  {{ product.product_name }}（{{product.product_code}}）
                 </a-select-option>
               </a-select>
             </template>
-            <template v-else-if="column.key === 'product_code'">
+            <template v-else-if="column.key === 'product_name'">
               <a-input
-                v-model:value="record.product_code"
-                placeholder="产品代码"
+                v-model:value="record.product_name"
+                placeholder="产品名称"
                 style="width: 100%"
                 class="invisible-input"
                 :disabled="!!form.purchase_order_number"
@@ -734,7 +735,7 @@ const handleProductSearch = async (value: string, index: number) => {
   }
   loading.products = true
   try {
-    const response = await productsApi.getAll({ name: value })
+    const response = await productsApi.search(value, value)
     productOptions.value = response.data.map((p: any) => ({
       product_id: p.product_id || p.id,
       product_name: p.product_name || p.name,
@@ -751,10 +752,10 @@ const handleProductSearch = async (value: string, index: number) => {
 
 // 选择产品
 const handleProductChange = (value: string, index: number) => {
-  const product = productOptions.value.find(p => p.product_name === value)
+  const product = productOptions.value.find(p => p.product_code === value)
   if (product) {
     form.warehousing_items[index].model = product.model || ''
-    form.warehousing_items[index].product_code = product.product_code || ''
+    form.warehousing_items[index].product_name = product.product_name || ''
     form.warehousing_items[index].description = product.description || ''
     form.warehousing_items[index].unit = product.unit || ''
   }

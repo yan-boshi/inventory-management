@@ -113,15 +113,15 @@
                 </template>
                 <a-button type="link" size="small"> 状态 <DownOutlined /> </a-button>
               </a-dropdown>
-              <a-dropdown>
-                <a-button type="link" size="small"> 打印 <DownOutlined /> </a-button>
-                <template #overlay>
+              <!-- <a-dropdown> -->
+                <a-button type="link" size="small" @click="({ key }) => handlePrint(record, key)"> 打印 <DownOutlined /> </a-button>
+                <!-- <template #overlay>
                   <a-menu @click="({ key }) => handlePrint(record, key)">
                     <a-menu-item key="zh">中文版</a-menu-item>
                     <a-menu-item key="en">English</a-menu-item>
                   </a-menu>
-                </template>
-              </a-dropdown>
+                </template> -->
+              <!-- </a-dropdown> -->
             </a-space>
           </template>
         </template>

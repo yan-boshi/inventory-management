@@ -85,30 +85,30 @@
                   </a-select-option>
                 </a-select>
               </template>
-              <template v-else-if="column.key === 'product_name'">
+              <template v-else-if="column.key === 'product_code'">
                 <a-select
-                  v-model:value="record.product_name"
+                  v-model:value="record.product_code"
                   placeholder="请选择产品"
                   :loading="loading.products"
                   show-search
                   :filter-option="false"
                   @search="value => handleProductSearch(value, index)"
                   @change="value => handleProductChange(value, index)"
-                  style="width: 100%"
+                  style="width: 200%"
                   class="invisible-select"
-                  optionLabelProp="product_name"
+                  optionLabelProp="product_code"
                 >
                   <a-select-option
                     v-for="product in productOptions"
                     :key="product.product_id"
-                    :value="product.product_name"
+                    :value="product.product_code"
                   >
                     {{ product.product_name }}（{{product.product_code}}）
                   </a-select-option>
                 </a-select>
               </template>
-              <template v-else-if="column.key === 'product_code'">
-                <a-input v-model:value="record.product_code" style="width: 100%" class="invisible-input" />
+              <template v-else-if="column.key === 'product_name'">
+                <a-input v-model:value="record.product_name" style="width: 100%" class="invisible-input" />
               </template>
 
               <template v-else-if="column.key === 'model'">
@@ -433,8 +433,8 @@ const form = reactive<
 const itemColumns = [
   { title: '编号', key: 'no', width: 60, align: 'center', fixed: 'left' as const },
   { title: '业务分类', key: 'business_category', width: 120, fixed: 'left' as const },
-  { title: '产品名称', key: 'product_name', width: 150, fixed: 'left' as const },
   { title: '产品代码', key: 'product_code', width: 120, fixed: 'left' as const },
+  { title: '产品名称', key: 'product_name', width: 150, fixed: 'left' as const },
   { title: '规格型号', key: 'model', width: 100, fixed: 'left' as const },
   { title: '规格描述', key: 'description', width: 120, fixed: 'left' as const },
   { title: '单位', key: 'unit', width: 70 },
@@ -500,7 +500,7 @@ const handleProductSearch = async (value: string, index: number) => {
   }
   loading.products = true
   try {
-    const response = await productsApi.getAll({ name: value })
+    const response = await productsApi.search(value,value)
     productOptions.value = response.data.map((p: any) => ({
       product_id: p.product_id || p.id,
       product_name: p.product_name || p.name,
@@ -516,10 +516,10 @@ const handleProductSearch = async (value: string, index: number) => {
 }
 
 const handleProductChange = (value: string, index: number) => {
-  const product = productOptions.value.find(p => p.product_name === value)
+  const product = productOptions.value.find(p => p.product_code === value)
   
   if (product) {
-    form.purchase_items[index].product_code = product.product_code || ''
+    form.purchase_items[index].product_name = product.product_name || ''
     form.purchase_items[index].model = product.model || ''
     form.purchase_items[index].description = product.description || ''
     form.purchase_items[index].unit = product.unit || ''

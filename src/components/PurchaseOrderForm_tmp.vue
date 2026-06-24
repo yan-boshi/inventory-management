@@ -84,9 +84,9 @@
           </a-select>
         </a-form-item>
 
-        <a-form-item label="产品名称" name="product">
+        <a-form-item label="产品代码" name="product">
           <a-select
-            v-model:value="form.product_name"
+            v-model:value="form.product_code"
             placeholder="请选择产品"
             :loading="loading.products"
             show-search
@@ -97,11 +97,15 @@
             <a-select-option
               v-for="product in productOptions"
               :key="product.product_id"
-              :value="product.product_name"
+              :value="product.product_code"
             >
               {{ product.product_name }} ({{ product.product_code }})
             </a-select-option>
           </a-select>
+        </a-form-item>
+
+        <a-form-item label="产品名称">
+          <a-input v-model:value="form.product_name" disabled />
         </a-form-item>
 
         <a-form-item label="规格型号">
@@ -350,7 +354,7 @@ const handleProductSearch = async (value: string) => {
   }
   loading.products = true
   try {
-    const response = await productsApi.getAll({ name: value })
+    const response = await productsApi.search(value,value)
     productOptions.value = response.data.map((p: any) => ({
       product_id: p.product_id || p.id,
       product_name: p.product_name || p.name,
@@ -366,9 +370,9 @@ const handleProductSearch = async (value: string) => {
 }
 
 const handleProductChange = (value: string) => {
-  const product = productOptions.value.find(p => p.product_name === value)
+  const product = productOptions.value.find(p => p.product_code === value)
   if (product) {
-    form.product_code = product.product_code
+    form.product_name = product.product_name
     form.model = product.model || ''
     form.description = product.description || ''
     form.unit = product.unit || ''

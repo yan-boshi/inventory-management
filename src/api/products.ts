@@ -12,6 +12,13 @@ export const productsApi = {
     return instance.get<PaginatedResponse<Product>>(`${API_BASE_URL}`, { params })
   },
 
+  search: async (productName?: string, productCode?: string) => {
+    const params: Record<string, string> = {}
+    if (productName) params.name = productName
+    if (productCode) params.code = productCode
+    return instance.get<PaginatedResponse<Product>>(`${API_BASE_URL}/search`, { params })
+  },
+
   getById: async (id: string) => {
     return instance.get<Product>(`${API_BASE_URL}/${id}`)
   },

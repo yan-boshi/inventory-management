@@ -9,7 +9,8 @@
       <!-- 页面上面部分 -->
       <div class="top-section">
         <div class="order-number-row">
-          <span class="order-number">{{ orderData?.order_number || '-' }}</span>
+          <span class="label">合同编号：</span>
+          <span class="order-number">{{ orderData?.contract_number || '-' }}</span>
         </div>
         <div class="info-row">
           <div class="info-left">

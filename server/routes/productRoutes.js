@@ -6,12 +6,14 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  getAllProductsList
+  getAllProductsList,
+  searchProducts
 } from '../controllers/productController.js'
 
 const router = express.Router()
 
 router.get('/', authMiddleware, advancedOrAdmin, getAllProducts)
+router.get('/search', authMiddleware, advancedOrAdmin, searchProducts)
 router.get('/list', authMiddleware, getAllProductsList)
 router.get('/:id', authMiddleware, advancedOrAdmin, getProductById)
 router.post('/', authMiddleware, advancedOrAdmin, createProduct)

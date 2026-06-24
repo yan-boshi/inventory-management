@@ -125,6 +125,46 @@ export const deleteProduct = async (req, res) => {
   }
 }
 
+export const searchProducts = async (req, res) => {
+  try {
+    const { page = 1, pageSize = 10, name, code } = req.query
+    const where = []
+    const params = []
+
+    if (name) {
+      where.push('product_name LIKE ?')
+      params.push(`%${name}%`)
+    }
+
+    if (code) {
+      where.push('product_code LIKE ?')
+      params.push(`%${code}%`)
+    }
+
+    const whereClause = where.length > 0 ? where.join(' OR ') : ''
+    const result = await Product.paginate({
+      where: whereClause,
+      orderBy: 'created_at DESC',
+      page,
+      pageSize,
+      params
+    })
+
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: {
+        total: result.total,
+        page: result.page,
+        pageSize: result.pageSize,
+        totalPages: result.totalPages
+      }
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message })
+  }
+}
+
 export const getAllProductsList = async (req, res) => {
   try {
     const products = await Product.findAll({ orderBy: 'product_name ASC' })
