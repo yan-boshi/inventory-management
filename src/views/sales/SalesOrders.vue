@@ -74,6 +74,18 @@
             {{ getItemCount(record.sales_items) }}
           </template>
 
+          <template v-else-if="column.key === 'product_info'">
+            <div class="product-info-cell">
+              <div v-for="(item, idx) in parseSalesItems(record.sales_items)" :key="idx" class="product-info-item">
+                {{ item.product_name }}
+                <span v-if="item.product_code">（{{ item.product_code }}）</span>
+                <span v-if="item.model"> {{ item.model }}</span>
+                <span v-if="item.description"> {{ item.description }}</span>
+                <span v-if="item.quantity"> × {{ item.quantity }}</span>
+              </div>
+            </div>
+          </template>
+
           <template v-else-if="column.key === 'status'">
             <a-tag :color="getStatusColor(record.status)">
               {{ getStatusText(record.status) }}
@@ -194,6 +206,12 @@ const columns = [
     key: 'order_number',
     width: 150,
   },
+    {
+    title: '合同编号',
+    dataIndex: 'contract_number',
+    key: 'contract_number',
+    width: 150,
+  },
   {
     title: '客户名称',
     dataIndex: 'customer_name',
@@ -205,6 +223,11 @@ const columns = [
     dataIndex: 'customer_code',
     key: 'customer_code',
     width: 120,
+  },
+  {
+    title: '商品信息',
+    key: 'product_info',
+    width: 400,
   },
   {
     title: '结算方式',
@@ -390,6 +413,14 @@ const getItemCount = (salesItems: string) => {
   }
 }
 
+const parseSalesItems = (salesItems: string) => {
+  try {
+    return JSON.parse(salesItems || '[]')
+  } catch {
+    return []
+  }
+}
+
 const getStatusColor = (status: number) => {
   const colorMap: Record<number, string> = {
     1: 'blue',    // 未出库
@@ -446,6 +477,22 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+  }
+
+  .product-info-cell {
+    .product-info-item {
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      &:not(:last-child) {
+        border-bottom: 1px dashed #f0f0f0;
+        padding-bottom: 2px;
+        margin-bottom: 2px;
+      }
+    }
   }
 }
 </style>

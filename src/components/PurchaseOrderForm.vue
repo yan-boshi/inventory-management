@@ -62,6 +62,7 @@
             :pagination="false"
             bordered
             size="small"
+            :scroll="{ x: 1760 }"
           >
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'no'">
@@ -95,13 +96,14 @@
                   @change="value => handleProductChange(value, index)"
                   style="width: 100%"
                   class="invisible-select"
+                  optionLabelProp="product_name"
                 >
                   <a-select-option
                     v-for="product in productOptions"
                     :key="product.product_id"
                     :value="product.product_name"
                   >
-                    {{ product.product_name }}
+                    {{ product.product_name }}（{{product.product_code}}）
                   </a-select-option>
                 </a-select>
               </template>
@@ -429,25 +431,25 @@ const form = reactive<
 })
 
 const itemColumns = [
-  { title: '编号', key: 'no', width: '3%', align: 'center' },
-  { title: '业务分类', key: 'business_category', width: '8%' },
-  { title: '产品名称', key: 'product_name', width: '10%' },
-  { title: '产品代码', key: 'product_code', width: '8%' },
-  { title: '规格型号', key: 'model', width: '5%' },
-  { title: '规格描述', key: 'description', width: '7%' },
-  { title: '单位', key: 'unit', width: '5%' },
-  { title: '数量', key: 'quantity', width: '6%' },
-  { title: '入库数', key: 'inbound_quantity', width: '6%' },
-  { title: '税率（%）', key: 'tax_rate', width: '6%' },
-  { title: '含税单价', key: 'tax_included_price', width: '6%', align: 'right' },
-  { title: '未税单价', key: 'tax_excluded_price', width: '6%', align: 'right' },
-  { title: '含税金额', key: 'tax_included_amount', width: '6%', align: 'right' },
-  { title: '未税金额', key: 'tax_excluded_amount', width: '6%', align: 'right' },
-  { title: '税额', key: 'tax_amount', width: '6%', align: 'right' },
-  { title: '状态', key: 'status', width: '5%' },
-  { title: '备注', key: 'remarks', width: '7%' },
-  { title: '总价', key: 'total_price', width: '6%', align: 'right' },
-  { title: '操作', key: 'actions', width: '5%', fixed: 'right' },
+  { title: '编号', key: 'no', width: 60, align: 'center', fixed: 'left' as const },
+  { title: '业务分类', key: 'business_category', width: 120, fixed: 'left' as const },
+  { title: '产品名称', key: 'product_name', width: 150, fixed: 'left' as const },
+  { title: '产品代码', key: 'product_code', width: 120, fixed: 'left' as const },
+  { title: '规格型号', key: 'model', width: 100, fixed: 'left' as const },
+  { title: '规格描述', key: 'description', width: 120, fixed: 'left' as const },
+  { title: '单位', key: 'unit', width: 70 },
+  { title: '数量', key: 'quantity', width: 80 },
+  { title: '入库数', key: 'inbound_quantity', width: 80 },
+  { title: '税率（%）', key: 'tax_rate', width: 90 },
+  { title: '含税单价', key: 'tax_included_price', width: 100, align: 'right' as const },
+  { title: '未税单价', key: 'tax_excluded_price', width: 100, align: 'right' as const },
+  { title: '含税金额', key: 'tax_included_amount', width: 110, align: 'right' as const },
+  { title: '未税金额', key: 'tax_excluded_amount', width: 110, align: 'right' as const },
+  { title: '税额', key: 'tax_amount', width: 100, align: 'right' as const },
+  { title: '状态', key: 'status', width: 80 },
+  { title: '备注', key: 'remarks', width: 150 },
+  { title: '总价', key: 'total_price', width: 110, align: 'right' as const },
+  { title: '操作', key: 'actions', width: 70, fixed: 'right' as const },
 ]
 
 const totalAmount = computed(() => {

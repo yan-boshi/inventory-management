@@ -1,7 +1,7 @@
 <template>
   <a-modal
     :title="isEdit ? '编辑报价单' : '新增报价单'"
-    :width="1100"
+    :width="1300"
     :visible="visible"
     @ok="handleSubmit"
     @cancel="handleCancel"

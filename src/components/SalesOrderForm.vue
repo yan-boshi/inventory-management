@@ -103,6 +103,7 @@
               :pagination="false"
               bordered
               size="small"
+              :scroll="{ x: 1630 }"
             >
               <template #bodyCell="{ column, record, index }">
                 <template v-if="column.key === 'no'">
@@ -134,15 +135,16 @@
                     :filter-option="false"
                     @search="value => handleProductSearch(value, index)"
                     @change="value => handleProductChange(value, index)"
-                    style="width: 100%"
+                    style="width: 200%"
                     class="invisible-select"
+                    optionLabelProp="product_name"
                   >
                     <a-select-option
                       v-for="product in productOptions"
                       :key="product.product_id"
                       :value="product.product_name"
                     >
-                      {{ product.product_name }}
+                      {{ product.product_name }}（{{product.product_code}}）
                     </a-select-option>
                   </a-select>
                 </template>
@@ -462,24 +464,23 @@ const form = reactive<CreateSalesOrderRequest & { sales_items: SalesOrderItem[];
 })
 
 const itemColumns = [
-  { title: '编号', key: 'no', width: '3%', align: 'center' },
-  { title: '业务分类', key: 'business_category', width: '8%' },
-  { title: '产品名称', key: 'product_name', width: '8%' },
-  { title: '产品代码', key: 'product_code', width: '8%' },
-  { title: '规格型号', key: 'model', width: '5%' },
-  { title: '规格描述', key: 'description', width: '7%' },
-  { title: '单位', key: 'unit', width: '5%' },
-  { title: '数量', key: 'quantity', width: '8%' },
-  // { title: '出库数', key: 'outbound_quantity', width: '6%' },
-  { title: '税率（%）', key: 'tax_rate', width: '7%' },
-  { title: '含税单价', key: 'tax_included_price', width: '6%', align: 'right' },
-  { title: '未税单价', key: 'tax_encluded_price', width: '6%', align: 'right' },
-  { title: '含税金额', key: 'tax_included_amount', width: '8%', align: 'right' },
-  { title: '未税金额', key: 'tax_excluded_amount', width: '8%', align: 'right' },
-  { title: '税额', key: 'tax_amount', width: '8%', align: 'right' },
-  { title: '状态', key: 'status', width: '5%' },
-  { title: '备注', key: 'remarks', width: '10%' },
-  { title: '操作', key: 'actions', width: '5%', fixed: 'right' },
+  { title: '编号', key: 'no', width: 60, align: 'center', fixed: 'left' as const },
+  { title: '业务分类', key: 'business_category', width: 120, fixed: 'left' as const },
+  { title: '产品名称', key: 'product_name', width: 150, fixed: 'left' as const },
+  { title: '产品代码', key: 'product_code', width: 120, fixed: 'left' as const },
+  { title: '规格型号', key: 'model', width: 100, fixed: 'left' as const },
+  { title: '规格描述', key: 'description', width: 120, fixed: 'left' as const },
+  { title: '单位', key: 'unit', width: 70 },
+  { title: '数量', key: 'quantity', width: 80 },
+  { title: '税率（%）', key: 'tax_rate', width: 90 },
+  { title: '含税单价', key: 'tax_included_price', width: 100, align: 'right' as const },
+  { title: '未税单价', key: 'tax_encluded_price', width: 100, align: 'right' as const },
+  { title: '含税金额', key: 'tax_included_amount', width: 110, align: 'right' as const },
+  { title: '未税金额', key: 'tax_excluded_amount', width: 110, align: 'right' as const },
+  { title: '税额', key: 'tax_amount', width: 100, align: 'right' as const },
+  { title: '状态', key: 'status', width: 80 },
+  { title: '备注', key: 'remarks', width: 150 },
+  { title: '操作', key: 'actions', width: 70, fixed: 'right' as const },
 ]
 
 const totalAmount = computed({
@@ -658,6 +659,7 @@ const handleProductSearch = async (value: string, index: number) => {
 const handleProductChange = (value: string, index: number) => {
   const product = productOptions.value.find(p => p.product_name === value)
   if (product) {
+    // form.sales_items[index].product_name = product.product_name || ''
     form.sales_items[index].model = product.model || ''
     form.sales_items[index].product_code = product.product_code || ''
     form.sales_items[index].description = product.description || ''

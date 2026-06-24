@@ -205,7 +205,7 @@ const columns = [
     width: 120,
   },
   {
-    title: '采购商品',
+    title: '商品信息',
     key: 'purchase_items',
     width: 250,
   },
