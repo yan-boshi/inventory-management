@@ -77,13 +77,14 @@
           </template>
 
           <template v-else-if="column.key === 'delivery_items'">
-            <a-tag
-              v-for="(item, index) in getDeliveryItems(record)"
-              :key="index"
-              style="margin: 2px"
-            >
-              {{ item.product_name }} x{{ item.quantity }}
-            </a-tag>
+            <div class="product-info-cell">
+              <div v-for="(item, idx) in getDeliveryItems(record)" :key="idx" class="product-info-item">
+                {{ item.product_name }}
+                <span v-if="item.product_code">（{{ item.product_code }}）</span>
+                <span v-if="item.description"> {{ item.description }}</span>
+                <span v-if="item.quantity"> × {{ item.quantity }}</span>
+              </div>
+            </div>
           </template>
 
           <template v-else-if="column.key === 'total_amount'">
@@ -94,6 +95,10 @@
 
           <template v-else-if="column.key === 'delivery_time'">
             {{ formatDateTime(record.delivery_time) }}
+          </template>
+
+          <template v-else-if="column.key === 'entry_date'">
+            {{ formatDate(record.entry_date) }}
           </template>
 
           <template v-else-if="column.key === 'actions'">
@@ -179,9 +184,9 @@ const columns = [
     width: 180,
   },
   {
-    title: '销售订单编号',
-    dataIndex: 'sales_order_number',
-    key: 'sales_order_number',
+    title: '销售合同编号',
+    dataIndex: 'contract_number',
+    key: 'contract_number',
     width: 150,
   },
   {
@@ -200,6 +205,12 @@ const columns = [
     dataIndex: 'delivery_time',
     key: 'delivery_time',
     width: 160,
+  },
+  {
+    title: '录入日期',
+    dataIndex: 'entry_date',
+    key: 'entry_date',
+    width: 120,
   },
   {
     title: '总计',
@@ -331,6 +342,11 @@ const formatDateTime = (dateString: string) => {
   return dayjs(dateString).format('YYYY-MM-DD HH:mm')
 }
 
+const formatDate = (dateString: string) => {
+  if (!dateString) return '-'
+  return dayjs(dateString).format('YYYY-MM-DD')
+}
+
 onMounted(() => {
   loadOrders()
 })
@@ -355,6 +371,22 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+  }
+
+  .product-info-cell {
+    .product-info-item {
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      &:not(:last-child) {
+        border-bottom: 1px dashed #f0f0f0;
+        padding-bottom: 2px;
+        margin-bottom: 2px;
+      }
+    }
   }
 }
 </style>

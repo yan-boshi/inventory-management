@@ -46,6 +46,18 @@
           </div>
         </div>
 
+        <div class="form-row">
+          <div class="form-item">
+            <label class="form-label"><span class="required">*</span>录入日期：</label>
+            <a-date-picker
+              v-model:value="form.entry_date"
+              style="width: 100%"
+              format="YYYY-MM-DD"
+            />
+          </div>
+          <div class="form-item"></div>
+        </div>
+
         <!-- 报价内容表格 -->
         <div class="table-container">
           <a-table
@@ -246,6 +258,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch, computed } from 'vue'
+import dayjs from 'dayjs'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { quotationsApi } from '@/api/quotations'
@@ -286,6 +299,7 @@ const form = reactive<CreateQuotationRequest & { quotation_items: QuotationItem[
   tax_rate: 13,
   currency: 'CNY',
   remarks: '',
+  entry_date: dayjs(),
 })
 
 const itemColumns = [
@@ -492,6 +506,20 @@ const handleSubmit = async () => {
     message.error('请添加报价内容')
     return
   }
+  if (!form.entry_date) {
+    message.error('请选择录入日期')
+    return
+  }
+
+  const formatDate = (date: any) => {
+    if (!date) return undefined
+    if (typeof date === 'string') return date
+    try {
+      return dayjs(date).format('YYYY-MM-DD')
+    } catch {
+      return undefined
+    }
+  }
 
   try {
     submitting.value = true
@@ -506,6 +534,7 @@ const handleSubmit = async () => {
       currency: form.currency,
       tax_include_amount: totalAmount.value,
       remarks: form.remarks,
+      entry_date: formatDate(form.entry_date),
     }
 
     if (props.isEdit && props.quotationData?.quotation_id) {
@@ -569,6 +598,11 @@ watch(
         form.currency = props.quotationData.currency || 'CNY'
         form.remarks = props.quotationData.remarks || ''
         quotationNumber.value = props.quotationData.quotation_number || ''
+        if (props.quotationData.entry_date) {
+          form.entry_date = dayjs(props.quotationData.entry_date)
+        } else {
+          form.entry_date = dayjs()
+        }
         try {
           form.quotation_items = JSON.parse(props.quotationData.quotation_items || '[]')
         } catch {
@@ -605,6 +639,7 @@ const resetForm = () => {
   form.tax_rate = 13
   form.currency = 'CNY'
   form.remarks = ''
+  form.entry_date = dayjs()
   quotationNumber.value = ''
 }
 
@@ -807,5 +842,10 @@ watch(
   :deep(.ant-select-arrow) {
     display: none !important;
   }
+}
+
+.required {
+  color: #ff4d4f;
+  margin-right: 4px;
 }
 </style>

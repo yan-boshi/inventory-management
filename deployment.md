@@ -693,7 +693,7 @@ BACKUP_DIR="/var/backups/mysql"
 DATE=$(date +%Y%m%d_%H%M%S)
 mkdir -p $BACKUP_DIR
 
-mysqldump -u inventory_user -p'your_password' inventory_management > $BACKUP_DIR/inventory_$DATE.sql
+mysqldump -u admin -p  inventory_management > $BACKUP_DIR/inventory_$DATE.sql
 
 # 保留最近 30 天的备份
 find $BACKUP_DIR -name "*.sql" -mtime +30 -delete

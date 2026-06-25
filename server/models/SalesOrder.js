@@ -68,7 +68,7 @@ class SalesOrder extends BaseModel {
       tax_included_amount: data.tax_included_amount || 0,
       currency: data.currency || 'CNY',
       exchange_rate: parseFloat(data.exchange_rate) || 1.0,
-      delivery_date: data.delivery_date || null,
+      entry_date: data.entry_date || null,
       remarks: data.remarks || null,
       expenses: expensesJson,
       sales_person: data.sales_person || null

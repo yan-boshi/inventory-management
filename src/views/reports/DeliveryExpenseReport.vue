@@ -25,10 +25,10 @@
             />
           </a-form-item>
 
-          <a-form-item label="销售订单号">
+          <a-form-item label="销售合同编号">
             <a-input
-              v-model:value="searchParams.salesOrderNumber"
-              placeholder="请输入销售订单号"
+              v-model:value="searchParams.contractNumber"
+              placeholder="请输入销售合同编号"
               allowClear
               style="width: 160px"
             />
@@ -212,7 +212,7 @@ const printVisible = ref(false)
 const allFlatColumns = [
   { title: '出库单号', key: 'order_number' },
   { title: '出库时间', key: 'delivery_time' },
-  { title: '销售订单号', key: 'sales_order_number' },
+  { title: '销售合同编号', key: 'contract_number' },
   { title: '客户名称', key: 'customer_name' },
   { title: '商品编码', key: 'product_code' },
   { title: '商品名称', key: 'product_name' },
@@ -256,7 +256,7 @@ const filteredColumns = computed(() => {
   const result: any[] = []
 
   // 基础列
-  const basicKeys = ['order_number', 'delivery_time', 'sales_order_number', 'customer_name', 'product_code', 'product_name', 'specification', 'unit', 'quantity', 'tax_included_price', 'total_price']
+  const basicKeys = ['order_number', 'delivery_time', 'contract_number', 'customer_name', 'product_code', 'product_name', 'specification', 'unit', 'quantity', 'tax_included_price', 'total_price']
   basicKeys.forEach(key => {
     if (isColumnVisible(key)) {
       const col = columns.find(c => c.key === key)
@@ -306,7 +306,7 @@ const searchParams = reactive<DeliveryExpenseReportParams>({
   startDate: undefined,
   endDate: undefined,
   orderNumber: undefined,
-  salesOrderNumber: undefined,
+  contractNumber: undefined,
   productKeyword: undefined,
 })
 
@@ -340,7 +340,7 @@ const getMergeRowSpan = (_record: DeliveryExpenseReportItem, recordIndex: number
 const columns = [
   { title: '出库单号', dataIndex: 'order_number', key: 'order_number', width: 160, fixed: 'left' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
   { title: '出库时间', dataIndex: 'delivery_time', key: 'delivery_time', width: 110, fixed: 'left' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-  { title: '销售订单号', dataIndex: 'sales_order_number', key: 'sales_order_number', width: 160, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+  { title: '销售合同编号', dataIndex: 'contract_number', key: 'contract_number', width: 160, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
   { title: '客户名称', dataIndex: 'customer_name', key: 'customer_name', width: 140, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
   { title: '商品编码', dataIndex: 'product_code', key: 'product_code', width: 120 },
   { title: '商品名称', dataIndex: 'product_name', key: 'product_name', width: 150 },
@@ -447,7 +447,7 @@ const handleReset = () => {
   searchParams.startDate = undefined
   searchParams.endDate = undefined
   searchParams.orderNumber = undefined
-  searchParams.salesOrderNumber = undefined
+  searchParams.contractNumber = undefined
   searchParams.productKeyword = undefined
   pagination.current = 1
   fetchReport()

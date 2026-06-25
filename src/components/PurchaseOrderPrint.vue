@@ -316,8 +316,19 @@ const initializeFormData = () => {
   formData.orderDate = order.created_at || new Date().toISOString()
   formData.taxRate = (order.tax_rate || 0) * 100
   formData.remarks = ''
-  formData.total = order.tax_included_amount || 0
-  formData.amountInWords = numberToChinese(order.tax_included_amount || 0)
+
+  // 从purchase_items中计算总金额
+  try {
+    const items = JSON.parse(order.purchase_items || '[]')
+    const total = items.reduce((sum: number, item: any) => {
+      return sum + (parseFloat(item.total_price) || 0)
+    }, 0)
+    formData.total = Math.round(total * 100) / 100
+  } catch {
+    formData.total = 0
+  }
+  formData.amountInWords = numberToChinese(formData.total)
+
   formData.buyerContact = user?.username || ''
   formData.buyerPhone = user?.phone || ''
   formData.buyerEmail = user?.email || ''

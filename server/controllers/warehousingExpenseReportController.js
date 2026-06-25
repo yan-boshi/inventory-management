@@ -2,7 +2,7 @@ import pool from '../config/database.js'
 
 export const getWarehousingExpenseReport = async (req, res) => {
   try {
-    const { startDate, endDate, orderNumber, purchaseOrderNumber, productKeyword } = req.query
+    const { startDate, endDate, orderNumber, contractNumber, productKeyword } = req.query
 
     // 构建查询条件
     const conditions = []
@@ -23,16 +23,16 @@ export const getWarehousingExpenseReport = async (req, res) => {
       params.push(`%${orderNumber}%`)
     }
 
-    if (purchaseOrderNumber) {
-      conditions.push('wo.purchase_order_number LIKE ?')
-      params.push(`%${purchaseOrderNumber}%`)
+    if (contractNumber) {
+      conditions.push('wo.contract_number LIKE ?')
+      params.push(`%${contractNumber}%`)
     }
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
 
     // 查询入库单
     const [warehousingOrders] = await pool.query(
-      `SELECT wo.warehousing_order_id, wo.order_number, wo.purchase_order_number,
+      `SELECT wo.warehousing_order_id, wo.order_number, wo.contract_number,
               wo.warehousing_items, wo.warehousing_time, wo.total_amount, wo.currency,
               wo.warehousing_person, wo.contact_phone, wo.remarks, wo.expenses
        FROM warehousing_orders wo
@@ -41,21 +41,21 @@ export const getWarehousingExpenseReport = async (req, res) => {
       params
     )
 
-    // 收集所有采购订单号，批量查询
-    const purchaseOrderNumbers = [...new Set(
+    // 收集所有采购合同编号，批量查询
+    const contractNumbers = [...new Set(
       warehousingOrders
-        .map(o => o.purchase_order_number)
+        .map(o => o.contract_number)
         .filter(Boolean)
     )]
 
     let purchaseOrderMap = {}
-    if (purchaseOrderNumbers.length > 0) {
+    if (contractNumbers.length > 0) {
       const [purchaseOrders] = await pool.query(
-        `SELECT order_number, expenses FROM purchase_orders WHERE order_number IN (?)`,
-        [purchaseOrderNumbers]
+        `SELECT contract_number, expenses FROM purchase_orders WHERE contract_number IN (?)`,
+        [contractNumbers]
       )
       for (const po of purchaseOrders) {
-        purchaseOrderMap[po.order_number] = po
+        purchaseOrderMap[po.contract_number] = po
       }
     }
 
@@ -92,7 +92,7 @@ export const getWarehousingExpenseReport = async (req, res) => {
 
       // 解析采购费用
       let purchaseExpenses = {}
-      const purchaseOrder = order.purchase_order_number ? purchaseOrderMap[order.purchase_order_number] : null
+      const purchaseOrder = order.contract_number ? purchaseOrderMap[order.contract_number] : null
       if (purchaseOrder) {
         try {
           purchaseExpenses = JSON.parse(purchaseOrder.expenses || '{}')
@@ -125,7 +125,7 @@ export const getWarehousingExpenseReport = async (req, res) => {
           warehousing_order_id: order.warehousing_order_id,
           order_number: order.order_number,
           warehousing_time: order.warehousing_time,
-          purchase_order_number: order.purchase_order_number || '',
+          contract_number: order.contract_number || '',
           currency: order.currency || 'CNY',
           remarks: order.remarks || '',
           // 商品信息

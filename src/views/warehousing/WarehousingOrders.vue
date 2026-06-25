@@ -71,13 +71,14 @@
           </template>
 
           <template v-else-if="column.key === 'warehousing_items'">
-            <a-tag
-              v-for="(item, index) in getParsedWarehousingItems(record)"
-              :key="index"
-              style="margin: 2px"
-            >
-              {{ item.product_name }} x{{ item.quantity }}
-            </a-tag>
+            <div class="product-info-cell">
+              <div v-for="(item, idx) in getParsedWarehousingItems(record)" :key="idx" class="product-info-item">
+                {{ item.product_name }}
+                <span v-if="item.product_code">（{{ item.product_code }}）</span>
+                <span v-if="item.description"> {{ item.description }}</span>
+                <span v-if="item.quantity"> × {{ item.quantity }}</span>
+              </div>
+            </div>
           </template>
 
           <template v-else-if="column.key === 'total_amount'">
@@ -88,6 +89,10 @@
 
           <template v-else-if="column.key === 'warehousing_time'">
             {{ formatDateTime(record.warehousing_time) }}
+          </template>
+
+          <template v-else-if="column.key === 'entry_date'">
+            {{ formatDate(record.entry_date) }}
           </template>
 
           <template v-else-if="column.key === 'actions'">
@@ -165,9 +170,9 @@ const columns = [
     width: 180,
   },
   {
-    title: '采购订单编号',
-    dataIndex: 'purchase_order_number',
-    key: 'purchase_order_number',
+    title: '采购合同编号',
+    dataIndex: 'contract_number',
+    key: 'contract_number',
     width: 150,
   },
   {
@@ -186,6 +191,18 @@ const columns = [
     dataIndex: 'warehousing_time',
     key: 'warehousing_time',
     width: 160,
+  },
+  {
+    title: '录入日期',
+    dataIndex: 'entry_date',
+    key: 'entry_date',
+    width: 120,
+  },
+  {
+    title: '快递单号',
+    dataIndex: 'tracking_number',
+    key: 'tracking_number',
+    width: 150,
   },
   {
     title: '总计',
@@ -288,9 +305,10 @@ const handlePrint = (order?: any) => {
 
   printOrder.value = {
     order_number: data.order_number,
-    purchase_order_number: data.purchase_order_number,
+    contract_number: data.contract_number,
     warehousing_items: data.warehousing_items,
     warehousing_time: data.warehousing_time,
+    tracking_number: data.tracking_number,
     customer_name: data.customer_name,
     customer_address: data.customer_address,
     total_amount: data.total_amount,
@@ -319,6 +337,11 @@ const formatDateTime = (dateString: string) => {
   return dayjs(dateString).format('YYYY-MM-DD HH:mm')
 }
 
+const formatDate = (dateString: string) => {
+  if (!dateString) return '-'
+  return dayjs(dateString).format('YYYY-MM-DD')
+}
+
 onMounted(() => {
   loadOrders()
 })
@@ -343,6 +366,22 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+  }
+
+  .product-info-cell {
+    .product-info-item {
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      &:not(:last-child) {
+        border-bottom: 1px dashed #f0f0f0;
+        padding-bottom: 2px;
+        margin-bottom: 2px;
+      }
+    }
   }
 }
 </style>

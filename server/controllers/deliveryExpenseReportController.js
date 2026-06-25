@@ -2,7 +2,7 @@ import pool from '../config/database.js'
 
 export const getDeliveryExpenseReport = async (req, res) => {
   try {
-    const { startDate, endDate, orderNumber, salesOrderNumber, productKeyword } = req.query
+    const { startDate, endDate, orderNumber, contractNumber, productKeyword } = req.query
 
     // 构建查询条件
     const conditions = []
@@ -23,16 +23,16 @@ export const getDeliveryExpenseReport = async (req, res) => {
       params.push(`%${orderNumber}%`)
     }
 
-    if (salesOrderNumber) {
-      conditions.push('do.sales_order_number LIKE ?')
-      params.push(`%${salesOrderNumber}%`)
+    if (contractNumber) {
+      conditions.push('do.contract_number LIKE ?')
+      params.push(`%${contractNumber}%`)
     }
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
 
     // 查询出库单
     const [deliveryOrders] = await pool.query(
-      `SELECT do.delivery_order_id, do.order_number, do.sales_order_number,
+      `SELECT do.delivery_order_id, do.order_number, do.contract_number,
               do.customer_name, do.delivery_items, do.delivery_time, do.total_amount,
               do.currency, do.delivery_person, do.contact_phone, do.remarks, do.expenses
        FROM delivery_orders do
@@ -41,21 +41,21 @@ export const getDeliveryExpenseReport = async (req, res) => {
       params
     )
 
-    // 收集所有销售订单号，批量查询
-    const salesOrderNumbers = [...new Set(
+    // 收集所有销售合同编号，批量查询
+    const contractNumbers = [...new Set(
       deliveryOrders
-        .map(o => o.sales_order_number)
+        .map(o => o.contract_number)
         .filter(Boolean)
     )]
 
     let salesOrderMap = {}
-    if (salesOrderNumbers.length > 0) {
+    if (contractNumbers.length > 0) {
       const [salesOrders] = await pool.query(
-        `SELECT order_number, expenses FROM sales_orders WHERE order_number IN (?)`,
-        [salesOrderNumbers]
+        `SELECT contract_number, expenses FROM sales_orders WHERE contract_number IN (?)`,
+        [contractNumbers]
       )
       for (const so of salesOrders) {
-        salesOrderMap[so.order_number] = so
+        salesOrderMap[so.contract_number] = so
       }
     }
 
@@ -92,7 +92,7 @@ export const getDeliveryExpenseReport = async (req, res) => {
 
       // 解析销售费用
       let salesExpenses = {}
-      const salesOrder = order.sales_order_number ? salesOrderMap[order.sales_order_number] : null
+      const salesOrder = order.contract_number ? salesOrderMap[order.contract_number] : null
       if (salesOrder) {
         try {
           salesExpenses = JSON.parse(salesOrder.expenses || '{}')
@@ -125,7 +125,7 @@ export const getDeliveryExpenseReport = async (req, res) => {
           delivery_order_id: order.delivery_order_id,
           order_number: order.order_number,
           delivery_time: order.delivery_time,
-          sales_order_number: order.sales_order_number || '',
+          contract_number: order.contract_number || '',
           customer_name: order.customer_name || '',
           currency: order.currency || 'CNY',
           remarks: order.remarks || '',

@@ -76,9 +76,11 @@ export const getWarehousingOrderById = async (req, res) => {
 export const createWarehousingOrder = async (req, res) => {
   try {
     const {
-      purchase_order_number,
+      contract_number,
       warehousing_items,
       warehousing_time,
+      entry_date,
+      tracking_number,
       customer_name,
       customer_address,
       total_amount,
@@ -90,9 +92,11 @@ export const createWarehousingOrder = async (req, res) => {
     } = req.body
 
     const order = await WarehousingOrder.create({
-      purchase_order_number,
+      contract_number,
       warehousing_items,
       warehousing_time,
+      entry_date,
+      tracking_number,
       customer_name,
       customer_address,
       total_amount,
@@ -105,54 +109,58 @@ export const createWarehousingOrder = async (req, res) => {
 
     // 更新产品库存（含移动平均法计算单价）
     if (warehousing_items) {
-      try {
-        const items = typeof warehousing_items === 'string' ? JSON.parse(warehousing_items) : warehousing_items
-        for (const item of items) {
-          // 查询当前库存和单价
-          const [productResult] = await pool.query(
-            'SELECT stock, tax_included_price FROM products WHERE product_code = ?',
-            [item.product_code]
-          )
-          if (productResult.length > 0) {
-            const currentStock = parseFloat(productResult[0].stock || 0)
-            const currentPrice = parseFloat(productResult[0].tax_included_price || 0)
-            const newStock = currentStock + parseFloat(item.quantity || 0)
+      const items = typeof warehousing_items === 'string' ? JSON.parse(warehousing_items) : warehousing_items
+      for (const item of items) {
+        if (!item.product_code) {
+          console.warn('跳过无产品代码的商品:', item)
+          continue
+        }
+        // 查询当前库存和单价
+        const [productResult] = await pool.query(
+          'SELECT stock, tax_included_price FROM products WHERE product_code = ?',
+          [item.product_code]
+        )
+        if (productResult.length > 0) {
+          const currentStock = parseFloat(productResult[0].stock || 0)
+          const currentPrice = parseFloat(productResult[0].tax_included_price || 0)
+          const newStock = currentStock + parseFloat(item.quantity || 0)
 
-            let newTaxIncludedPrice = currentPrice
-            let newTaxExcludedPrice = null
+          let newTaxIncludedPrice = currentPrice
+          let newTaxExcludedPrice = null
 
-            // 移动平均法计算含税单价
-            if (item.tax_included_price && newStock > 0) {
-              const incomingPrice = parseFloat(item.tax_included_price)
-              newTaxIncludedPrice = (currentStock * currentPrice + parseFloat(item.quantity) * incomingPrice) / newStock
-              // 计算未税单价
-              if (item.tax_rate) {
-                newTaxExcludedPrice = newTaxIncludedPrice / (1 + parseFloat(item.tax_rate) / 100)
-              }
-            }
-
-            // 更新库存和单价（价格四舍五入保留四位小数）
-            if (newTaxExcludedPrice !== null) {
-              await pool.query(
-                'UPDATE products SET stock = ?, tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
-                [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, Math.round(newTaxExcludedPrice * 10000) / 10000, item.product_code]
-              )
-            } else {
-              await pool.query(
-                'UPDATE products SET stock = ?, tax_included_price = ? WHERE product_code = ?',
-                [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, item.product_code]
-              )
+          // 移动平均法计算含税单价
+          if (item.tax_included_price && newStock > 0) {
+            const incomingPrice = parseFloat(item.tax_included_price)
+            newTaxIncludedPrice = (currentStock * currentPrice + parseFloat(item.quantity) * incomingPrice) / newStock
+            // 计算未税单价
+            if (item.tax_rate) {
+              newTaxExcludedPrice = newTaxIncludedPrice / (1 + parseFloat(item.tax_rate) / 100)
             }
           }
+
+          // 更新库存和单价（价格四舍五入保留四位小数）
+          if (newTaxExcludedPrice !== null) {
+            await pool.query(
+              'UPDATE products SET stock = ?, tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
+              [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, Math.round(newTaxExcludedPrice * 10000) / 10000, item.product_code]
+            )
+          } else {
+            await pool.query(
+              'UPDATE products SET stock = ?, tax_included_price = ? WHERE product_code = ?',
+              [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, item.product_code]
+            )
+          }
+        } else {
+          console.warn(`未找到产品代码为 ${item.product_code} 的产品`)
         }
-      } catch (stockError) {
-        // 库存更新失败，继续执行
       }
     }
 
     // 如果关联了采购订单，同步入库数量到采购订单
-    if (purchase_order_number) {
-      const purchaseOrder = await PurchaseOrder.findOne('order_number = ?', [purchase_order_number])
+    console.log('contract_number:', contract_number)
+    if (contract_number) {
+      const purchaseOrder = await PurchaseOrder.findOne('contract_number = ?', [contract_number])
+      console.log('找到采购订单:', purchaseOrder ? purchaseOrder.order_number : '未找到')
 
       if (purchaseOrder) {
         const purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]')
@@ -197,11 +205,11 @@ export const createWarehousingOrder = async (req, res) => {
 
         // 计算订单整体状态
         const statuses = purchaseItems.map(item => item.status || 1)
-        let orderStatus = '1'
+        let orderStatus = 1
         if (statuses.every(s => s === 2)) {
-          orderStatus = '2' // 全部入库
+          orderStatus = 2 // 全部入库
         } else if (statuses.some(s => s === 2 || s === 3)) {
-          orderStatus = '3' // 部分入库
+          orderStatus = 3 // 部分入库
         }
 
         // 更新采购订单
@@ -222,9 +230,11 @@ export const updateWarehousingOrder = async (req, res) => {
   try {
     const { id } = req.params
     const {
-      purchase_order_number,
+      contract_number,
       warehousing_items,
       warehousing_time,
+      entry_date,
+      tracking_number,
       customer_name,
       customer_address,
       total_amount,
@@ -241,9 +251,11 @@ export const updateWarehousingOrder = async (req, res) => {
     }
 
     const updateData = {}
-    if (purchase_order_number !== undefined) updateData.purchase_order_number = purchase_order_number
+    if (contract_number !== undefined) updateData.contract_number = contract_number
     if (warehousing_items !== undefined) updateData.warehousing_items = warehousing_items
     if (warehousing_time !== undefined) updateData.warehousing_time = warehousing_time
+    if (entry_date !== undefined) updateData.entry_date = entry_date
+    if (tracking_number !== undefined) updateData.tracking_number = tracking_number
     if (customer_name !== undefined) updateData.customer_name = customer_name
     if (customer_address !== undefined) updateData.customer_address = customer_address
     if (total_amount !== undefined) updateData.total_amount = total_amount
@@ -270,8 +282,8 @@ export const deleteWarehousingOrder = async (req, res) => {
     }
 
     // 如果关联了采购订单，回退出库数量
-    if (existing.purchase_order_number) {
-      const purchaseOrder = await PurchaseOrder.findOne('order_number = ?', [existing.purchase_order_number])
+    if (existing.contract_number) {
+      const purchaseOrder = await PurchaseOrder.findOne('contract_number = ?', [existing.contract_number])
 
       if (purchaseOrder) {
         const purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]')
@@ -303,11 +315,11 @@ export const deleteWarehousingOrder = async (req, res) => {
 
         // 重新计算订单整体状态
         const statuses = purchaseItems.map(item => item.status || 1)
-        let orderStatus = '1'
+        let orderStatus = 1
         if (statuses.every(s => s === 2)) {
-          orderStatus = '2' // 全部入库
+          orderStatus = 2 // 全部入库
         } else if (statuses.some(s => s === 2 || s === 3)) {
-          orderStatus = '3' // 部分入库
+          orderStatus = 3 // 部分入库
         }
 
         // 更新采购订单

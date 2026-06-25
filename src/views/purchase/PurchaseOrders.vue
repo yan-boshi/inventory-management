@@ -71,13 +71,14 @@
           </template>
 
           <template v-else-if="column.key === 'purchase_items'">
-            <a-tag
-              v-for="(item, index) in getParsedPurchaseItems(record)"
-              :key="index"
-              style="margin: 2px"
-            >
-              {{ item.product_name }} x{{ item.quantity }}
-            </a-tag>
+            <div class="product-info-cell">
+              <div v-for="(item, idx) in getParsedPurchaseItems(record)" :key="idx" class="product-info-item">
+                {{ item.product_name }}
+                <span v-if="item.product_code">（{{ item.product_code }}）</span>
+                <span v-if="item.description"> {{ item.description }}</span>
+                <span v-if="item.quantity"> × {{ item.quantity }}</span>
+              </div>
+            </div>
           </template>
 
           <template v-else-if="column.key === 'total_amount'">
@@ -92,8 +93,8 @@
             </a-tag>
           </template>
 
-          <template v-else-if="column.key === 'created_at'">
-            {{ formatDate(record.created_at) }}
+          <template v-else-if="column.key === 'entry_date'">
+            {{ formatDate(record.entry_date) }}
           </template>
 
           <template v-else-if="column.key === 'actions'">
@@ -102,7 +103,7 @@
               <a-button type="link" size="small" danger @click="handleDelete(record)">
                 删除
               </a-button>
-              <a-dropdown>
+              <!-- <a-dropdown>
                 <template #overlay>
                   <a-menu @click="({ key }) => handleStatusChange(record, key)">
                     <a-menu-item key="1">未入库</a-menu-item>
@@ -112,7 +113,7 @@
                   </a-menu>
                 </template>
                 <a-button type="link" size="small"> 状态 <DownOutlined /> </a-button>
-              </a-dropdown>
+              </a-dropdown> -->
               <!-- <a-dropdown> -->
                 <a-button type="link" size="small" @click="({ key }) => handlePrint(record, key)"> 打印 <DownOutlined /> </a-button>
                 <!-- <template #overlay>
@@ -193,6 +194,12 @@ const columns = [
     width: 150,
   },
   {
+    title: '合同编号',
+    dataIndex: 'contract_number',
+    key: 'contract_number',
+    width: 150,
+  },
+  {
     title: '供应商名称',
     dataIndex: 'supplier_name',
     key: 'supplier_name',
@@ -223,9 +230,9 @@ const columns = [
     align: 'center',
   },
   {
-    title: '创建日期',
-    dataIndex: 'created_at',
-    key: 'created_at',
+    title: '录入日期',
+    dataIndex: 'entry_date',
+    key: 'entry_date',
     width: 120,
   },
   {
@@ -379,6 +386,7 @@ const formatMoney = (amount: number | string) => {
 }
 
 const formatDate = (dateString: string) => {
+  if (!dateString) return '-'
   return dayjs(dateString).format('YYYY-MM-DD')
 }
 
@@ -426,6 +434,22 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+  }
+
+  .product-info-cell {
+    .product-info-item {
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      &:not(:last-child) {
+        border-bottom: 1px dashed #f0f0f0;
+        padding-bottom: 2px;
+        margin-bottom: 2px;
+      }
+    }
   }
 }
 </style>

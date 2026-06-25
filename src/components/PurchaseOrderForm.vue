@@ -22,7 +22,7 @@
             <span class="invisible-input">{{ orderNumber }}</span>
           </div>
           <div class="form-item">
-            <label class="form-label">采购合同编号：</label>
+            <label class="form-label"><span class="required">*</span>采购合同编号：</label>
             <a-input v-model:value="form.contract_number" class="invisible-input note-input" />
           </div>
           <!-- <div class="form-item">
@@ -52,6 +52,14 @@
                 {{ supplier.supplier_name }}
               </a-select-option>
             </a-select>
+          </div>
+          <div class="form-item">
+            <label class="form-label"><span class="required">*</span>录入日期：</label>
+            <a-date-picker
+              v-model:value="form.entry_date"
+              style="width: 100%"
+              format="YYYY-MM-DD"
+            />
           </div>
         </div>
 
@@ -200,16 +208,34 @@
                   class="invisible-input"
                 />
               </template>
+              
+                <template v-else-if="column.key === 'status'">
+                  <a-tag :color="getStatusColor(record.status)">
+                    {{ getStatusText(record.status) }}
+                  </a-tag>
+                </template>
 
-              <template v-else-if="column.key === 'status'">
+              <!-- <template v-else-if="column.key === 'status'">
                 <a-select
                   v-model:value="record.status"
-                  style="width: 100%"
+                  style="width: 150%"
                   class="invisible-select"
                 >
-                  <a-select-option :value="1">正常</a-select-option>
-                  <a-select-option :value="2">已退货</a-select-option>
+                  <a-select-option :value="1">未入库</a-select-option>
+                  <a-select-option :value="2">已全部入库</a-select-option>
+                  <a-select-option :value="3">已部分入库</a-select-option>
+                  <a-select-option :value="4" >退货</a-select-option>
                 </a-select>
+              </template> -->
+
+              <template v-else-if="column.key === 'delivery_date'">
+                <a-date-picker
+                  v-model:value="record.delivery_date"
+                  style="width: 100%"
+                  format="YYYY-MM-DD"
+                  :bordered="false"
+                  size="small"
+                />
               </template>
 
               <template v-else-if="column.key === 'remarks'">
@@ -277,22 +303,6 @@
               :precision="4"
               style="width: 100%"
               class="invisible-input"
-            />
-          </div>
-          <div class="note-row">
-            <label class="note-label">发货日期：</label>
-            <a-date-picker
-              v-model:value="form.delivery_date"
-              style="width: 100%"
-              format="YYYY-MM-DD"
-            />
-          </div>
-          <div class="note-row">
-            <label class="note-label">到货日期：</label>
-            <a-date-picker
-              v-model:value="form.arrival_date"
-              style="width: 100%"
-              format="YYYY-MM-DD"
             />
           </div>
 
@@ -418,8 +428,7 @@ const form = reactive<
   purchase_items: [],
   currency: 'CNY',
   exchange_rate: 1.0,
-  delivery_date: undefined,
-  arrival_date: undefined,
+  entry_date: dayjs(),
   remarks: '',
   purchase_person: '',
   expenses: {
@@ -439,14 +448,15 @@ const itemColumns = [
   { title: '规格描述', key: 'description', width: 120, fixed: 'left' as const },
   { title: '单位', key: 'unit', width: 70 },
   { title: '数量', key: 'quantity', width: 80 },
-  { title: '入库数', key: 'inbound_quantity', width: 80 },
+  // { title: '入库数', key: 'inbound_quantity', width: 80 },
   { title: '税率（%）', key: 'tax_rate', width: 90 },
   { title: '含税单价', key: 'tax_included_price', width: 100, align: 'right' as const },
   { title: '未税单价', key: 'tax_excluded_price', width: 100, align: 'right' as const },
   { title: '含税金额', key: 'tax_included_amount', width: 110, align: 'right' as const },
   { title: '未税金额', key: 'tax_excluded_amount', width: 110, align: 'right' as const },
   { title: '税额', key: 'tax_amount', width: 100, align: 'right' as const },
-  { title: '状态', key: 'status', width: 80 },
+  { title: '状态', key: 'status', width: 100 },
+  { title: '发货日期', key: 'delivery_date', width: 120 },
   { title: '备注', key: 'remarks', width: 150 },
   { title: '总价', key: 'total_price', width: 110, align: 'right' as const },
   { title: '操作', key: 'actions', width: 70, fixed: 'right' as const },
@@ -556,21 +566,30 @@ const addNewItem = () => {
     unit: '',
     quantity: 1,
     inbound_quantity: 0,
-    tax_rate: 0,
+    tax_rate: 13,
     tax_included_price: 0,
     tax_excluded_price: 0,
     tax_included_amount: 0,
     tax_excluded_amount: 0,
     tax_amount: 0,
     status: 1,
+    delivery_date: undefined,
     remarks: '',
     total_price: 0,
   })
 }
 
 const handleSubmit = async () => {
+  if (!form.contract_number) {
+    message.error('请输入采购合同编号')
+    return
+  }
   if (!form.supplier_name) {
     message.error('请选择供应商')
+    return
+  }
+  if (!form.entry_date) {
+    message.error('请选择录入日期')
     return
   }
   if (form.purchase_items.length === 0) {
@@ -587,6 +606,10 @@ const handleSubmit = async () => {
     if (!date) return undefined
     if (typeof date === 'string') return date
     try {
+      // 如果是 dayjs 对象，直接调用 format 方法
+      if (date && typeof date.format === 'function') {
+        return date.format('YYYY-MM-DD')
+      }
       return dayjs(date).format('YYYY-MM-DD')
     } catch {
       return undefined
@@ -596,15 +619,20 @@ const handleSubmit = async () => {
   try {
     submitting.value = true
 
+    // 格式化 purchase_items 中的日期字段
+    const formattedItems = form.purchase_items.map((item: any) => ({
+      ...item,
+      delivery_date: formatDate(item.delivery_date),
+    }))
+
     const submitData: CreatePurchaseOrderRequest = {
       contract_number: form.contract_number,
       supplier_name: form.supplier_name,
       supplier_code: form.supplier_code,
-      purchase_items: form.purchase_items,
+      purchase_items: formattedItems,
       currency: form.currency,
       exchange_rate: form.exchange_rate,
-      delivery_date: formatDate(form.delivery_date),
-      arrival_date: formatDate(form.arrival_date),
+      entry_date: formatDate(form.entry_date),
       remarks: form.remarks,
       expenses: form.expenses,
       purchase_person: userStore.user?.username || '',
@@ -649,20 +677,20 @@ watch(
         form.currency = props.purchaseOrderData.currency || 'CNY'
         form.purchase_person = props.purchaseOrderData.purchase_person || ''
         form.exchange_rate = props.purchaseOrderData.exchange_rate || 1.0
-        if (props.purchaseOrderData.delivery_date) {
-          form.delivery_date = dayjs(props.purchaseOrderData.delivery_date)
+        if (props.purchaseOrderData.entry_date) {
+          form.entry_date = dayjs(props.purchaseOrderData.entry_date)
         } else {
-          form.delivery_date = undefined
-        }
-        if (props.purchaseOrderData.arrival_date) {
-          form.arrival_date = dayjs(props.purchaseOrderData.arrival_date)
-        } else {
-          form.arrival_date = undefined
+          form.entry_date = dayjs()
         }
         form.remarks = props.purchaseOrderData.remarks || ''
         orderNumber.value = props.purchaseOrderData.order_number || ''
         try {
-          form.purchase_items = JSON.parse(props.purchaseOrderData.purchase_items || '[]')
+          const items = JSON.parse(props.purchaseOrderData.purchase_items || '[]')
+          // 将 purchase_items 中的 delivery_date 字符串转换为 dayjs 对象
+          form.purchase_items = items.map((item: any) => ({
+            ...item,
+            delivery_date: item.delivery_date ? dayjs(item.delivery_date) : undefined,
+          }))
         } catch {
           form.purchase_items = []
         }
@@ -711,8 +739,7 @@ const resetForm = () => {
   form.purchase_items = []
   form.currency = 'CNY'
   form.exchange_rate = 1.0
-  form.delivery_date = undefined
-  form.arrival_date = undefined
+  form.entry_date = dayjs()
   form.remarks = ''
   form.purchase_person = ''
   form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
@@ -730,8 +757,7 @@ const handleSaveDraft = () => {
     purchase_items: form.purchase_items,
     currency: form.currency,
     exchange_rate: form.exchange_rate,
-    delivery_date: form.delivery_date ? (typeof form.delivery_date === 'string' ? form.delivery_date : dayjs(form.delivery_date).format('YYYY-MM-DD')) : '',
-    arrival_date: form.arrival_date ? (typeof form.arrival_date === 'string' ? form.arrival_date : dayjs(form.arrival_date).format('YYYY-MM-DD')) : '',
+    entry_date: form.entry_date ? (typeof form.entry_date === 'string' ? form.entry_date : dayjs(form.entry_date).format('YYYY-MM-DD')) : '',
     remarks: form.remarks,
     expenses: form.expenses,
   }
@@ -746,12 +772,16 @@ const restoreDraft = () => {
   form.contract_number = draft.data.contract_number || ''
   form.supplier_name = draft.data.supplier_name || ''
   form.supplier_code = draft.data.supplier_code || ''
-  form.purchase_items = draft.data.purchase_items || []
+  // 将 purchase_items 中的 delivery_date 字符串转换为 dayjs 对象
+  const items = draft.data.purchase_items || []
+  form.purchase_items = items.map((item: any) => ({
+    ...item,
+    delivery_date: item.delivery_date ? dayjs(item.delivery_date) : undefined,
+  }))
   form.currency = draft.data.currency || 'CNY'
   form.exchange_rate = draft.data.exchange_rate || 1.0
   // 将日期字符串转换为 dayjs 对象
-  form.delivery_date = draft.data.delivery_date ? dayjs(draft.data.delivery_date) : undefined
-  form.arrival_date = draft.data.arrival_date ? dayjs(draft.data.arrival_date) : undefined
+  form.entry_date = draft.data.entry_date ? dayjs(draft.data.entry_date) : dayjs()
   form.remarks = draft.data.remarks || ''
   form.expenses = draft.data.expenses || { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
 }
@@ -777,6 +807,26 @@ const checkDraft = () => {
       })
     }
   }
+}
+
+
+const getStatusColor = (status: number) => {
+  const colorMap: Record<number, string> = {
+    1: 'blue', // 未入库
+    2: 'green', // 已全部入库
+    3: 'orange', // 已部分入库
+    4: 'red', // 退货
+  }
+  return colorMap[status] || 'default'
+}
+const getStatusText = (status: number) => {
+  const textMap: Record<number, string> = {
+    1: '未入库',
+    2: '已全部入库',
+    3: '已部分入库',
+    4: '退货',
+  }
+  return textMap[status] || '未知'
 }
 </script>
 
@@ -966,5 +1016,10 @@ const checkDraft = () => {
   :deep(.ant-select-arrow) {
     display: none !important;
   }
+}
+
+.required {
+  color: #ff4d4f;
+  margin-right: 4px;
 }
 </style>

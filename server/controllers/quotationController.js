@@ -89,7 +89,8 @@ export const createQuotation = async (req, res) => {
       tax_rate,
       currency,
       remarks,
-      tax_included_amount
+      tax_included_amount,
+      entry_date
     } = req.body
 
     if (!customer_name || !customer_code) {
@@ -105,7 +106,8 @@ export const createQuotation = async (req, res) => {
       tax_rate: parseFloat(tax_rate) || 13,
       currency,
       remarks,
-      tax_included_amount
+      tax_included_amount,
+      entry_date
     })
     res.status(201).json({ success: true, data: quotation })
   } catch (error) {
@@ -125,7 +127,8 @@ export const updateQuotation = async (req, res) => {
       tax_rate,
       currency,
       remarks,
-      tax_included_amount
+      tax_included_amount,
+      entry_date
     } = req.body
 
     const existing = await Quotation.findById(id)
@@ -143,6 +146,7 @@ export const updateQuotation = async (req, res) => {
     if (currency !== undefined) updateData.currency = currency
     if (remarks !== undefined) updateData.remarks = remarks
     if (tax_included_amount !== undefined) updateData.tax_included_amount = tax_included_amount
+    if (entry_date !== undefined) updateData.entry_date = entry_date
 
     const quotation = await Quotation.update(id, updateData)
     res.json({ success: true, data: quotation })

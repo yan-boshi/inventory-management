@@ -49,7 +49,13 @@
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'created_at'">
+          <template v-if="column.key === 'stock'">
+            <span :style="{ color: Math.floor(record.stock || 0) <= 0 ? '#ff4d4f' : '#52c41a' }">
+              {{ Math.floor(record.stock || 0) }}
+            </span>
+          </template>
+
+          <template v-else-if="column.key === 'created_at'">
             {{ formatDate(record.created_at) }}
           </template>
 
@@ -131,6 +137,13 @@ const columns = [
     key: 'description',
     width: 200,
     ellipsis: true,
+  },
+  {
+    title: '库存',
+    dataIndex: 'stock',
+    key: 'stock',
+    width: 80,
+    align: 'right' as const,
   },
   {
     title: '单位',

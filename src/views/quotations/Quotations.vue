@@ -80,6 +80,10 @@
             {{ formatDate(record.created_at) }}
           </template>
 
+          <template v-else-if="column.key === 'entry_date'">
+            {{ formatDate(record.entry_date) }}
+          </template>
+
           <template v-else-if="column.key === 'tax_included_amount'">
             <span style="color: #f5222d; font-weight: 500">
               {{ record.tax_included_amount }}
@@ -216,10 +220,10 @@ const columns = [
     align: 'center',
   },
   {
-    title: '报价日期',
-    dataIndex: 'created_at',
-    key: 'created_at',
-    width: 120,
+    title: '录入日期',
+    dataIndex: 'entry_date',
+    key: 'entry_date',
+    width: 80,
   },
   {
     title: '含税总价',
@@ -501,6 +505,7 @@ const getStatusText = (status: number) => {
 }
 
 const formatDate = (dateString: string) => {
+  if (!dateString) return '-'
   return dayjs(dateString).format('YYYY-MM-DD')
 }
 

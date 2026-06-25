@@ -25,10 +25,10 @@
             />
           </a-form-item>
 
-          <a-form-item label="采购订单号">
+          <a-form-item label="采购合同编号">
             <a-input
-              v-model:value="searchParams.purchaseOrderNumber"
-              placeholder="请输入采购订单号"
+              v-model:value="searchParams.contractNumber"
+              placeholder="请输入采购合同编号"
               allowClear
               style="width: 160px"
             />
@@ -305,7 +305,7 @@ const searchParams = reactive<WarehousingExpenseReportParams>({
   startDate: undefined,
   endDate: undefined,
   orderNumber: undefined,
-  purchaseOrderNumber: undefined,
+  contractNumber: undefined,
   productKeyword: undefined,
 })
 
@@ -341,7 +341,7 @@ const getMergeRowSpan = (_record: WarehousingExpenseReportItem, recordIndex: num
 const columns = [
   { title: '入库单号', dataIndex: 'order_number', key: 'order_number', width: 160, fixed: 'left' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
   { title: '入库时间', dataIndex: 'warehousing_time', key: 'warehousing_time', width: 110, fixed: 'left' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-  { title: '采购订单号', dataIndex: 'purchase_order_number', key: 'purchase_order_number', width: 160, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+  { title: '采购合同编号', dataIndex: 'contract_number', key: 'contract_number', width: 160, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
   { title: '商品编码', dataIndex: 'product_code', key: 'product_code', width: 120 },
   { title: '商品名称', dataIndex: 'product_name', key: 'product_name', width: 150 },
   { title: '规格型号', dataIndex: 'model', key: 'model', width: 100 },

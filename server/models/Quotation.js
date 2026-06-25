@@ -39,6 +39,7 @@ class Quotation extends BaseModel {
       tax_rate: data.tax_rate || 13,
       tax_included_amount: parseFloat(taxIncludedAmount.toFixed(2)) || 0,
       currency: data.currency || 'CNY',
+      entry_date: data.entry_date || null,
       remarks: data.remarks || null
     }
     return super.create(orderData)

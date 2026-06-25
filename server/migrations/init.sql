@@ -163,7 +163,7 @@ CREATE TABLE sales_orders (
   tax_included_amount DECIMAL(15, 2) DEFAULT 0.00 COMMENT '含税总价',
   currency VARCHAR(10) DEFAULT 'CNY' COMMENT '币种',
   exchange_rate DECIMAL(10, 4) DEFAULT 1.0000 COMMENT '汇率',
-  delivery_date DATE COMMENT '发货日期',
+  entry_date DATE COMMENT '录入日期',
   remarks TEXT,
   expenses TEXT COMMENT '销售费用登记JSON字符串',
   sales_person VARCHAR(100) DEFAULT NULL COMMENT '销售人员',

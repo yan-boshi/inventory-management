@@ -16,10 +16,10 @@
             <span class="order-number">{{ orderNumber }}</span>
           </div>
           <div class="form-item">
-            <label class="form-label">销售订单编号：</label>
+            <label class="form-label">销售合同编号：</label>
             <a-select
-              v-model:value="formData.sales_order_number"
-              placeholder="选择销售订单"
+              v-model:value="formData.contract_number"
+              placeholder="选择销售合同"
               :loading="loading.salesOrders"
               show-search
               :filter-option="false"
@@ -30,10 +30,10 @@
             >
               <a-select-option
                 v-for="order in salesOrderOptions"
-                :key="order.order_number"
-                :value="order.order_number"
+                :key="order.contract_number"
+                :value="order.contract_number"
               >
-                {{ order.order_number }} - {{ order.customer_name }}
+                {{ order.contract_number || order.order_number }}
               </a-select-option>
             </a-select>
           </div>
@@ -122,6 +122,11 @@
             <template v-else-if="column.key === 'unit'">
               <a-input v-model:value="record.unit" placeholder="单位" style="width: 100%" />
             </template>
+            <template v-else-if="column.key === 'stock'">
+              <span :style="{ color: (record.stock || 0) <= 0 ? '#ff4d4f' : '#52c41a' }">
+                {{ Math.floor(record.stock || 0) }}
+              </span>
+            </template>
             <template v-else-if="column.key === 'max_quantity'">
               <span :style="{ color: record.max_quantity <= 0 ? '#ff4d4f' : '#52c41a' }">
                 {{ record.max_quantity || 0 }}
@@ -133,7 +138,8 @@
                 :min="1"
                 :max="record.max_quantity || undefined"
                 :precision="0"
-                style="width: 100%"
+                :class="{ 'quantity-exceeded': record.stock !== undefined && record.quantity > record.stock }"
+                :style="{ width: '100%', borderColor: record.stock !== undefined && record.quantity > record.stock ? '#ff4d4f' : undefined }"
                 @change="() => calculateTotal()"
               />
             </template>
@@ -221,6 +227,18 @@
               format="YYYY-MM-DD"
               style="width: 100%"
             />
+          </div>
+        </div>
+        <div class="footer-row">
+          <div class="footer-item">
+            <label class="footer-label"><span class="required">*</span>录入日期：</label>
+            <a-date-picker
+              v-model:value="formData.entry_date"
+              format="YYYY-MM-DD"
+              style="width: 100%"
+            />
+          </div>
+                    <div class="footer-item">
           </div>
         </div>
 
@@ -350,6 +368,7 @@ const formData = reactive({
   delivery_items: [] as DeliveryItem[],
   delivery_time: '' as string | any,
   delivery_date: '' as string | any,
+  entry_date: '' as string | any,
   customer_name: '',
   customer_address: '',
   total_amount: 0,
@@ -366,8 +385,9 @@ const itemColumns = [
   { title: '产品名称', key: 'product_name', width: '11%' },
   { title: '规格描述', key: 'specification', width: '9%' },
   { title: '单位', key: 'unit', width: '5%' },
-  { title: '剩余可出库', key: 'max_quantity', width: '7%', align: 'right' },
-  { title: '出库数量', key: 'quantity', width: '7%', align: 'right' },
+  { title: '库存数', key: 'stock', width: '7%', align: 'right' },
+  { title: '未出库数', key: 'max_quantity', width: '7%', align: 'right' },
+  { title: '出库数', key: 'quantity', width: '7%', align: 'right' },
   { title: '含税单价', key: 'tax_included_price', width: '8%', align: 'right' },
   { title: '税率(%)', key: 'tax_rate', width: '7%', align: 'right' },
   { title: '合计金额', key: 'amount', width: '8%', align: 'right' },
@@ -407,7 +427,7 @@ const handleSalesOrderSearch = async (value: string) => {
   try {
     const response = await deliveryOrdersApi.getUndeliveredSalesOrders()
     salesOrderOptions.value = response.data.filter((o: any) =>
-      o.order_number.toLowerCase().includes(value.toLowerCase())
+      (o.contract_number || o.order_number).toLowerCase().includes(value.toLowerCase())
     )
   } catch (error) {
     message.error('获取销售订单列表失败')
@@ -417,7 +437,7 @@ const handleSalesOrderSearch = async (value: string) => {
 
 // 选择销售订单
 const handleSalesOrderChange = async (value: string) => {
-  const order = salesOrderOptions.value.find((o: any) => o.order_number === value)
+  const order = salesOrderOptions.value.find((o: any) => o.contract_number === value)
   if (order) {
     try {
       const items = JSON.parse(order.sales_items || '[]')
@@ -426,6 +446,9 @@ const handleSalesOrderChange = async (value: string) => {
         .map((item: any, index: number) => {
           const outboundQty = item.outbound_quantity || 0
           const remainingQty = (item.quantity || 0) - outboundQty
+          // 从产品列表中获取库存数
+          const product = productOptions.value.find(p => p.product_code === item.product_code)
+          const stock = product ? Math.floor(product.stock || 0) : 0
           return {
             no: index + 1,
             product_code: item.product_code || '',
@@ -434,6 +457,7 @@ const handleSalesOrderChange = async (value: string) => {
             unit: item.unit || '',
             quantity: remainingQty > 0 ? remainingQty : 0,
             max_quantity: remainingQty > 0 ? remainingQty : 0,
+            stock: stock,
             tax_included_price: item.tax_included_price || 0,
             tax_rate: item.tax_rate || 0,
             amount: (remainingQty > 0 ? remainingQty : 0) * (item.tax_included_price || 0),
@@ -470,7 +494,15 @@ const handleSalesOrderChange = async (value: string) => {
 const handleProductSearch = async (value: string) => {
   if (!value) {
     const response = await productsApi.getAllList()
-    productOptions.value = response.data || []
+    productOptions.value = (response.data || []).map((p: any) => ({
+      product_id: p.product_id || p.id,
+      product_name: p.product_name || p.name,
+      product_code: p.product_code || p.code,
+      model: p.model,
+      description: p.description,
+      unit: p.unit,
+      stock: p.stock,
+    }))
     return
   }
   loading.products = true
@@ -484,6 +516,7 @@ const handleProductSearch = async (value: string) => {
       model: p.model,
       description: p.description,
       unit: p.unit,
+      stock: p.stock,
     }))
   } catch (error) {
     message.error('获取产品列表失败')
@@ -498,6 +531,7 @@ const handleProductChange = (value: string, index: number) => {
     formData.delivery_items[index].product_name = product.product_name || ''
     formData.delivery_items[index].specification = product.description || product.model || ''
     formData.delivery_items[index].unit = product.unit || ''
+    formData.delivery_items[index].stock = Math.floor(product.stock || 0)
   }
 }
 
@@ -555,6 +589,7 @@ const addItem = () => {
     unit: '',
     quantity: 1,
     max_quantity: 0,
+    stock: 0,
     tax_included_price: 0,
     tax_rate: 13,
     amount: 0,
@@ -586,8 +621,21 @@ const handleSave = async () => {
     return
   }
 
+  if (!formData.entry_date) {
+    message.error('请选择录入日期')
+    return
+  }
+
+  // 前端超量校验：检查出库数量是否超过库存数量
+  for (const item of formData.delivery_items) {
+    if (item.stock !== undefined && item.quantity > item.stock) {
+      message.error(`商品 ${item.product_name} 出库数量(${item.quantity})超过库存数量(${Math.floor(item.stock)})`)
+      return
+    }
+  }
+
   // 前端超量校验：检查出库数量是否超过剩余可出库量
-  if (formData.sales_order_number) {
+  if (formData.contract_number) {
     for (const item of formData.delivery_items) {
       if (item.max_quantity && item.quantity > item.max_quantity) {
         message.error(`商品 ${item.product_name} 出库数量(${item.quantity})超过剩余可出库数量(${item.max_quantity})`)
@@ -610,10 +658,11 @@ const handleSave = async () => {
     saving.value = true
 
     const submitData: CreateDeliveryOrderRequest = {
-      sales_order_number: formData.sales_order_number || undefined,
+      contract_number: formData.contract_number || undefined,
       delivery_items: JSON.stringify(formData.delivery_items),
       delivery_time: formatDate(formData.delivery_time),
       delivery_date: formatDate(formData.delivery_date, 'YYYY-MM-DD'),
+      entry_date: formatDate(formData.entry_date, 'YYYY-MM-DD'),
       customer_name: formData.customer_name,
       customer_address: formData.customer_address,
       total_amount: formData.total_amount,
@@ -646,7 +695,7 @@ const handleSave = async () => {
 const handlePrint = () => {
   emit('print', {
     order_number: orderNumber.value,
-    sales_order_number: formData.sales_order_number,
+    contract_number: formData.contract_number,
     delivery_items: formData.delivery_items,
     delivery_time: formData.delivery_time,
     delivery_date: formData.delivery_date,
@@ -678,10 +727,11 @@ const handleClose = () => {
 
 // 重置表单
 const resetForm = () => {
-  formData.sales_order_number = ''
+  formData.contract_number = ''
   formData.delivery_items = []
   formData.delivery_time = dayjs()
   formData.delivery_date = dayjs()
+  formData.entry_date = dayjs()
   formData.customer_name = ''
   formData.customer_address = ''
   formData.total_amount = 0
@@ -697,7 +747,7 @@ const DRAFT_KEY = 'delivery_order'
 
 const handleSaveDraft = () => {
   const draftData = {
-    sales_order_number: formData.sales_order_number,
+    sales_order_number: formData.contract_number,
     customer_name: formData.customer_name,
     customer_address: formData.customer_address,
     delivery_items: formData.delivery_items,
@@ -705,6 +755,7 @@ const handleSaveDraft = () => {
     currency: formData.currency,
     delivery_time: formData.delivery_time ? (typeof formData.delivery_time === 'string' ? formData.delivery_time : dayjs(formData.delivery_time).format('YYYY-MM-DD HH:mm')) : '',
     delivery_date: formData.delivery_date ? (typeof formData.delivery_date === 'string' ? formData.delivery_date : dayjs(formData.delivery_date).format('YYYY-MM-DD')) : '',
+    entry_date: formData.entry_date ? (typeof formData.entry_date === 'string' ? formData.entry_date : dayjs(formData.entry_date).format('YYYY-MM-DD')) : '',
     delivery_person: formData.delivery_person,
     contact_phone: formData.contact_phone,
     remarks: formData.remarks,
@@ -718,7 +769,7 @@ const handleSaveDraft = () => {
 const restoreDraft = () => {
   const draft = loadDraft(DRAFT_KEY)
   if (!draft) return
-  formData.sales_order_number = draft.data.sales_order_number || ''
+  formData.contract_number = draft.data.sales_order_number || ''
   formData.customer_name = draft.data.customer_name || ''
   formData.customer_address = draft.data.customer_address || ''
   formData.delivery_items = draft.data.delivery_items || []
@@ -726,6 +777,7 @@ const restoreDraft = () => {
   formData.currency = draft.data.currency || 'CNY'
   formData.delivery_time = draft.data.delivery_time ? dayjs(draft.data.delivery_time) : dayjs()
   formData.delivery_date = draft.data.delivery_date ? dayjs(draft.data.delivery_date) : dayjs()
+  formData.entry_date = draft.data.entry_date ? dayjs(draft.data.entry_date) : dayjs()
   formData.delivery_person = draft.data.delivery_person || currentUser.value?.username || ''
   formData.contact_phone = draft.data.contact_phone || currentUser.value?.phone || ''
   formData.remarks = draft.data.remarks || ''
@@ -768,6 +820,7 @@ const loadBasicData = async () => {
       product_code: p.product_code || p.code,
       description: p.description,
       unit: p.unit,
+      stock: p.stock,
     }))
     customerOptions.value = customers.data || []
   } catch (error) {
@@ -791,7 +844,7 @@ watch(
         }
       } else if (props.deliveryOrderData) {
         orderNumber.value = props.deliveryOrderData.order_number || ''
-        formData.sales_order_number = props.deliveryOrderData.sales_order_number || ''
+        formData.contract_number = props.deliveryOrderData.sales_order_number || ''
         formData.customer_name = props.deliveryOrderData.customer_name || ''
         formData.customer_address = props.deliveryOrderData.customer_address || ''
         formData.total_amount = props.deliveryOrderData.total_amount || 0
@@ -810,6 +863,12 @@ watch(
           formData.delivery_date = dayjs(props.deliveryOrderData.delivery_date)
         } else {
           formData.delivery_date = dayjs()
+        }
+
+        if (props.deliveryOrderData.entry_date) {
+          formData.entry_date = dayjs(props.deliveryOrderData.entry_date)
+        } else {
+          formData.entry_date = dayjs()
         }
 
         try {
@@ -948,5 +1007,16 @@ watch(
   padding-top: 16px;
   border-top: 1px solid #f0f0f0;
   margin-top: 16px;
+}
+
+.quantity-exceeded {
+  :deep(.ant-input-number-input) {
+    color: #ff4d4f !important;
+  }
+}
+
+.required {
+  color: #ff4d4f;
+  margin-right: 4px;
 }
 </style>

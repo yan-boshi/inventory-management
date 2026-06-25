@@ -76,12 +76,13 @@ export const getDeliveryOrderById = async (req, res) => {
 export const createDeliveryOrder = async (req, res) => {
   try {
     const {
-      sales_order_number,
+      contract_number,
       customer_name,
       customer_address,
       delivery_items,
       delivery_time,
       delivery_date,
+      entry_date,
       currency,
       delivery_person,
       contact_phone,
@@ -123,12 +124,13 @@ export const createDeliveryOrder = async (req, res) => {
 
     // 创建出库单
     const order = await DeliveryOrder.create({
-      sales_order_number,
+      contract_number,
       customer_name,
       customer_address,
       delivery_items,
       delivery_time,
       delivery_date,
+      entry_date,
       currency,
       delivery_person,
       contact_phone,
@@ -163,8 +165,8 @@ export const createDeliveryOrder = async (req, res) => {
     }
 
     // 如果关联了销售订单，同步出库数量到销售订单
-    if (sales_order_number) {
-      const salesOrder = await SalesOrder.findOne('order_number = ?', [sales_order_number])
+    if (contract_number) {
+      const salesOrder = await SalesOrder.findOne('contract_number = ?', [contract_number])
 
       if (salesOrder) {
         const salesItems = JSON.parse(salesOrder.sales_items || '[]')
@@ -234,12 +236,13 @@ export const updateDeliveryOrder = async (req, res) => {
   try {
     const { id } = req.params
     const {
-      sales_order_number,
+      contract_number,
       customer_name,
       customer_address,
       delivery_items,
       delivery_time,
       delivery_date,
+      entry_date,
       currency,
       delivery_person,
       contact_phone,
@@ -253,12 +256,13 @@ export const updateDeliveryOrder = async (req, res) => {
     }
 
     const updateData = {}
-    if (sales_order_number !== undefined) updateData.sales_order_number = sales_order_number
+    if (contract_number !== undefined) updateData.contract_number = contract_number
     if (customer_name !== undefined) updateData.customer_name = customer_name
     if (customer_address !== undefined) updateData.customer_address = customer_address
     if (delivery_items !== undefined) updateData.delivery_items = delivery_items
     if (delivery_time !== undefined) updateData.delivery_time = delivery_time
     if (delivery_date !== undefined) updateData.delivery_date = delivery_date
+    if (entry_date !== undefined) updateData.entry_date = entry_date
     if (currency !== undefined) updateData.currency = currency
     if (delivery_person !== undefined) updateData.delivery_person = delivery_person
     if (contact_phone !== undefined) updateData.contact_phone = contact_phone
@@ -282,8 +286,8 @@ export const deleteDeliveryOrder = async (req, res) => {
     }
 
     // 如果关联了销售订单，回退出库数量
-    if (existing.sales_order_number) {
-      const salesOrder = await SalesOrder.findOne('order_number = ?', [existing.sales_order_number])
+    if (existing.contract_number) {
+      const salesOrder = await SalesOrder.findOne('contract_number = ?', [existing.contract_number])
 
       if (salesOrder) {
         const salesItems = JSON.parse(salesOrder.sales_items || '[]')

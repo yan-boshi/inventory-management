@@ -12,42 +12,63 @@ class WarehousingOrder extends BaseModel {
     const dateString = date.toISOString().slice(0, 10)
     const dateStr = dateString.replace(/-/g, '')
 
-    // 查询当天已有的入库单数量，生成递增数字
-    const todayStart = `${dateString} 00:00:00`
-    const todayEnd = `${dateString} 23:59:59`
-    const countQuery = `
-      SELECT COUNT(*) as count
+    // 查询当天已有的入库单最大序号，避免并发冲突
+    const query = `
+      SELECT order_number
       FROM ${this.tableName}
       WHERE order_number LIKE ?
-      AND created_at BETWEEN ? AND ?
+      ORDER BY order_number DESC
+      LIMIT 1
     `
-    const [result] = await pool.query(countQuery, [`XSD-W-${dateStr}%`, todayStart, todayEnd])
-    const count = result[0]?.count || 0
-    const sequence = (count + 1).toString().padStart(5, '0')
+    const [result] = await pool.query(query, [`XSD-W-${dateStr}%`])
 
-    return `XSD-W-${dateStr}${sequence}`
+    let sequence = 1
+    if (result.length > 0) {
+      const lastOrderNumber = result[0].order_number
+      const lastSequence = parseInt(lastOrderNumber.slice(-5), 10)
+      if (!isNaN(lastSequence)) {
+        sequence = lastSequence + 1
+      }
+    }
+
+    return `XSD-W-${dateStr}${sequence.toString().padStart(5, '0')}`
   }
 
   async create(data) {
     const warehousingItems = data.warehousing_items || '[]'
     const expenses = data.expenses ? JSON.stringify(data.expenses) : null
 
-    const orderData = {
-      warehousing_order_id: generateUUID(),
-      order_number: await this.generateOrderNumber(),
-      purchase_order_number: data.purchase_order_number || null,
-      warehousing_items: warehousingItems,
-      warehousing_time: data.warehousing_time || new Date().toISOString().slice(0, 16).replace('T', ' '),
-      customer_name: data.customer_name || null,
-      customer_address: data.customer_address || null,
-      total_amount: data.total_amount || 0,
-      currency: data.currency || 'CNY',
-      warehousing_person: data.warehousing_person || null,
-      contact_phone: data.contact_phone || null,
-      remarks: data.remarks || null,
-      expenses: expenses
+    // 重试机制，处理并发生成相同订单号的情况
+    const maxRetries = 3
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const orderData = {
+          warehousing_order_id: generateUUID(),
+          order_number: await this.generateOrderNumber(),
+          contract_number: data.contract_number || null,
+          warehousing_items: warehousingItems,
+          warehousing_time: data.warehousing_time || new Date().toISOString().slice(0, 16).replace('T', ' '),
+          entry_date: data.entry_date || null,
+          tracking_number: data.tracking_number || null,
+          customer_name: data.customer_name || null,
+          customer_address: data.customer_address || null,
+          total_amount: data.total_amount || 0,
+          currency: data.currency || 'CNY',
+          warehousing_person: data.warehousing_person || null,
+          contact_phone: data.contact_phone || null,
+          remarks: data.remarks || null,
+          expenses: expenses
+        }
+        return await super.create(orderData)
+      } catch (error) {
+        // 如果是唯一约束冲突且还有重试次数，则重试
+        if (error.code === 'ER_DUP_ENTRY' && attempt < maxRetries - 1) {
+          console.warn(`订单号冲突，重试第 ${attempt + 1} 次...`)
+          continue
+        }
+        throw error
+      }
     }
-    return super.create(orderData)
   }
 
   async update(id, data) {

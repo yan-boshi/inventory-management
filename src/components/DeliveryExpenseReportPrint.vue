@@ -20,7 +20,7 @@
           出库单号：{{ searchParams.orderNumber }}
         </span>
         <span v-if="searchParams.salesOrderNumber" class="filter-item">
-          销售订单号：{{ searchParams.salesOrderNumber }}
+          销售合同编号：{{ searchParams.salesOrderNumber }}
         </span>
         <span v-if="searchParams.productKeyword" class="filter-item">
           商品关键字：{{ searchParams.productKeyword }}
@@ -34,7 +34,7 @@
             <tr>
               <th v-if="isVisible('order_number')" rowspan="2">出库单号</th>
               <th v-if="isVisible('delivery_time')" rowspan="2">出库时间</th>
-              <th v-if="isVisible('sales_order_number')" rowspan="2">销售订单号</th>
+              <th v-if="isVisible('contract_number')" rowspan="2">销售合同编号</th>
               <th v-if="isVisible('customer_name')" rowspan="2">客户名称</th>
               <th v-if="isVisible('product_code')" rowspan="2">商品编码</th>
               <th v-if="isVisible('product_name')" rowspan="2">商品名称</th>
@@ -66,7 +66,7 @@
             <tr v-for="(item, index) in data" :key="index">
               <td v-if="isVisible('order_number')">{{ item.order_number }}</td>
               <td v-if="isVisible('delivery_time')">{{ formatDate(item.delivery_time) }}</td>
-              <td v-if="isVisible('sales_order_number')">{{ item.sales_order_number || '-' }}</td>
+              <td v-if="isVisible('contract_number')">{{ item.contract_number || '-' }}</td>
               <td v-if="isVisible('customer_name')">{{ item.customer_name || '-' }}</td>
               <td v-if="isVisible('product_code')">{{ item.product_code }}</td>
               <td v-if="isVisible('product_name')">{{ item.product_name }}</td>
@@ -126,7 +126,7 @@
 
 <script lang="ts">
 const defaultVisibleColumns = [
-  'order_number', 'delivery_time', 'sales_order_number', 'customer_name', 'product_code', 'product_name', 'specification', 'unit',
+  'order_number', 'delivery_time', 'contract_number', 'customer_name', 'product_code', 'product_name', 'specification', 'unit',
   'quantity', 'tax_included_price', 'total_price', 'express_delivery_fee', 'transportation_fee', 'customs_fee',
   'delivery_other_fee', 'delivery_expense_subtotal', 'sales_transportation_fee', 'sales_entertainment_fee',
   'sales_gift_fee', 'sales_other_fee', 'sales_expense_subtotal', 'total_expenses', 'delivery_person', 'remarks'
@@ -154,7 +154,7 @@ const isVisible = (key: string) => props.visibleColumns.includes(key)
 
 const hasFilters = computed(() => {
   return props.searchParams.startDate || props.searchParams.orderNumber ||
-    props.searchParams.salesOrderNumber || props.searchParams.productKeyword
+    props.searchParams.contractNumber || props.searchParams.productKeyword
 })
 
 // 出库费用列
@@ -169,7 +169,7 @@ const visibleSalesColCount = computed(() => salesKeys.filter(key => isVisible(ke
 
 // 基础列数量
 const basicColCount = computed(() => {
-  const basicKeys = ['order_number', 'delivery_time', 'sales_order_number', 'customer_name', 'product_code', 'product_name', 'specification', 'unit', 'quantity', 'tax_included_price']
+  const basicKeys = ['order_number', 'delivery_time', 'contract_number', 'customer_name', 'product_code', 'product_name', 'specification', 'unit', 'quantity', 'tax_included_price']
   return basicKeys.filter(key => isVisible(key)).length
 })
 

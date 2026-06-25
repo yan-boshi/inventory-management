@@ -1,0 +1,2 @@
+-- 为入库表添加快递单号列
+ALTER TABLE warehousing_orders ADD COLUMN tracking_number VARCHAR(100) DEFAULT NULL COMMENT '快递单号' AFTER entry_date;

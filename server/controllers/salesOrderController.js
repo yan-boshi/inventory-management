@@ -90,7 +90,7 @@ export const createSalesOrder = async (req, res) => {
       sales_items,
       currency,
       exchange_rate,
-      delivery_date,
+      entry_date,
       remarks,
       tax_included_amount,
       expenses,
@@ -109,7 +109,7 @@ export const createSalesOrder = async (req, res) => {
       sales_items,
       currency,
       exchange_rate,
-      delivery_date,
+      entry_date,
       remarks,
       tax_included_amount,
       expenses,
@@ -132,7 +132,7 @@ export const updateSalesOrder = async (req, res) => {
       sales_items,
       currency,
       exchange_rate,
-      delivery_date,
+      entry_date,
       remarks,
       status,
       tax_included_amount,
@@ -153,7 +153,7 @@ export const updateSalesOrder = async (req, res) => {
     if (sales_items !== undefined) updateData.sales_items = sales_items
     if (currency !== undefined) updateData.currency = currency
     if (exchange_rate !== undefined) updateData.exchange_rate = parseFloat(exchange_rate)
-    if (delivery_date !== undefined) updateData.delivery_date = delivery_date
+    if (entry_date !== undefined) updateData.entry_date = entry_date
     if (remarks !== undefined) updateData.remarks = remarks
     if (status !== undefined) updateData.status = parseInt(status)
     if (tax_included_amount !== undefined) updateData.tax_included_amount = parseFloat(tax_included_amount)

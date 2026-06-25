@@ -14,29 +14,37 @@
       </div>
 
       <div class="print-info">
-        <div class="info-row">
-          <span class="info-label">入库单编号：</span>
-          <span class="info-value">{{ order.order_number }}</span>
+        <div class="info-left">
+          <div class="info-row">
+            <span class="info-label">入库单编号：</span>
+            <span class="info-value">{{ order.order_number }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">采购合同编号：</span>
+            <span class="info-value">{{ order.contract_number || '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">客户名称：</span>
+            <span class="info-value">{{ order.customer_name || '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">客户地址：</span>
+            <span class="info-value">{{ order.customer_address || '-' }}</span>
+          </div>
         </div>
-        <div class="info-row">
-          <span class="info-label">采购订单编号：</span>
-          <span class="info-value">{{ order.purchase_order_number || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">客户名称：</span>
-          <span class="info-value">{{ order.customer_name || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">客户地址：</span>
-          <span class="info-value">{{ order.customer_address || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">入库时间：</span>
-          <span class="info-value">{{ formatDateTime(order.warehousing_time) }}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">币种：</span>
-          <span class="info-value">{{ order.currency || 'CNY' }}</span>
+        <div class="info-right">
+          <div class="info-row">
+            <span class="info-label">入库时间：</span>
+            <span class="info-value">{{ formatDateTime(order.warehousing_time) }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">快递单号：</span>
+            <span class="info-value">{{ order.tracking_number || '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">币种：</span>
+            <span class="info-value">{{ order.currency || 'CNY' }}</span>
+          </div>
         </div>
       </div>
 
@@ -73,27 +81,19 @@
             <td>{{ item.remarks || '-' }}</td>
           </tr>
           <tr v-if="parsedItems.length === 0">
-            <td colspan="7" style="text-align: center; color: #999;">暂无入库商品</td>
+            <td colspan="7" style="text-align: center; color: #999">暂无入库商品</td>
           </tr>
         </tbody>
       </table>
 
       <div class="print-footer">
         <div class="footer-row">
-          <span class="footer-label">总计：</span>
-          <span class="footer-value">{{ order.total_amount || 0 }}</span>
-        </div>
-        <div class="footer-row">
-          <span class="footer-label">入库人：</span>
-          <span class="footer-value">{{ order.warehousing_person || '-' }}</span>
-        </div>
-        <div class="footer-row">
-          <span class="footer-label">联系电话：</span>
-          <span class="footer-value">{{ order.contact_phone || '-' }}</span>
-        </div>
-        <div class="footer-row">
           <span class="footer-label">备注：</span>
           <span class="footer-value">{{ order.remarks || '-' }}</span>
+        </div>
+        <div class="footer-row">
+          <span class="footer-label">制单人：</span>
+          <span class="footer-value">{{ order.warehousing_person || '-' }}</span>
         </div>
       </div>
     </div>
@@ -124,9 +124,10 @@ const emit = defineEmits<{
 const parsedItems = computed(() => {
   if (!props.order || !props.order.warehousing_items) return []
   try {
-    const items = typeof props.order.warehousing_items === 'string'
-      ? JSON.parse(props.order.warehousing_items)
-      : props.order.warehousing_items
+    const items =
+      typeof props.order.warehousing_items === 'string'
+        ? JSON.parse(props.order.warehousing_items)
+        : props.order.warehousing_items
     return Array.isArray(items) ? items : []
   } catch {
     return []
@@ -193,7 +194,18 @@ const handlePrint = () => {
 }
 
 .print-info {
+  display: flex;
+  justify-content: space-between;
   margin-bottom: 20px;
+
+  .info-left {
+    flex: 1;
+  }
+
+  .info-right {
+    min-width: 250px;
+    text-align: right;
+  }
 
   .info-row {
     display: flex;
@@ -207,6 +219,10 @@ const handlePrint = () => {
     .info-value {
       flex: 1;
     }
+  }
+
+  .info-right .info-row {
+    justify-content: flex-end;
   }
 }
 
@@ -268,7 +284,6 @@ const handlePrint = () => {
   padding: 16px 0 0 0;
   border-top: 1px solid #f0f0f0;
 }
-
 </style>
 
 <style lang="scss">

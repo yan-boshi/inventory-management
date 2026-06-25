@@ -176,7 +176,8 @@ export const getAllProductsList = async (req, res) => {
         product_code: p.product_code,
         model: p.model,
         description: p.description,
-        unit: p.unit
+        unit: p.unit,
+        stock: p.stock
       }))
     })
   } catch (error) {

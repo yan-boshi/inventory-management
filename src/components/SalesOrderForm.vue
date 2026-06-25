@@ -24,7 +24,7 @@
             <span class="invisible-input">{{ orderNumber }}</span>
           </div>
           <div class="form-item">
-            <label class="form-label">销售合同编号：</label>
+            <label class="form-label"><span class="required">*</span>销售合同编号：</label>
             <a-input v-model:value="form.contract_number" class="invisible-input note-input" />
           </div>
           <!-- <div class="form-item">
@@ -86,9 +86,9 @@
               </a-select>
             </div>
             <div class="form-item">
-              <label class="form-label">发货日期：</label>
+              <label class="form-label"><span class="required">*</span>录入日期：</label>
               <a-date-picker
-                v-model:value="form.delivery_date"
+                v-model:value="form.entry_date"
                 class="invisible-select customer-name-input"
                 format="YYYY-MM-DD"
               />
@@ -262,6 +262,15 @@
                   <a-tag :color="getStatusColor(record.status)">
                     {{ getStatusText(record.status) }}
                   </a-tag>
+                </template>
+
+                <template v-else-if="column.key === 'delivery_date'">
+                  <a-date-picker
+                    v-model:value="record.delivery_date"
+                    format="YYYY-MM-DD"
+                    style="width: 100%"
+                    class="invisible-input"
+                  />
                 </template>
 
                 <template v-else-if="column.key === 'remarks'">
@@ -452,7 +461,7 @@ const form = reactive<CreateSalesOrderRequest & { sales_items: SalesOrderItem[];
   payment_method: '',
   sales_items: [],
   currency: 'CNY',
-  delivery_date: '',
+  entry_date: '',
   remarks: '',
   sales_person: '',
   expenses: {
@@ -479,6 +488,7 @@ const itemColumns = [
   { title: '未税金额', key: 'tax_excluded_amount', width: 110, align: 'right' as const },
   { title: '税额', key: 'tax_amount', width: 100, align: 'right' as const },
   { title: '状态', key: 'status', width: 80 },
+  { title: '发货日期', key: 'delivery_date', width: 130 },
   { title: '备注', key: 'remarks', width: 150 },
   { title: '操作', key: 'actions', width: 70, fixed: 'right' as const },
 ]
@@ -717,13 +727,14 @@ const addNewItem = () => {
     unit: '',
     quantity: 1,
     outbound_quantity: 0,
-    tax_rate: 0,
+    tax_rate: 13,
     tax_included_price: 0,
     tax_encluded_price: 0,
     tatax_included_amountx_rate: 0,
     tax_excluded_amount: 0,
     tax_amount: 0,
     status: 1,
+    delivery_date: undefined,
     remarks: '',
   })
 }
@@ -735,6 +746,10 @@ const addNewItem = () => {
 
 // 提交表单
 const handleSubmit = async () => {
+  if (!form.contract_number) {
+    message.error('请输入销售合同编号')
+    return
+  }
   if (!form.customer_name) {
     message.error('请选择客户')
     return
@@ -743,8 +758,8 @@ const handleSubmit = async () => {
     message.error('请选择结算方式')
     return
   }
-  if (!form.delivery_date) {
-    message.error('请选择发货日期')
+  if (!form.entry_date) {
+    message.error('请选择录入日期')
     return
   }
   // 检查所有商品是否填写了业务分类
@@ -779,7 +794,7 @@ const handleSubmit = async () => {
       payment_method: form.payment_method,
       sales_items: JSON.stringify(form.sales_items),
       currency: form.currency,
-      delivery_date: formatDate(form.delivery_date),
+      entry_date: formatDate(form.entry_date),
       tax_included_amount: totalAmount.value,
       remarks: form.remarks,
       expenses: form.expenses,
@@ -815,7 +830,7 @@ const handlePrint = () => {
     payment_method: form.payment_method,
     sales_items: JSON.stringify(form.sales_items),
     currency: form.currency,
-    delivery_date: form.delivery_date,
+    entry_date: form.entry_date,
     total_amount: totalAmount.value,
   })
 }
@@ -863,15 +878,20 @@ watch(
         form.payment_method = props.salesOrderData.payment_method
         form.currency = props.salesOrderData.currency || 'CNY'
         form.sales_person = props.salesOrderData.sales_person || ''
-        if (props.salesOrderData.delivery_date) {
-          form.delivery_date = dayjs(props.salesOrderData.delivery_date)
+        if (props.salesOrderData.entry_date) {
+          form.entry_date = dayjs(props.salesOrderData.entry_date)
         } else {
-          form.delivery_date = undefined
+          form.entry_date = undefined
         }
         form.remarks = props.salesOrderData.remarks || ''
         orderNumber.value = props.salesOrderData.order_number || ''
         try {
-          form.sales_items = JSON.parse(props.salesOrderData.sales_items || '[]')
+          const items = JSON.parse(props.salesOrderData.sales_items || '[]')
+          // 将 delivery_date 字符串转换为 dayjs 对象
+          form.sales_items = items.map((item: any) => ({
+            ...item,
+            delivery_date: item.delivery_date ? dayjs(item.delivery_date) : undefined,
+          }))
         } catch {
           form.sales_items = []
         }
@@ -914,7 +934,7 @@ const resetForm = () => {
   form.payment_method = ''
   form.sales_items = []
   form.currency = 'CNY'
-  form.delivery_date = ''
+  form.entry_date = dayjs()
   form.remarks = ''
   form.sales_person = ''
   form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
@@ -933,7 +953,7 @@ const handleSaveDraft = () => {
     payment_method: form.payment_method,
     sales_items: form.sales_items,
     currency: form.currency,
-    delivery_date: form.delivery_date ? (typeof form.delivery_date === 'string' ? form.delivery_date : dayjs(form.delivery_date).format('YYYY-MM-DD')) : '',
+    entry_date: form.entry_date ? (typeof form.entry_date === 'string' ? form.entry_date : dayjs(form.entry_date).format('YYYY-MM-DD')) : '',
     remarks: form.remarks,
     expenses: form.expenses,
   }
@@ -951,10 +971,15 @@ const restoreDraft = () => {
   form.customer_name = draft.data.customer_name || ''
   form.customer_code = draft.data.customer_code || ''
   form.payment_method = draft.data.payment_method || ''
-  form.sales_items = draft.data.sales_items || []
+  // 将 sales_items 中的 delivery_date 字符串转换为 dayjs 对象
+  const items = draft.data.sales_items || []
+  form.sales_items = items.map((item: any) => ({
+    ...item,
+    delivery_date: item.delivery_date ? dayjs(item.delivery_date) : undefined,
+  }))
   form.currency = draft.data.currency || 'CNY'
   // 将日期字符串转换为 dayjs 对象
-  form.delivery_date = draft.data.delivery_date ? dayjs(draft.data.delivery_date) : ''
+  form.entry_date = draft.data.entry_date ? dayjs(draft.data.entry_date) : ''
   form.remarks = draft.data.remarks || ''
   form.expenses = draft.data.expenses || { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
 }
@@ -1186,5 +1211,10 @@ watch(
   :deep(.ant-select-arrow) {
     display: none !important;
   }
+}
+
+.required {
+  color: #ff4d4f;
+  margin-right: 4px;
 }
 </style>

@@ -140,6 +140,19 @@ router.beforeEach((to, _from, next) => {
     if (!userStore.isLoggedIn) {
       next('/login')
     } else {
+      // 当登录用户访问根路径时，重定向到 customers 页面
+      if (to.path === '/') {
+        const userRole = userStore.user?.role as UserRole
+        // 检查用户是否有 customers 页面的访问权限
+        if (['advanced', 'admin'].includes(userRole)) {
+          next('/customers')
+          return
+        } else {
+          next('/sales-orders')
+          return
+        }
+      }
+
       const roles = to.meta.roles as UserRole[] | undefined
       if (roles && !roles.includes(userStore.user?.role as UserRole)) {
         next('/sales-orders')

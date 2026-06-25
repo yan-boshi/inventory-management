@@ -18,10 +18,10 @@
             <span class="invisible-input">{{ orderNumber }}</span>
           </div>
           <div class="form-item">
-            <label class="form-label">采购订单编号：</label>
+            <label class="form-label">采购合同编号：</label>
             <a-select
-              v-model:value="form.purchase_order_number"
-              placeholder="请选择采购订单编号"
+              v-model:value="form.contract_number"
+              placeholder="请选择采购合同编号"
               :loading="loading.purchaseOrders"
               show-search
               :filter-option="false"
@@ -32,9 +32,9 @@
               <a-select-option
                 v-for="order in purchaseOrderOptions"
                 :key="order.purchase_order_id"
-                :value="order.order_number"
+                :value="order.contract_number"
               >
-                {{ order.order_number }}
+                {{ order.contract_number || order.order_number }}
               </a-select-option>
             </a-select>
           </div>
@@ -63,10 +63,14 @@
               </a-select-option>
             </a-select>
           </div>
-          <!-- <div class="form-item">
-            <label class="form-label">客户地址：</label>
-            <span class="invisible-input">{{ form.customer_address || '-' }}</span>
-          </div> -->
+          <div class="form-item">
+            <label class="form-label"><span class="required">*</span>录入日期：</label>
+            <a-date-picker
+              v-model:value="form.entry_date"
+              format="YYYY-MM-DD"
+              style="width: 100%"
+            />
+          </div>
         </div>
       </div>
 
@@ -199,6 +203,15 @@
 
       <!-- 其他内容 -->
       <div class="warehousing-order-note">
+
+        <div class="note-row">
+          <label class="note-label">币种：</label>
+          <a-select v-model:value="form.currency" style="width: 100%">
+            <a-select-option value="CNY">人民币</a-select-option>
+            <a-select-option value="USD">美元</a-select-option>
+            <a-select-option value="EUR">欧元</a-select-option>
+          </a-select>
+        </div>
         <div class="note-row">
           <label class="note-label">总计：</label>
           <a-input-number
@@ -210,19 +223,19 @@
           />
         </div>
         <div class="note-row">
-          <label class="note-label">币种：</label>
-          <a-select v-model:value="form.currency" style="width: 100%">
-            <a-select-option value="CNY">人民币</a-select-option>
-            <a-select-option value="USD">美元</a-select-option>
-            <a-select-option value="EUR">欧元</a-select-option>
-          </a-select>
-        </div>
-        <div class="note-row">
           <label class="note-label">入库时间：</label>
           <a-date-picker
             v-model:value="form.warehousing_time"
             show-time
             format="YYYY-MM-DD HH:mm"
+            style="width: 100%"
+          />
+        </div>
+        <div class="note-row">
+          <label class="note-label">快递单号：</label>
+          <a-input
+            v-model:value="form.tracking_number"
+            placeholder="请输入快递单号"
             style="width: 100%"
           />
         </div>
@@ -272,21 +285,21 @@
           </div>
         </div>
         <div class="note-row">
-          <label class="note-label">入库人：</label>
+          <label class="note-label">制单人：</label>
           <a-input
             v-model:value="form.warehousing_person"
-            placeholder="请输入入库人"
+            placeholder="请输入制单人"
             class="invisible-input"
           />
         </div>
-        <div class="note-row">
+        <!-- <div class="note-row">
           <label class="note-label">联系电话：</label>
           <a-input
             v-model:value="form.contact_phone"
             placeholder="请输入联系电话"
             class="invisible-input"
           />
-        </div>
+        </div> -->
         <div class="note-row" style="grid-column: span 2">
           <label class="note-label">备注：</label>
           <a-textarea v-model:value="form.remarks" :rows="3" placeholder="请输入备注信息" />
@@ -349,9 +362,11 @@ const loading = reactive({
 const purchaseOrderOptions = ref<any[]>([])
 
 const form = reactive<CreateWarehousingOrderRequest & { warehousing_items: WarehousingItem[] }>({
-  purchase_order_number: '',
+  contract_number: '',
   warehousing_items: [],
   warehousing_time: dayjs(),
+  entry_date: dayjs(),
+  tracking_number: '',
   customer_name: '',
   customer_address: '',
   total_amount: 0,
@@ -413,7 +428,7 @@ const handlePurchaseOrderSearch = async (value: string) => {
   try {
     const response = await warehousingOrdersApi.getPurchaseOrdersForWarehousing()
     purchaseOrderOptions.value = response.data.filter((o: any) =>
-      o.order_number.toLowerCase().includes(value.toLowerCase())
+      (o.contract_number || o.order_number).toLowerCase().includes(value.toLowerCase())
     )
   } catch (error) {
     message.error('获取采购订单列表失败')
@@ -423,7 +438,7 @@ const handlePurchaseOrderSearch = async (value: string) => {
 
 // 选择采购订单
 const handlePurchaseOrderChange = async (value: string) => {
-  const order = purchaseOrderOptions.value.find((o: any) => o.order_number === value)
+  const order = purchaseOrderOptions.value.find((o: any) => o.contract_number === value)
   if (order) {
     try {
       const items = JSON.parse(order.purchase_items || '[]')
@@ -447,6 +462,7 @@ const handlePurchaseOrderChange = async (value: string) => {
           }
         })
         .filter((item: any) => item.max_quantity > 0) // 过滤掉已全部入库的商品
+      form.contract_number = order.contract_number || ''
       form.customer_name = order.supplier_name || ''
       form.customer_address = order.supplier_address || ''
       form.total_amount = order.tax_included_amount || 0
@@ -494,8 +510,13 @@ const handleSubmit = async () => {
     return
   }
 
+  if (!form.entry_date) {
+    message.error('请选择录入日期')
+    return
+  }
+
   // 前端超量校验：检查入库数量是否超过剩余可入库量
-  if (form.purchase_order_number) {
+  if (form.contract_number) {
     for (const item of form.warehousing_items) {
       if (item.max_quantity && item.quantity > item.max_quantity) {
         message.error(`商品 ${item.product_name} 入库数量(${item.quantity})超过剩余可入库数量(${item.max_quantity})`)
@@ -514,13 +535,25 @@ const handleSubmit = async () => {
     }
   }
 
+  const formatDateOnly = (date: any) => {
+    if (!date) return undefined
+    if (typeof date === 'string') return date
+    try {
+      return dayjs(date).format('YYYY-MM-DD')
+    } catch {
+      return undefined
+    }
+  }
+
   try {
     submitting.value = true
 
     const submitData: CreateWarehousingOrderRequest = {
-      purchase_order_number: form.purchase_order_number,
+      contract_number: form.contract_number,
       warehousing_items: JSON.stringify(form.warehousing_items),
       warehousing_time: formatDate(form.warehousing_time),
+      entry_date: formatDateOnly(form.entry_date),
+      tracking_number: form.tracking_number,
       customer_name: form.customer_name,
       customer_address: form.customer_address,
       total_amount: form.total_amount,
@@ -554,9 +587,10 @@ const handleSubmit = async () => {
 const handlePrint = () => {
   emit('print', {
     order_number: orderNumber.value,
-    purchase_order_number: form.purchase_order_number,
+    contract_number: form.contract_number,
     warehousing_items: form.warehousing_items,
     warehousing_time: form.warehousing_time,
+    tracking_number: form.tracking_number,
     customer_name: form.customer_name,
     customer_address: form.customer_address,
     total_amount: form.total_amount,
@@ -584,7 +618,7 @@ watch(
         checkDraft()
       } else if (props.warehousingOrderData) {
         orderNumber.value = props.warehousingOrderData.order_number || ''
-        form.purchase_order_number = props.warehousingOrderData.purchase_order_number || ''
+        form.contract_number = props.warehousingOrderData.contract_number || ''
         form.customer_name = props.warehousingOrderData.customer_name || ''
         form.customer_address = props.warehousingOrderData.customer_address || ''
         form.total_amount = props.warehousingOrderData.total_amount || 0
@@ -597,6 +631,13 @@ watch(
         } else {
           form.warehousing_time = dayjs()
         }
+
+        if (props.warehousingOrderData.entry_date) {
+          form.entry_date = dayjs(props.warehousingOrderData.entry_date)
+        } else {
+          form.entry_date = dayjs()
+        }
+        form.tracking_number = props.warehousingOrderData.tracking_number || ''
         try {
           form.warehousing_items = JSON.parse(props.warehousingOrderData.warehousing_items || '[]')
           // Initialize expenses if not present
@@ -629,9 +670,11 @@ watch(
 
 // 重置表单
 const resetForm = () => {
-  form.purchase_order_number = ''
+  form.contract_number = ''
   form.warehousing_items = []
   form.warehousing_time = dayjs()
+  form.entry_date = dayjs()
+  form.tracking_number = ''
   form.customer_name = ''
   form.customer_address = ''
   form.total_amount = 0
@@ -652,13 +695,15 @@ const DRAFT_KEY = 'warehousing_order'
 
 const handleSaveDraft = () => {
   const draftData = {
-    purchase_order_number: form.purchase_order_number,
+    contract_number: form.contract_number,
     customer_name: form.customer_name,
     customer_address: form.customer_address,
     warehousing_items: form.warehousing_items,
     total_amount: form.total_amount,
     currency: form.currency,
     warehousing_time: form.warehousing_time ? (typeof form.warehousing_time === 'string' ? form.warehousing_time : dayjs(form.warehousing_time).format('YYYY-MM-DD HH:mm')) : '',
+    entry_date: form.entry_date ? (typeof form.entry_date === 'string' ? form.entry_date : dayjs(form.entry_date).format('YYYY-MM-DD')) : '',
+    tracking_number: form.tracking_number,
     warehousing_person: form.warehousing_person,
     contact_phone: form.contact_phone,
     remarks: form.remarks,
@@ -672,13 +717,15 @@ const handleSaveDraft = () => {
 const restoreDraft = () => {
   const draft = loadDraft(DRAFT_KEY)
   if (!draft) return
-  form.purchase_order_number = draft.data.purchase_order_number || ''
+  form.contract_number = draft.data.contract_number || ''
   form.customer_name = draft.data.customer_name || ''
   form.customer_address = draft.data.customer_address || ''
   form.warehousing_items = draft.data.warehousing_items || []
   form.total_amount = draft.data.total_amount || 0
   form.currency = draft.data.currency || 'CNY'
   form.warehousing_time = draft.data.warehousing_time ? dayjs(draft.data.warehousing_time) : dayjs()
+  form.entry_date = draft.data.entry_date ? dayjs(draft.data.entry_date) : dayjs()
+  form.tracking_number = draft.data.tracking_number || ''
   form.warehousing_person = draft.data.warehousing_person || currentUser.value?.username || ''
   form.contact_phone = draft.data.contact_phone || currentUser.value?.phone || ''
   form.remarks = draft.data.remarks || ''
@@ -925,5 +972,10 @@ const handleSupplierChange = (value: string) => {
   :deep(.ant-select-arrow) {
     display: none !important;
   }
+}
+
+.required {
+  color: #ff4d4f;
+  margin-right: 4px;
 }
 </style>

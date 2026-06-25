@@ -55,6 +55,7 @@
             <tr>
               <th>序号</th>
               <th>产品名称</th>
+              <th>产品代码</th>
               <th>规格型号</th>
               <th>规格描述</th>
               <th>数量</th>
@@ -62,6 +63,7 @@
               <th>含税单价</th>
               <th>税额</th>
               <th>含税金额</th>
+              <th>发货日期</th>
               <th style="width: 100px">备注</th>
             </tr>
           </thead>
@@ -71,22 +73,32 @@
               <td>{{ item.product_name || '-' }}</td>
               <td>{{ item.product_code || '-' }}</td>
               <td>{{ item.model || '-' }}</td>
+              <td>{{ item.description || '-' }}</td>
               <td>{{ item.quantity || '-' }}</td>
               <td>{{ item.unit || '-' }}</td>
               <td>{{ item.tax_included_price }}</td>
               <td>{{ item.tax_amount }}</td>
               <td>{{ item.tax_included_amount }}</td>
+              <td>{{ formatDate(item.delivery_date) }}</td>
               <td>
                 <span class="value editable" @click="handleEdit('remarks')">-</span>
               </td>
             </tr>
             <!-- 金额总计行 -->
             <tr class="total-row">
-              <td colspan="8" class="total-label">金额总计（大写）：</td>
+              <td colspan="10" class="total-label">税额（大写）：</td>
+              <td colspan="2">{{ formData.taxAmountInWords }}</td>
+            </tr>
+            <tr class="total-row">
+              <td colspan="10" class="total-label">税额：</td>
+              <td colspan="2">{{ formatPrice(formData.taxTotal) }}</td>
+            </tr>
+            <tr class="total-row">
+              <td colspan="10" class="total-label">含税金额总计（大写）：</td>
               <td colspan="2">{{ formData.amountInWords }}</td>
             </tr>
             <tr class="total-row">
-              <td colspan="8" class="total-label">金额总计：</td>
+              <td colspan="10" class="total-label">含税金额总计：</td>
               <td colspan="2">{{ formatPrice(formData.total) }}</td>
             </tr>
           </tbody>
@@ -126,7 +138,7 @@
             </div>
             <div class="footer-item">
               <span class="footer-label">日期：</span>
-              <span class="footer-value">{{ formatDate(formData.salesDate) }}</span>
+              <span class="footer-value">{{ formatDate(orderData?.entry_date) }}</span>
             </div>
           </div>
           <div class="sign-box">
@@ -134,7 +146,7 @@
           </div>
         </div>
         <div class="footer-right">
-          <div class="footer-title">乙方：深圳市旭思达光电科技有限公司</div>
+          <div class="footer-title">乙方</div>
           <div class="footer-content">
             <div class="footer-item">
               <span class="footer-label">联系人：</span>
@@ -150,7 +162,7 @@
             </div>
             <div class="footer-item">
               <span class="footer-label">日期：</span>
-              <span class="footer-value">{{ formatDate(formData.salesDate) }}</span>
+              <span class="footer-value">{{ formatDate(orderData?.entry_date) }}</span>
             </div>
           </div>
           <div class="sign-box">
@@ -214,6 +226,8 @@ const formData = reactive({
   remarks: '',
   total: 0,
   amountInWords: '',
+  taxTotal: 0,
+  taxAmountInWords: '',
   sellerContact: '',
   sellerPhone: '',
   sellerEmail: '',
@@ -297,6 +311,15 @@ const initializeFormData = () => {
   formData.remarks = ''
   formData.total = order.tax_included_amount || 0
   formData.amountInWords = numberToChinese(order.tax_included_amount || 0)
+
+  // 计算税额总计
+  const items = orderItems.value || []
+  const taxTotal = items.reduce((sum: number, item: any) => {
+    return sum + (parseFloat(item.tax_amount) || 0)
+  }, 0)
+  formData.taxTotal = Math.round(taxTotal * 100) / 100
+  formData.taxAmountInWords = numberToChinese(formData.taxTotal)
+
   formData.sellerContact = user?.username || ''
   formData.sellerPhone = user?.phone || ''
   formData.sellerEmail = user?.email || ''

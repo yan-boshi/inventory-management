@@ -68,12 +68,13 @@ class DeliveryOrder extends BaseModel {
     const orderData = {
       delivery_order_id: generateUUID(),
       order_number: orderNumber,
-      sales_order_number: data.sales_order_number || null,
+      contract_number: data.contract_number || null,
       customer_name: data.customer_name || '',
       customer_address: data.customer_address || '',
       delivery_items: JSON.stringify(processedItems),
       delivery_time: data.delivery_time || new Date().toISOString().slice(0, 16).replace('T', ' '),
       delivery_date: data.delivery_date || null,
+      entry_date: data.entry_date || null,
       currency: data.currency || 'CNY',
       total_amount: totalAmount,
       expenses: expensesJson,
@@ -88,13 +89,13 @@ class DeliveryOrder extends BaseModel {
   // 获取未出库的销售订单
   async getUndeliveredSalesOrders() {
     try {
+      // 查询状态为未出库或部分出库的销售订单
       const query = `
-        SELECT so.sales_order_id, so.order_number, so.customer_name,
-               so.sales_items, so.currency, so.tax_included_amount, so.remarks
-        FROM sales_orders so
-        LEFT JOIN delivery_orders do ON so.order_number = do.sales_order_number
-        WHERE so.status = '1' OR so.status = '3'
-        ORDER BY so.created_at DESC
+        SELECT sales_order_id, order_number, contract_number, customer_name,
+               sales_items, currency, tax_included_amount, remarks
+        FROM sales_orders
+        WHERE status = '1' OR status = '3'
+        ORDER BY created_at DESC
       `
       const [rows] = await pool.query(query)
       return rows

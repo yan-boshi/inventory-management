@@ -92,8 +92,8 @@
             </a-tag>
           </template>
 
-          <template v-else-if="column.key === 'delivery_date'">
-            {{ formatDate(record.delivery_date) }}
+          <template v-else-if="column.key === 'entry_date'">
+            {{ formatDate(record.entry_date) }}
           </template>
 
           <template v-else-if="column.key === 'payment_method'">
@@ -243,9 +243,9 @@ const columns = [
     align: 'center',
   },
   {
-    title: '销售日期',
-    dataIndex: 'delivery_date',
-    key: 'delivery_date',
+    title: '录入日期',
+    dataIndex: 'entry_date',
+    key: 'entry_date',
     width: 120,
   },
   {

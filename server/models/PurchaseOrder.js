@@ -100,8 +100,7 @@ class PurchaseOrder extends BaseModel {
       purchase_items: JSON.stringify(calculatedItems),
       currency: data.currency || 'CNY',
       exchange_rate: data.exchange_rate || 1.0,
-      delivery_date: data.delivery_date || null,
-      arrival_date: data.arrival_date || null,
+      entry_date: data.entry_date || null,
       status: data.status || 1,
       remarks: data.remarks || null,
       expenses: expensesJson,
@@ -130,8 +129,8 @@ class PurchaseOrder extends BaseModel {
 
       // 查询关联的入库单
       const [warehousingOrders] = await pool.query(
-        `SELECT warehousing_items FROM warehousing_orders WHERE purchase_order_number = ?`,
-        [order.order_number]
+        `SELECT warehousing_items FROM warehousing_orders WHERE contract_number = ?`,
+        [order.contract_number]
       )
 
       // 如果没有入库单，返回未入库

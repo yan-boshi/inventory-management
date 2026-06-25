@@ -23,54 +23,60 @@
           </template>
           <span>供应商管理</span>
         </a-menu-item>
-        <a-menu-item key="SalesOrders" @click="navigateTo('/sales-orders')">
+        <a-sub-menu key="Sales">
           <template #icon>
             <ShoppingCartOutlined />
           </template>
-          <span>销售订单</span>
-        </a-menu-item>
-        <a-menu-item key="PurchaseOrders" @click="navigateTo('/purchase-orders')">
+          <template #title>销售管理</template>
+          <a-menu-item key="Quotations" @click="navigateTo('/quotations')">
+            <span>报价单</span>
+          </a-menu-item>
+          <a-menu-item key="SalesOrders" @click="navigateTo('/sales-orders')">
+            <span>销售订单</span>
+          </a-menu-item>
+        </a-sub-menu>
+        <a-sub-menu key="Purchase">
           <template #icon>
             <ShoppingOutlined />
           </template>
-          <span>采购订单</span>
-        </a-menu-item>
-        <a-menu-item key="Quotations" @click="navigateTo('/quotations')">
+          <template #title>采购管理</template>
+          <a-menu-item key="PurchaseOrders" @click="navigateTo('/purchase-orders')">
+            <span>采购订单</span>
+          </a-menu-item>
+        </a-sub-menu>
+        <a-sub-menu key="Inventory">
           <template #icon>
             <FileTextOutlined />
           </template>
-          <span>报价单</span>
-        </a-menu-item>
-        <a-menu-item
-          key="WarehousingOrders"
-          @click="navigateTo('/warehousing-orders')"
-          v-if="userStore.isAdvanced"
-        >
-          <template #icon>
-            <FileTextOutlined />
-          </template>
-          <span>入库单</span>
-        </a-menu-item>
-        <a-menu-item key="DeliveryOrders" @click="navigateTo('/delivery-orders')">
-          <template #icon>
-            <FileTextOutlined />
-          </template>
-          <span>出库单</span>
-        </a-menu-item>
+          <template #title>库存管理</template>
+          <a-menu-item
+            key="WarehousingOrders"
+            @click="navigateTo('/warehousing-orders')"
+            v-if="userStore.isAdvanced"
+          >
+            <span>入库单</span>
+          </a-menu-item>
+          <a-menu-item
+            key="WarehousingExpenseReport"
+            @click="navigateTo('/warehousing-expense-report')"
+          >
+            入库费用明细表
+          </a-menu-item>
+          <a-menu-item key="DeliveryOrders" @click="navigateTo('/delivery-orders')">
+            <span>出库单</span>
+          </a-menu-item>
+          <a-menu-item key="DeliveryExpenseReport" @click="navigateTo('/delivery-expense-report')">
+            出库费用明细表
+          </a-menu-item>
+          <a-menu-item key="InventoryReport" @click="navigateTo('/inventory-report')">
+            进销存明细表
+          </a-menu-item>
+        </a-sub-menu>
         <a-sub-menu key="Reports">
           <template #icon>
             <BarChartOutlined />
           </template>
           <template #title>报表中心</template>
-          <a-menu-item key="InventoryReport" @click="navigateTo('/inventory-report')">
-            进销存明细表
-          </a-menu-item>
-          <a-menu-item key="WarehousingExpenseReport" @click="navigateTo('/warehousing-expense-report')">
-            入库费用明细表
-          </a-menu-item>
-          <a-menu-item key="DeliveryExpenseReport" @click="navigateTo('/delivery-expense-report')">
-            出库费用明细表
-          </a-menu-item>
         </a-sub-menu>
         <a-menu-item key="Products" @click="navigateTo('/products')" v-if="userStore.isAdvanced">
           <template #icon>

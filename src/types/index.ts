@@ -168,7 +168,7 @@ export interface WarehousingExpenseReportParams {
   startDate?: string
   endDate?: string
   orderNumber?: string
-  purchaseOrderNumber?: string
+  contractNumber?: string
   productKeyword?: string
 }
 
@@ -176,7 +176,7 @@ export interface WarehousingExpenseReportItem {
   warehousing_order_id: string
   order_number: string
   warehousing_time: string
-  purchase_order_number: string
+  contract_number: string
   currency: string
   remarks: string
   product_code: string
@@ -204,7 +204,7 @@ export interface DeliveryExpenseReportParams {
   startDate?: string
   endDate?: string
   orderNumber?: string
-  salesOrderNumber?: string
+  contractNumber?: string
   productKeyword?: string
 }
 
@@ -212,7 +212,7 @@ export interface DeliveryExpenseReportItem {
   delivery_order_id: string
   order_number: string
   delivery_time: string
-  sales_order_number: string
+  contract_number: string
   customer_name: string
   currency: string
   remarks: string
@@ -323,7 +323,7 @@ export interface SalesOrder {
   tax_included_amount: number
   currency: string
   exchange_rate: number
-  delivery_date?: string
+  entry_date?: string
   remarks?: string
   expenses?: string
   sales_person?: string
@@ -339,7 +339,7 @@ export interface CreateSalesOrderRequest {
   sales_items: SalesOrderItem[]
   currency?: string
   exchange_rate?: number
-  delivery_date?: string
+  entry_date?: string
   remarks?: string
   expenses?: Expenses
   sales_person?: string
@@ -373,6 +373,7 @@ export interface ProductOption {
   model?: string
   description?: string
   unit?: string
+  stock?: number
 }
 
 export interface PaymentMethodOption {
@@ -461,6 +462,7 @@ export interface PurchaseItem {
   tax_excluded_amount: number
   tax_amount: number
   status: number
+  delivery_date?: string
   remarks?: string
   total_price?: number
 }
@@ -474,8 +476,7 @@ export interface PurchaseOrder {
   purchase_items: string
   currency: string
   exchange_rate: number
-  delivery_date?: string
-  arrival_date?: string
+  entry_date?: string
   status: 1 | 2 | 3 | 4
   remarks?: string
   expenses?: string
@@ -491,8 +492,7 @@ export interface CreatePurchaseOrderRequest {
   purchase_items: PurchaseItem[]
   currency?: string
   exchange_rate?: number
-  delivery_date?: string
-  arrival_date?: string
+  entry_date?: string
   remarks?: string
   expenses?: Expenses
   purchase_person?: string
@@ -599,6 +599,7 @@ export interface Quotation {
   tax_rate?: number
   tax_included_amount: number
   currency: string
+  entry_date?: string
   updated_at: string
 }
 
@@ -611,6 +612,7 @@ export interface CreateQuotationRequest {
   tax_rate?: number
   currency?: string
   remarks?: string
+  entry_date?: string
 }
 
 export interface UpdateQuotationRequest extends Partial<CreateQuotationRequest> { }
@@ -665,9 +667,11 @@ export interface WarehousingExpenses {
 export interface WarehousingOrder {
   warehousing_order_id: string
   order_number: string
-  purchase_order_number?: string
+  contract_number?: string
   warehousing_items: string
   warehousing_time: string
+  entry_date?: string
+  tracking_number?: string
   customer_name?: string
   customer_address?: string
   total_amount: number
@@ -681,9 +685,11 @@ export interface WarehousingOrder {
 }
 
 export interface CreateWarehousingOrderRequest {
-  purchase_order_number?: string
+  contract_number?: string
   warehousing_items?: WarehousingItem[]
   warehousing_time?: string
+  entry_date?: string
+  tracking_number?: string
   customer_name?: string
   customer_address?: string
   total_amount?: number
@@ -720,6 +726,7 @@ export interface DeliveryItem {
   unit: string
   quantity: number
   max_quantity?: number
+  stock?: number
   tax_rate?: number
   tax_included_price?: number
   amount?: number
@@ -729,12 +736,13 @@ export interface DeliveryItem {
 export interface DeliveryOrder {
   delivery_order_id: string
   order_number: string
-  sales_order_number?: string
+  contract_number?: string
   customer_name: string
   customer_address: string
   delivery_items: string
   delivery_time: string
   delivery_date?: string
+  entry_date?: string
   currency: string
   total_amount: number
   expenses?: string
@@ -746,12 +754,13 @@ export interface DeliveryOrder {
 }
 
 export interface CreateDeliveryOrderRequest {
-  sales_order_number?: string
+  contract_number?: string
   customer_name: string
   customer_address: string
   delivery_items: DeliveryItem[] | string
   delivery_time?: string
   delivery_date?: string
+  entry_date?: string
   currency?: string
   total_amount?: number
   delivery_person?: string
