@@ -203,7 +203,7 @@ const columns = [
     title: '供应商名称',
     dataIndex: 'supplier_name',
     key: 'supplier_name',
-    width: 150,
+    width: 300,
   },
   {
     title: '供应商代码',

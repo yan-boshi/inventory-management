@@ -76,7 +76,11 @@
 
           <template v-else-if="column.key === 'product_info'">
             <div class="product-info-cell">
-              <div v-for="(item, idx) in parseSalesItems(record.sales_items)" :key="idx" class="product-info-item">
+              <div
+                v-for="(item, idx) in parseSalesItems(record.sales_items)"
+                :key="idx"
+                class="product-info-item"
+              >
                 {{ item.product_name }}
                 <span v-if="item.product_code">（{{ item.product_code }}）</span>
                 <span v-if="item.model"> {{ item.model }}</span>
@@ -206,7 +210,7 @@ const columns = [
     key: 'order_number',
     width: 150,
   },
-    {
+  {
     title: '合同编号',
     dataIndex: 'contract_number',
     key: 'contract_number',
@@ -216,7 +220,7 @@ const columns = [
     title: '客户名称',
     dataIndex: 'customer_name',
     key: 'customer_name',
-    width: 150,
+    width: 300,
   },
   {
     title: '客户代码',
@@ -227,7 +231,7 @@ const columns = [
   {
     title: '商品信息',
     key: 'product_info',
-    width: 400,
+    width: 300,
   },
   {
     title: '结算方式',
@@ -386,7 +390,7 @@ const handleReturn = (order: SalesOrder) => {
 }
 
 const handlePrint = (order: SalesOrder) => {
-  console.log('order1111', order);
+  console.log('order1111', order)
   currentOrder.value = order
   printVisible.value = true
 }
@@ -423,10 +427,10 @@ const parseSalesItems = (salesItems: string) => {
 
 const getStatusColor = (status: number) => {
   const colorMap: Record<number, string> = {
-    1: 'blue',    // 未出库
-    2: 'green',   // 已全部出库
-    3: 'orange',  // 已部分出库
-    4: 'red',     // 退货
+    1: 'blue', // 未出库
+    2: 'green', // 已全部出库
+    3: 'orange', // 已部分出库
+    4: 'red', // 退货
   }
   return colorMap[status] || 'default'
 }
