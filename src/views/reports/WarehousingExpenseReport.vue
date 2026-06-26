@@ -1,7 +1,7 @@
 <template>
   <div class="warehousing-expense-report-container">
     <div class="header">
-      <h1>入库费用明细表</h1>
+      <h1>入库明细表</h1>
     </div>
 
     <a-card>
@@ -57,7 +57,10 @@
                 <template #content>
                   <div class="column-settings">
                     <div v-for="col in allFlatColumns" :key="col.key" class="column-item">
-                      <a-checkbox :checked="visibleColumnKeys.includes(col.key)" @change="(e: any) => handleColumnChange(col.key, e.target.checked)">
+                      <a-checkbox
+                        :checked="visibleColumnKeys.includes(col.key)"
+                        @change="(e: any) => handleColumnChange(col.key, e.target.checked)"
+                      >
                         {{ col.title }}
                       </a-checkbox>
                     </div>
@@ -132,7 +135,9 @@
             <strong>{{ formatMoney(record.purchase_expense_subtotal) }}</strong>
           </template>
           <template v-else-if="column.key === 'total_expenses'">
-            <span style="color: #f5222d; font-weight: bold">{{ formatMoney(record.total_expenses) }}</span>
+            <span style="color: #f5222d; font-weight: bold">{{
+              formatMoney(record.total_expenses)
+            }}</span>
           </template>
         </template>
 
@@ -176,7 +181,9 @@
                 <strong>{{ formatMoney(totals.purchase_expense_subtotal) }}</strong>
               </a-table-summary-cell>
               <a-table-summary-cell :index="21" :align="'right'">
-                <span style="color: #f5222d; font-weight: bold">{{ formatMoney(totals.total_expenses) }}</span>
+                <span style="color: #f5222d; font-weight: bold">{{
+                  formatMoney(totals.total_expenses)
+                }}</span>
               </a-table-summary-cell>
               <a-table-summary-cell :index="22" :colSpan="2" />
             </a-table-summary-row>
@@ -197,7 +204,12 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined, PrinterOutlined, SettingOutlined } from '@ant-design/icons-vue'
+import {
+  SearchOutlined,
+  ReloadOutlined,
+  PrinterOutlined,
+  SettingOutlined,
+} from '@ant-design/icons-vue'
 import { warehousingExpenseReportApi } from '@/api/warehousingExpenseReport'
 import WarehousingExpenseReportPrint from '@/components/WarehousingExpenseReportPrint.vue'
 import type { WarehousingExpenseReportItem, WarehousingExpenseReportParams } from '@/types'
@@ -255,7 +267,18 @@ const filteredColumns = computed(() => {
   const result: any[] = []
 
   // 基础列
-  const basicKeys = ['order_number', 'warehousing_time', 'purchase_order_number', 'product_code', 'product_name', 'model', 'unit', 'quantity', 'tax_included_price', 'total_price']
+  const basicKeys = [
+    'order_number',
+    'warehousing_time',
+    'purchase_order_number',
+    'product_code',
+    'product_name',
+    'model',
+    'unit',
+    'quantity',
+    'tax_included_price',
+    'total_price',
+  ]
   basicKeys.forEach(key => {
     if (isColumnVisible(key)) {
       const col = columns.find(c => c.key === key)
@@ -264,27 +287,39 @@ const filteredColumns = computed(() => {
   })
 
   // 入库费用分组
-  const expenseKeys = ['express_delivery_fee', 'transportation_fee', 'customs_fee', 'warehousing_other_fee', 'warehousing_expense_subtotal']
+  const expenseKeys = [
+    'express_delivery_fee',
+    'transportation_fee',
+    'customs_fee',
+    'warehousing_other_fee',
+    'warehousing_expense_subtotal',
+  ]
   const visibleExpenseCols = expenseKeys.filter(key => isColumnVisible(key))
   if (visibleExpenseCols.length > 0) {
     const expenseGroup = columns.find(c => c.title === '入库费用')
     if (expenseGroup && expenseGroup.children) {
       result.push({
         title: '入库费用',
-        children: expenseGroup.children.filter((c: any) => isColumnVisible(c.key))
+        children: expenseGroup.children.filter((c: any) => isColumnVisible(c.key)),
       })
     }
   }
 
   // 采购费用分组
-  const purchaseKeys = ['purchase_transportation_fee', 'purchase_entertainment_fee', 'purchase_gift_fee', 'purchase_other_fee', 'purchase_expense_subtotal']
+  const purchaseKeys = [
+    'purchase_transportation_fee',
+    'purchase_entertainment_fee',
+    'purchase_gift_fee',
+    'purchase_other_fee',
+    'purchase_expense_subtotal',
+  ]
   const visiblePurchaseCols = purchaseKeys.filter(key => isColumnVisible(key))
   if (visiblePurchaseCols.length > 0) {
     const purchaseGroup = columns.find(c => c.title === '采购费用')
     if (purchaseGroup && purchaseGroup.children) {
       result.push({
         title: '采购费用',
-        children: purchaseGroup.children.filter((c: any) => isColumnVisible(c.key))
+        children: purchaseGroup.children.filter((c: any) => isColumnVisible(c.key)),
       })
     }
   }
@@ -339,71 +374,195 @@ const getMergeRowSpan = (_record: WarehousingExpenseReportItem, recordIndex: num
 }
 
 const columns = [
-  { title: '入库单号', dataIndex: 'order_number', key: 'order_number', width: 160, fixed: 'left' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-  { title: '入库时间', dataIndex: 'warehousing_time', key: 'warehousing_time', width: 110, fixed: 'left' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-  { title: '采购合同编号', dataIndex: 'contract_number', key: 'contract_number', width: 160, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+  {
+    title: '入库单号',
+    dataIndex: 'order_number',
+    key: 'order_number',
+    width: 160,
+    fixed: 'left' as const,
+    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+  },
+  {
+    title: '入库时间',
+    dataIndex: 'warehousing_time',
+    key: 'warehousing_time',
+    width: 110,
+    fixed: 'left' as const,
+    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+  },
+  {
+    title: '采购合同编号',
+    dataIndex: 'contract_number',
+    key: 'contract_number',
+    width: 160,
+    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+  },
   { title: '商品编码', dataIndex: 'product_code', key: 'product_code', width: 120 },
   { title: '商品名称', dataIndex: 'product_name', key: 'product_name', width: 150 },
   { title: '规格型号', dataIndex: 'model', key: 'model', width: 100 },
   { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' as const },
   { title: '入库数量', dataIndex: 'quantity', key: 'quantity', width: 90, align: 'right' as const },
-  { title: '含税单价', dataIndex: 'tax_included_price', key: 'tax_included_price', width: 100, align: 'right' as const },
-  { title: '含税金额', dataIndex: 'total_price', key: 'total_price', width: 100, align: 'right' as const },
+  {
+    title: '含税单价',
+    dataIndex: 'tax_included_price',
+    key: 'tax_included_price',
+    width: 100,
+    align: 'right' as const,
+  },
+  {
+    title: '含税金额',
+    dataIndex: 'total_price',
+    key: 'total_price',
+    width: 100,
+    align: 'right' as const,
+  },
   {
     title: '入库费用',
     children: [
-      { title: '快递费', dataIndex: 'express_delivery_fee', key: 'express_delivery_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-      { title: '运杂费', dataIndex: 'transportation_fee', key: 'transportation_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-      { title: '报关费', dataIndex: 'customs_fee', key: 'customs_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-      { title: '其他', dataIndex: 'warehousing_other_fee', key: 'warehousing_other_fee', width: 80, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-      { title: '小计', dataIndex: 'warehousing_expense_subtotal', key: 'warehousing_expense_subtotal', width: 100, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+      {
+        title: '快递费',
+        dataIndex: 'express_delivery_fee',
+        key: 'express_delivery_fee',
+        width: 90,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
+      {
+        title: '运杂费',
+        dataIndex: 'transportation_fee',
+        key: 'transportation_fee',
+        width: 90,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
+      {
+        title: '报关费',
+        dataIndex: 'customs_fee',
+        key: 'customs_fee',
+        width: 90,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
+      {
+        title: '其他',
+        dataIndex: 'warehousing_other_fee',
+        key: 'warehousing_other_fee',
+        width: 80,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
+      {
+        title: '小计',
+        dataIndex: 'warehousing_expense_subtotal',
+        key: 'warehousing_expense_subtotal',
+        width: 100,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
     ],
   },
   {
     title: '采购费用',
     children: [
-      { title: '交通费', dataIndex: 'purchase_transportation_fee', key: 'purchase_transportation_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-      { title: '招待费', dataIndex: 'purchase_entertainment_fee', key: 'purchase_entertainment_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-      { title: '礼品费', dataIndex: 'purchase_gift_fee', key: 'purchase_gift_fee', width: 90, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-      { title: '其他', dataIndex: 'purchase_other_fee', key: 'purchase_other_fee', width: 80, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-      { title: '小计', dataIndex: 'purchase_expense_subtotal', key: 'purchase_expense_subtotal', width: 100, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+      {
+        title: '交通费',
+        dataIndex: 'purchase_transportation_fee',
+        key: 'purchase_transportation_fee',
+        width: 90,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
+      {
+        title: '招待费',
+        dataIndex: 'purchase_entertainment_fee',
+        key: 'purchase_entertainment_fee',
+        width: 90,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
+      {
+        title: '礼品费',
+        dataIndex: 'purchase_gift_fee',
+        key: 'purchase_gift_fee',
+        width: 90,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
+      {
+        title: '其他',
+        dataIndex: 'purchase_other_fee',
+        key: 'purchase_other_fee',
+        width: 80,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
+      {
+        title: '小计',
+        dataIndex: 'purchase_expense_subtotal',
+        key: 'purchase_expense_subtotal',
+        width: 100,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
     ],
   },
-  { title: '费用合计', dataIndex: 'total_expenses', key: 'total_expenses', width: 110, align: 'right' as const, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-  { title: '入库人', dataIndex: 'warehousing_person', key: 'warehousing_person', width: 80, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
-  { title: '备注', dataIndex: 'remarks', key: 'remarks', width: 120, customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }) },
+  {
+    title: '费用合计',
+    dataIndex: 'total_expenses',
+    key: 'total_expenses',
+    width: 110,
+    align: 'right' as const,
+    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+  },
+  {
+    title: '入库人',
+    dataIndex: 'warehousing_person',
+    key: 'warehousing_person',
+    width: 80,
+    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+  },
+  {
+    title: '备注',
+    dataIndex: 'remarks',
+    key: 'remarks',
+    width: 120,
+    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+  },
 ]
 
 // 汇总计算
 const totals = computed(() => {
-  return reportData.value.reduce((acc, item) => {
-    acc.total_price += item.total_price || 0
-    acc.express_delivery_fee += item.express_delivery_fee || 0
-    acc.transportation_fee += item.transportation_fee || 0
-    acc.customs_fee += item.customs_fee || 0
-    acc.warehousing_other_fee += item.warehousing_other_fee || 0
-    acc.warehousing_expense_subtotal += item.warehousing_expense_subtotal || 0
-    acc.purchase_transportation_fee += item.purchase_transportation_fee || 0
-    acc.purchase_entertainment_fee += item.purchase_entertainment_fee || 0
-    acc.purchase_gift_fee += item.purchase_gift_fee || 0
-    acc.purchase_other_fee += item.purchase_other_fee || 0
-    acc.purchase_expense_subtotal += item.purchase_expense_subtotal || 0
-    acc.total_expenses += item.total_expenses || 0
-    return acc
-  }, {
-    total_price: 0,
-    express_delivery_fee: 0,
-    transportation_fee: 0,
-    customs_fee: 0,
-    warehousing_other_fee: 0,
-    warehousing_expense_subtotal: 0,
-    purchase_transportation_fee: 0,
-    purchase_entertainment_fee: 0,
-    purchase_gift_fee: 0,
-    purchase_other_fee: 0,
-    purchase_expense_subtotal: 0,
-    total_expenses: 0,
-  })
+  return reportData.value.reduce(
+    (acc, item) => {
+      acc.total_price += item.total_price || 0
+      acc.express_delivery_fee += item.express_delivery_fee || 0
+      acc.transportation_fee += item.transportation_fee || 0
+      acc.customs_fee += item.customs_fee || 0
+      acc.warehousing_other_fee += item.warehousing_other_fee || 0
+      acc.warehousing_expense_subtotal += item.warehousing_expense_subtotal || 0
+      acc.purchase_transportation_fee += item.purchase_transportation_fee || 0
+      acc.purchase_entertainment_fee += item.purchase_entertainment_fee || 0
+      acc.purchase_gift_fee += item.purchase_gift_fee || 0
+      acc.purchase_other_fee += item.purchase_other_fee || 0
+      acc.purchase_expense_subtotal += item.purchase_expense_subtotal || 0
+      acc.total_expenses += item.total_expenses || 0
+      return acc
+    },
+    {
+      total_price: 0,
+      express_delivery_fee: 0,
+      transportation_fee: 0,
+      customs_fee: 0,
+      warehousing_other_fee: 0,
+      warehousing_expense_subtotal: 0,
+      purchase_transportation_fee: 0,
+      purchase_entertainment_fee: 0,
+      purchase_gift_fee: 0,
+      purchase_other_fee: 0,
+      purchase_expense_subtotal: 0,
+      total_expenses: 0,
+    }
+  )
 })
 
 const formatDate = (dateStr: string) => {
@@ -416,7 +575,9 @@ const formatNumber = (value: number) => {
 }
 
 const formatMoney = (value: number) => {
-  return value != null ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'
+  return value != null
+    ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : '0.00'
 }
 
 const fetchReport = async () => {

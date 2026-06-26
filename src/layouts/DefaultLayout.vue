@@ -60,13 +60,13 @@
             key="WarehousingExpenseReport"
             @click="navigateTo('/warehousing-expense-report')"
           >
-            入库费用明细表
+            入库明细表
           </a-menu-item>
           <a-menu-item key="DeliveryOrders" @click="navigateTo('/delivery-orders')">
             <span>出库单</span>
           </a-menu-item>
           <a-menu-item key="DeliveryExpenseReport" @click="navigateTo('/delivery-expense-report')">
-            出库费用明细表
+            出库费用表
           </a-menu-item>
           <a-menu-item key="InventoryReport" @click="navigateTo('/inventory-report')">
             进销存明细表

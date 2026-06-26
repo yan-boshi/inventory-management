@@ -1,14 +1,8 @@
 <template>
-  <a-modal
-    title=""
-    :width="1200"
-    :visible="visible"
-    @cancel="handleCancel"
-    :footer="null"
-  >
+  <a-modal title="" :width="1200" :visible="visible" @cancel="handleCancel" :footer="null">
     <div class="print-container">
       <div class="print-header">
-        <h1 class="report-title">入库费用明细表</h1>
+        <h1 class="report-title">入库明细表</h1>
       </div>
 
       <div class="print-filters">
@@ -70,20 +64,50 @@
               <td v-if="isVisible('product_name')">{{ item.product_name }}</td>
               <td v-if="isVisible('model')">{{ item.model || '-' }}</td>
               <td v-if="isVisible('unit')" class="text-center">{{ item.unit || '-' }}</td>
-              <td v-if="isVisible('quantity')" class="text-right">{{ formatNumber(item.quantity) }}</td>
-              <td v-if="isVisible('tax_included_price')" class="text-right">{{ formatMoney(item.tax_included_price) }}</td>
-              <td v-if="isVisible('total_price')" class="text-right">{{ formatMoney(item.total_price) }}</td>
-              <td v-if="isVisible('express_delivery_fee')" class="text-right">{{ formatMoney(item.express_delivery_fee) }}</td>
-              <td v-if="isVisible('transportation_fee')" class="text-right">{{ formatMoney(item.transportation_fee) }}</td>
-              <td v-if="isVisible('customs_fee')" class="text-right">{{ formatMoney(item.customs_fee) }}</td>
-              <td v-if="isVisible('warehousing_other_fee')" class="text-right">{{ formatMoney(item.warehousing_other_fee) }}</td>
-              <td v-if="isVisible('warehousing_expense_subtotal')" class="text-right"><strong>{{ formatMoney(item.warehousing_expense_subtotal) }}</strong></td>
-              <td v-if="isVisible('purchase_transportation_fee')" class="text-right">{{ formatMoney(item.purchase_transportation_fee) }}</td>
-              <td v-if="isVisible('purchase_entertainment_fee')" class="text-right">{{ formatMoney(item.purchase_entertainment_fee) }}</td>
-              <td v-if="isVisible('purchase_gift_fee')" class="text-right">{{ formatMoney(item.purchase_gift_fee) }}</td>
-              <td v-if="isVisible('purchase_other_fee')" class="text-right">{{ formatMoney(item.purchase_other_fee) }}</td>
-              <td v-if="isVisible('purchase_expense_subtotal')" class="text-right"><strong>{{ formatMoney(item.purchase_expense_subtotal) }}</strong></td>
-              <td v-if="isVisible('total_expenses')" class="text-right" style="color: #f5222d; font-weight: bold">
+              <td v-if="isVisible('quantity')" class="text-right">
+                {{ formatNumber(item.quantity) }}
+              </td>
+              <td v-if="isVisible('tax_included_price')" class="text-right">
+                {{ formatMoney(item.tax_included_price) }}
+              </td>
+              <td v-if="isVisible('total_price')" class="text-right">
+                {{ formatMoney(item.total_price) }}
+              </td>
+              <td v-if="isVisible('express_delivery_fee')" class="text-right">
+                {{ formatMoney(item.express_delivery_fee) }}
+              </td>
+              <td v-if="isVisible('transportation_fee')" class="text-right">
+                {{ formatMoney(item.transportation_fee) }}
+              </td>
+              <td v-if="isVisible('customs_fee')" class="text-right">
+                {{ formatMoney(item.customs_fee) }}
+              </td>
+              <td v-if="isVisible('warehousing_other_fee')" class="text-right">
+                {{ formatMoney(item.warehousing_other_fee) }}
+              </td>
+              <td v-if="isVisible('warehousing_expense_subtotal')" class="text-right">
+                <strong>{{ formatMoney(item.warehousing_expense_subtotal) }}</strong>
+              </td>
+              <td v-if="isVisible('purchase_transportation_fee')" class="text-right">
+                {{ formatMoney(item.purchase_transportation_fee) }}
+              </td>
+              <td v-if="isVisible('purchase_entertainment_fee')" class="text-right">
+                {{ formatMoney(item.purchase_entertainment_fee) }}
+              </td>
+              <td v-if="isVisible('purchase_gift_fee')" class="text-right">
+                {{ formatMoney(item.purchase_gift_fee) }}
+              </td>
+              <td v-if="isVisible('purchase_other_fee')" class="text-right">
+                {{ formatMoney(item.purchase_other_fee) }}
+              </td>
+              <td v-if="isVisible('purchase_expense_subtotal')" class="text-right">
+                <strong>{{ formatMoney(item.purchase_expense_subtotal) }}</strong>
+              </td>
+              <td
+                v-if="isVisible('total_expenses')"
+                class="text-right"
+                style="color: #f5222d; font-weight: bold"
+              >
                 {{ formatMoney(item.total_expenses) }}
               </td>
               <td v-if="isVisible('warehousing_person')">{{ item.warehousing_person || '-' }}</td>
@@ -93,18 +117,44 @@
           <tfoot v-if="data.length > 0">
             <tr class="summary-row">
               <td :colspan="basicColCount" class="text-right"><strong>合计</strong></td>
-              <td v-if="isVisible('total_price')" class="text-right"><strong>{{ formatMoney(totals.total_price) }}</strong></td>
-              <td v-if="isVisible('express_delivery_fee')" class="text-right">{{ formatMoney(totals.express_delivery_fee) }}</td>
-              <td v-if="isVisible('transportation_fee')" class="text-right">{{ formatMoney(totals.transportation_fee) }}</td>
-              <td v-if="isVisible('customs_fee')" class="text-right">{{ formatMoney(totals.customs_fee) }}</td>
-              <td v-if="isVisible('warehousing_other_fee')" class="text-right">{{ formatMoney(totals.warehousing_other_fee) }}</td>
-              <td v-if="isVisible('warehousing_expense_subtotal')" class="text-right"><strong>{{ formatMoney(totals.warehousing_expense_subtotal) }}</strong></td>
-              <td v-if="isVisible('purchase_transportation_fee')" class="text-right">{{ formatMoney(totals.purchase_transportation_fee) }}</td>
-              <td v-if="isVisible('purchase_entertainment_fee')" class="text-right">{{ formatMoney(totals.purchase_entertainment_fee) }}</td>
-              <td v-if="isVisible('purchase_gift_fee')" class="text-right">{{ formatMoney(totals.purchase_gift_fee) }}</td>
-              <td v-if="isVisible('purchase_other_fee')" class="text-right">{{ formatMoney(totals.purchase_other_fee) }}</td>
-              <td v-if="isVisible('purchase_expense_subtotal')" class="text-right"><strong>{{ formatMoney(totals.purchase_expense_subtotal) }}</strong></td>
-              <td v-if="isVisible('total_expenses')" class="text-right" style="color: #f5222d; font-weight: bold">
+              <td v-if="isVisible('total_price')" class="text-right">
+                <strong>{{ formatMoney(totals.total_price) }}</strong>
+              </td>
+              <td v-if="isVisible('express_delivery_fee')" class="text-right">
+                {{ formatMoney(totals.express_delivery_fee) }}
+              </td>
+              <td v-if="isVisible('transportation_fee')" class="text-right">
+                {{ formatMoney(totals.transportation_fee) }}
+              </td>
+              <td v-if="isVisible('customs_fee')" class="text-right">
+                {{ formatMoney(totals.customs_fee) }}
+              </td>
+              <td v-if="isVisible('warehousing_other_fee')" class="text-right">
+                {{ formatMoney(totals.warehousing_other_fee) }}
+              </td>
+              <td v-if="isVisible('warehousing_expense_subtotal')" class="text-right">
+                <strong>{{ formatMoney(totals.warehousing_expense_subtotal) }}</strong>
+              </td>
+              <td v-if="isVisible('purchase_transportation_fee')" class="text-right">
+                {{ formatMoney(totals.purchase_transportation_fee) }}
+              </td>
+              <td v-if="isVisible('purchase_entertainment_fee')" class="text-right">
+                {{ formatMoney(totals.purchase_entertainment_fee) }}
+              </td>
+              <td v-if="isVisible('purchase_gift_fee')" class="text-right">
+                {{ formatMoney(totals.purchase_gift_fee) }}
+              </td>
+              <td v-if="isVisible('purchase_other_fee')" class="text-right">
+                {{ formatMoney(totals.purchase_other_fee) }}
+              </td>
+              <td v-if="isVisible('purchase_expense_subtotal')" class="text-right">
+                <strong>{{ formatMoney(totals.purchase_expense_subtotal) }}</strong>
+              </td>
+              <td
+                v-if="isVisible('total_expenses')"
+                class="text-right"
+                style="color: #f5222d; font-weight: bold"
+              >
                 {{ formatMoney(totals.total_expenses) }}
               </td>
               <td v-if="isVisible('warehousing_person')"></td>
@@ -124,10 +174,29 @@
 
 <script lang="ts">
 const defaultVisibleColumns = [
-  'order_number', 'warehousing_time', 'contract_number', 'product_code', 'product_name', 'model', 'unit',
-  'quantity', 'tax_included_price', 'total_price', 'express_delivery_fee', 'transportation_fee', 'customs_fee',
-  'warehousing_other_fee', 'warehousing_expense_subtotal', 'purchase_transportation_fee', 'purchase_entertainment_fee',
-  'purchase_gift_fee', 'purchase_other_fee', 'purchase_expense_subtotal', 'total_expenses', 'warehousing_person', 'remarks'
+  'order_number',
+  'warehousing_time',
+  'contract_number',
+  'product_code',
+  'product_name',
+  'model',
+  'unit',
+  'quantity',
+  'tax_included_price',
+  'total_price',
+  'express_delivery_fee',
+  'transportation_fee',
+  'customs_fee',
+  'warehousing_other_fee',
+  'warehousing_expense_subtotal',
+  'purchase_transportation_fee',
+  'purchase_entertainment_fee',
+  'purchase_gift_fee',
+  'purchase_other_fee',
+  'purchase_expense_subtotal',
+  'total_expenses',
+  'warehousing_person',
+  'remarks',
 ]
 </script>
 
@@ -135,14 +204,17 @@ const defaultVisibleColumns = [
 import { computed } from 'vue'
 import type { WarehousingExpenseReportItem, WarehousingExpenseReportParams } from '@/types'
 
-const props = withDefaults(defineProps<{
-  visible: boolean
-  data: WarehousingExpenseReportItem[]
-  searchParams: WarehousingExpenseReportParams
-  visibleColumns?: string[]
-}>(), {
-  visibleColumns: () => defaultVisibleColumns
-})
+const props = withDefaults(
+  defineProps<{
+    visible: boolean
+    data: WarehousingExpenseReportItem[]
+    searchParams: WarehousingExpenseReportParams
+    visibleColumns?: string[]
+  }>(),
+  {
+    visibleColumns: () => defaultVisibleColumns,
+  }
+)
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
@@ -151,55 +223,84 @@ const emit = defineEmits<{
 const isVisible = (key: string) => props.visibleColumns.includes(key)
 
 const hasFilters = computed(() => {
-  return props.searchParams.startDate || props.searchParams.orderNumber ||
-    props.searchParams.contractNumber || props.searchParams.productKeyword
+  return (
+    props.searchParams.startDate ||
+    props.searchParams.orderNumber ||
+    props.searchParams.contractNumber ||
+    props.searchParams.productKeyword
+  )
 })
 
 // 入库费用列
-const expenseKeys = ['express_delivery_fee', 'transportation_fee', 'customs_fee', 'warehousing_other_fee', 'warehousing_expense_subtotal']
+const expenseKeys = [
+  'express_delivery_fee',
+  'transportation_fee',
+  'customs_fee',
+  'warehousing_other_fee',
+  'warehousing_expense_subtotal',
+]
 const hasVisibleExpenseCols = computed(() => expenseKeys.some(key => isVisible(key)))
 const visibleExpenseColCount = computed(() => expenseKeys.filter(key => isVisible(key)).length)
 
 // 采购费用列
-const purchaseKeys = ['purchase_transportation_fee', 'purchase_entertainment_fee', 'purchase_gift_fee', 'purchase_other_fee', 'purchase_expense_subtotal']
+const purchaseKeys = [
+  'purchase_transportation_fee',
+  'purchase_entertainment_fee',
+  'purchase_gift_fee',
+  'purchase_other_fee',
+  'purchase_expense_subtotal',
+]
 const hasVisiblePurchaseCols = computed(() => purchaseKeys.some(key => isVisible(key)))
 const visiblePurchaseColCount = computed(() => purchaseKeys.filter(key => isVisible(key)).length)
 
 // 基础列数量
 const basicColCount = computed(() => {
-  const basicKeys = ['order_number', 'warehousing_time', 'contract_number', 'product_code', 'product_name', 'model', 'unit', 'quantity', 'tax_included_price']
+  const basicKeys = [
+    'order_number',
+    'warehousing_time',
+    'contract_number',
+    'product_code',
+    'product_name',
+    'model',
+    'unit',
+    'quantity',
+    'tax_included_price',
+  ]
   return basicKeys.filter(key => isVisible(key)).length
 })
 
 const totals = computed(() => {
-  return props.data.reduce((acc, item) => {
-    acc.total_price += item.total_price || 0
-    acc.express_delivery_fee += item.express_delivery_fee || 0
-    acc.transportation_fee += item.transportation_fee || 0
-    acc.customs_fee += item.customs_fee || 0
-    acc.warehousing_other_fee += item.warehousing_other_fee || 0
-    acc.warehousing_expense_subtotal += item.warehousing_expense_subtotal || 0
-    acc.purchase_transportation_fee += item.purchase_transportation_fee || 0
-    acc.purchase_entertainment_fee += item.purchase_entertainment_fee || 0
-    acc.purchase_gift_fee += item.purchase_gift_fee || 0
-    acc.purchase_other_fee += item.purchase_other_fee || 0
-    acc.purchase_expense_subtotal += item.purchase_expense_subtotal || 0
-    acc.total_expenses += item.total_expenses || 0
-    return acc
-  }, {
-    total_price: 0,
-    express_delivery_fee: 0,
-    transportation_fee: 0,
-    customs_fee: 0,
-    warehousing_other_fee: 0,
-    warehousing_expense_subtotal: 0,
-    purchase_transportation_fee: 0,
-    purchase_entertainment_fee: 0,
-    purchase_gift_fee: 0,
-    purchase_other_fee: 0,
-    purchase_expense_subtotal: 0,
-    total_expenses: 0,
-  })
+  return props.data.reduce(
+    (acc, item) => {
+      acc.total_price += item.total_price || 0
+      acc.express_delivery_fee += item.express_delivery_fee || 0
+      acc.transportation_fee += item.transportation_fee || 0
+      acc.customs_fee += item.customs_fee || 0
+      acc.warehousing_other_fee += item.warehousing_other_fee || 0
+      acc.warehousing_expense_subtotal += item.warehousing_expense_subtotal || 0
+      acc.purchase_transportation_fee += item.purchase_transportation_fee || 0
+      acc.purchase_entertainment_fee += item.purchase_entertainment_fee || 0
+      acc.purchase_gift_fee += item.purchase_gift_fee || 0
+      acc.purchase_other_fee += item.purchase_other_fee || 0
+      acc.purchase_expense_subtotal += item.purchase_expense_subtotal || 0
+      acc.total_expenses += item.total_expenses || 0
+      return acc
+    },
+    {
+      total_price: 0,
+      express_delivery_fee: 0,
+      transportation_fee: 0,
+      customs_fee: 0,
+      warehousing_other_fee: 0,
+      warehousing_expense_subtotal: 0,
+      purchase_transportation_fee: 0,
+      purchase_entertainment_fee: 0,
+      purchase_gift_fee: 0,
+      purchase_other_fee: 0,
+      purchase_expense_subtotal: 0,
+      total_expenses: 0,
+    }
+  )
 })
 
 const formatDate = (dateStr: string) => {
@@ -212,7 +313,9 @@ const formatNumber = (value: number) => {
 }
 
 const formatMoney = (value: number) => {
-  return value != null ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'
+  return value != null
+    ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : '0.00'
 }
 
 const handleCancel = () => {
@@ -303,7 +406,6 @@ const handlePrint = () => {
   text-align: center;
   margin-top: 20px;
 }
-
 </style>
 
 <style lang="scss">
@@ -312,7 +414,6 @@ const handlePrint = () => {
 }
 
 @media print {
-
   body > #app {
     display: none !important;
   }
@@ -373,7 +474,8 @@ const handlePrint = () => {
   .print-table {
     min-width: 0 !important;
 
-    th, td {
+    th,
+    td {
       padding: 1px 3px;
       font-size: 8px;
       white-space: normal !important;

@@ -1,8 +1,8 @@
-# 入库费用明细表 - 实现规划
+# 入库明细表 - 实现规划
 
 ## 一、需求概述
 
-在报表中心新增一份**入库费用明细表**，将入库单的商品信息、入库费用、关联采购订单的采购费用登记以及入库人整合到一张报表中，方便财务和管理层进行费用核算与审计。
+在报表中心新增一份**入库明细表**，将入库单的商品信息、入库费用、关联采购订单的采购费用登记以及入库人整合到一张报表中，方便财务和管理层进行费用核算与审计。
 
 ## 二、数据来源分析
 
@@ -244,7 +244,7 @@ export const warehousingExpenseReportApi = {
 
 ```vue
 <a-menu-item key="WarehousingExpenseReport">
-  <router-link to="/warehousing-expense-report">入库费用明细表</router-link>
+  <router-link to="/warehousing-expense-report">入库明细表</router-link>
 </a-menu-item>
 ```
 
@@ -277,4 +277,4 @@ export const warehousingExpenseReportApi = {
 - 添加费用明细的导出功能（Excel/CSV）
 - 添加费用趋势图表
 - 按供应商/商品维度的费用汇总分析
-- 与出库费用明细表（基于出库单+销售订单）形成对照
+- 与出库明细表（基于出库单+销售订单）形成对照

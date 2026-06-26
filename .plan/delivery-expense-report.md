@@ -1,8 +1,8 @@
-# 出库费用明细表 - 实现规划
+# 出库明细表 - 实现规划
 
 ## 一、需求概述
 
-在报表中心新增一份**出库费用明细表**，将出库单的商品信息、出库费用、关联销售订单的销售费用登记以及出库人整合到一张报表中，方便财务和管理层进行费用核算与审计。
+在报表中心新增一份**出库明细表**，将出库单的商品信息、出库费用、关联销售订单的销售费用登记以及出库人整合到一张报表中，方便财务和管理层进行费用核算与审计。
 
 ## 二、数据来源分析
 
@@ -247,7 +247,7 @@ export const deliveryExpenseReportApi = {
 - 数据表格：`a-table` 展示所有列，含表头分组（出库费用 / 销售费用）
 - 行合并：同一出库单号的行使用 `customCell` + `rowSpan` 合并单据级列
 - 底部汇总行：显示各项费用合计
-- 客户名称列（入库费用明细表无此列，出库单有客户信息）
+- 客户名称列（入库明细表无此列，出库单有客户信息）
 
 #### 5.2.4 注册路由
 
@@ -272,7 +272,7 @@ export const deliveryExpenseReportApi = {
 
 ```vue
 <a-menu-item key="DeliveryExpenseReport" @click="navigateTo('/delivery-expense-report')">
-  出库费用明细表
+  出库明细表
 </a-menu-item>
 ```
 
@@ -289,9 +289,9 @@ export const deliveryExpenseReportApi = {
 | **修改** | `src/router/index.ts` | 添加路由配置 |
 | **修改** | `src/layouts/DefaultLayout.vue` | 添加菜单项 |
 
-## 七、与入库费用明细表的差异对比
+## 七、与入库明细表的差异对比
 
-| 维度 | 入库费用明细表 | 出库费用明细表 |
+| 维度 | 入库明细表 | 出库明细表 |
 |------|--------------|--------------|
 | 主表 | `warehousing_orders` | `delivery_orders` |
 | 关联表 | `purchase_orders`（采购订单） | `sales_orders`（销售订单） |
@@ -317,4 +317,4 @@ export const deliveryExpenseReportApi = {
 - 添加费用明细的导出功能（Excel/CSV）
 - 添加费用趋势图表
 - 按客户/商品维度的费用汇总分析
-- 与入库费用明细表形成进销对照分析
+- 与入库明细表形成进销对照分析
