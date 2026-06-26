@@ -112,6 +112,13 @@
                 style="width: 100%"
               />
             </template>
+            <template v-else-if="column.key === 'model'">
+              <a-input
+                v-model:value="record.model"
+                placeholder="规格型号"
+                style="width: 100%"
+              />
+            </template>
             <template v-else-if="column.key === 'specification'">
               <a-input
                 v-model:value="record.specification"
@@ -215,8 +222,7 @@
             <label class="footer-label">出库时间：</label>
             <a-date-picker
               v-model:value="formData.delivery_time"
-              show-time
-              format="YYYY-MM-DD HH:mm"
+              format="YYYY-MM-DD"
               style="width: 100%"
             />
           </div>
@@ -287,6 +293,13 @@
                 />
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="footer-row">
+          <div class="footer-item full-width">
+            <label class="footer-label">快递单号：</label>
+            <a-input v-model:value="formData.tracking_number" placeholder="请输入快递单号" style="width: 300px" />
           </div>
         </div>
 
@@ -377,12 +390,14 @@ const formData = reactive({
   contact_phone: '',
   remarks: '',
   expenses: { ...defaultExpenses } as DeliveryExpenses,
+  tracking_number: '',
 })
 
 const itemColumns = [
   { title: '序号', key: 'no', width: '5%', align: 'center' },
   { title: '产品代码', key: 'product_code', width: '9%' },
   { title: '产品名称', key: 'product_name', width: '11%' },
+  { title: '规格型号', key: 'model', width: '8%' },
   { title: '规格描述', key: 'specification', width: '9%' },
   { title: '单位', key: 'unit', width: '5%' },
   { title: '库存数', key: 'stock', width: '7%', align: 'right' },
@@ -453,6 +468,7 @@ const handleSalesOrderChange = async (value: string) => {
             no: index + 1,
             product_code: item.product_code || '',
             product_name: item.product_name || '',
+            model: product?.model || item.model || '',
             specification: item.description || item.specification || '',
             unit: item.unit || '',
             quantity: remainingQty > 0 ? remainingQty : 0,
@@ -529,7 +545,8 @@ const handleProductChange = (value: string, index: number) => {
   const product = productOptions.value.find(p => p.product_code === value)
   if (product) {
     formData.delivery_items[index].product_name = product.product_name || ''
-    formData.delivery_items[index].specification = product.description || product.model || ''
+    formData.delivery_items[index].model = product.model || ''
+    formData.delivery_items[index].specification = product.description || ''
     formData.delivery_items[index].unit = product.unit || ''
     formData.delivery_items[index].stock = Math.floor(product.stock || 0)
   }
@@ -585,6 +602,7 @@ const addItem = () => {
     no: formData.delivery_items.length + 1,
     product_code: '',
     product_name: '',
+    model: '',
     specification: '',
     unit: '',
     quantity: 1,
@@ -660,7 +678,7 @@ const handleSave = async () => {
     const submitData: CreateDeliveryOrderRequest = {
       contract_number: formData.contract_number || undefined,
       delivery_items: JSON.stringify(formData.delivery_items),
-      delivery_time: formatDate(formData.delivery_time),
+      delivery_time: formatDate(formData.delivery_time, 'YYYY-MM-DD'),
       delivery_date: formatDate(formData.delivery_date, 'YYYY-MM-DD'),
       entry_date: formatDate(formData.entry_date, 'YYYY-MM-DD'),
       customer_name: formData.customer_name,
@@ -671,6 +689,7 @@ const handleSave = async () => {
       contact_phone: formData.contact_phone,
       remarks: formData.remarks,
       expenses: formData.expenses,
+      tracking_number: formData.tracking_number || undefined,
     }
 
     if (props.isEdit && props.deliveryOrderData?.delivery_order_id) {
@@ -740,6 +759,7 @@ const resetForm = () => {
   formData.contact_phone = currentUser.value?.phone || ''
   formData.remarks = ''
   formData.expenses = { ...defaultExpenses }
+  formData.tracking_number = ''
 }
 
 // ==================== 暂存功能 ====================
@@ -760,6 +780,7 @@ const handleSaveDraft = () => {
     contact_phone: formData.contact_phone,
     remarks: formData.remarks,
     expenses: formData.expenses,
+    tracking_number: formData.tracking_number,
   }
   const summary = formData.customer_name ? `${formData.customer_name} - ${formData.delivery_items.length}个商品` : `${formData.delivery_items.length}个商品`
   saveDraft(DRAFT_KEY, draftData, summary)
@@ -782,6 +803,7 @@ const restoreDraft = () => {
   formData.contact_phone = draft.data.contact_phone || currentUser.value?.phone || ''
   formData.remarks = draft.data.remarks || ''
   formData.expenses = draft.data.expenses || { ...defaultExpenses }
+  formData.tracking_number = draft.data.tracking_number || ''
 }
 
 const checkDraft = () => {
@@ -852,6 +874,7 @@ watch(
         formData.delivery_person = props.deliveryOrderData.delivery_person || ''
         formData.contact_phone = props.deliveryOrderData.contact_phone || ''
         formData.remarks = props.deliveryOrderData.remarks || ''
+        formData.tracking_number = props.deliveryOrderData.tracking_number || ''
 
         if (props.deliveryOrderData.delivery_time) {
           formData.delivery_time = dayjs(props.deliveryOrderData.delivery_time)

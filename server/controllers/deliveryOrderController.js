@@ -87,7 +87,8 @@ export const createDeliveryOrder = async (req, res) => {
       delivery_person,
       contact_phone,
       remarks,
-      expenses
+      expenses,
+      tracking_number
     } = req.body
 
     if (!customer_name) {
@@ -135,7 +136,8 @@ export const createDeliveryOrder = async (req, res) => {
       delivery_person,
       contact_phone,
       remarks,
-      expenses
+      expenses,
+      tracking_number
     })
 
     // 更新产品库存（扣减）
@@ -247,7 +249,8 @@ export const updateDeliveryOrder = async (req, res) => {
       delivery_person,
       contact_phone,
       remarks,
-      expenses
+      expenses,
+      tracking_number
     } = req.body
 
     const existing = await DeliveryOrder.findById(id)
@@ -268,6 +271,7 @@ export const updateDeliveryOrder = async (req, res) => {
     if (contact_phone !== undefined) updateData.contact_phone = contact_phone
     if (remarks !== undefined) updateData.remarks = remarks
     if (expenses !== undefined) updateData.expenses = expenses
+    if (tracking_number !== undefined) updateData.tracking_number = tracking_number
 
     const order = await DeliveryOrder.update(id, updateData)
     res.json({ success: true, data: order })

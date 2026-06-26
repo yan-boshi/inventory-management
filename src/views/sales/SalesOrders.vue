@@ -75,19 +75,28 @@
           </template>
 
           <template v-else-if="column.key === 'product_info'">
-            <div class="product-info-cell">
-              <div
-                v-for="(item, idx) in parseSalesItems(record.sales_items)"
-                :key="idx"
-                class="product-info-item"
-              >
-                {{ item.product_name }}
-                <span v-if="item.product_code">（{{ item.product_code }}）</span>
-                <span v-if="item.model"> {{ item.model }}</span>
-                <span v-if="item.description"> {{ item.description }}</span>
-                <span v-if="item.quantity"> × {{ item.quantity }}</span>
-              </div>
-            </div>
+            <table class="items-mini-table">
+              <thead>
+                <tr>
+                  <th>产品代码</th>
+                  <th>产品名称</th>
+                  <th>产品型号</th>
+                  <th>产品描述</th>
+                  <th>数量</th>
+                  <th>单位</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, idx) in parseSalesItems(record.sales_items)" :key="idx">
+                  <td>{{ item.product_code || '-' }}</td>
+                  <td>{{ item.product_name || '-' }}</td>
+                  <td>{{ item.model || '-' }}</td>
+                  <td>{{ item.description || '-' }}</td>
+                  <td class="num">{{ item.quantity || '-' }}</td>
+                  <td>{{ item.unit || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
           </template>
 
           <template v-else-if="column.key === 'status'">
@@ -231,7 +240,7 @@ const columns = [
   {
     title: '商品信息',
     key: 'product_info',
-    width: 300,
+    width: 600,
   },
   {
     title: '结算方式',
@@ -483,19 +492,24 @@ onMounted(() => {
     margin-bottom: 16px;
   }
 
-  .product-info-cell {
-    .product-info-item {
-      font-size: 12px;
-      line-height: 1.6;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+  .items-mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
 
-      &:not(:last-child) {
-        border-bottom: 1px dashed #f0f0f0;
-        padding-bottom: 2px;
-        margin-bottom: 2px;
-      }
+    th, td {
+      padding: 2px 6px;
+      border: 1px solid #f0f0f0;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #fafafa;
+      font-weight: 500;
+    }
+
+    td.num {
+      text-align: right;
     }
   }
 }

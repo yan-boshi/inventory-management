@@ -722,6 +722,7 @@ export interface DeliveryItem {
   no: number
   product_code: string
   product_name: string
+  model?: string
   specification: string
   unit: string
   quantity: number
@@ -746,6 +747,7 @@ export interface DeliveryOrder {
   currency: string
   total_amount: number
   expenses?: string
+  tracking_number?: string
   delivery_person: string
   contact_phone: string
   remarks?: string
@@ -763,6 +765,7 @@ export interface CreateDeliveryOrderRequest {
   entry_date?: string
   currency?: string
   total_amount?: number
+  tracking_number?: string
   delivery_person?: string
   contact_phone?: string
   remarks?: string

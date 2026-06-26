@@ -86,6 +86,13 @@
           </div>
         </div>
 
+        <div class="footer-row" v-if="deliveryOrder.tracking_number">
+          <div class="footer-item full-width">
+            <span class="label">快递单号：</span>
+            <span class="value">{{ deliveryOrder.tracking_number }}</span>
+          </div>
+        </div>
+
         <div class="footer-row" v-if="getValidExpenses(deliveryOrder.expenses).length > 0">
           <div class="footer-item full-width">
             <span class="label">出库费用：</span>

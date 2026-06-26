@@ -34,8 +34,8 @@
           </div>
           <div class="customer-right">
             <div class="row">
-              <span class="label">销售订单号：</span>
-              <span class="value">{{ orderData?.sales_order_number || '-' }}</span>
+              <span class="label">销售合同编号：</span>
+              <span class="value">{{ orderData?.contract_number || '-' }}</span>
             </div>
             <div class="row">
               <span class="label">出库时间：</span>
@@ -54,6 +54,7 @@
             <th>序号</th>
             <th>产品代码</th>
             <th>产品名称</th>
+            <th>规格型号</th>
             <th>规格描述</th>
             <th>数量</th>
             <th>单位</th>
@@ -65,6 +66,7 @@
             <td>{{ item.no }}</td>
             <td>{{ item.product_code || '-' }}</td>
             <td>{{ item.product_name || '-' }}</td>
+            <td>{{ item.model || '-' }}</td>
             <td>{{ item.specification || '-' }}</td>
             <td class="editable-cell" @click="handleEdit('quantity')">
               {{ item.quantity || '-' }}
@@ -79,15 +81,7 @@
       <div class="footer-section">
         <div class="footer-row">
           <span class="footer-label">快递单号：</span>
-          <span
-            v-if="formData.expressNumber"
-            class="footer-value editable"
-            @click="handleEdit('expressNumber')"
-            >{{ formData.expressNumber }}</span
-          >
-          <span v-else class="footer-value invisible-input" @click="handleEdit('expressNumber')"
-            >____</span
-          >
+          <span class="footer-value">{{ orderData?.tracking_number || '-' }}</span>
         </div>
         <div class="footer-row">
           <span class="footer-label">件数：</span>
@@ -226,14 +220,14 @@ watch(editModalVisible, newVal => {
 
 const formatDate = (date: string) => {
   if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD HH:mm')
+  return dayjs(date).format('YYYY-MM-DD')
 }
 
 const handleEdit = (field: string) => {
   editField.value = field
   switch (field) {
     case 'deliveryTime':
-      editValue.value = dayjs(formData.deliveryTime).format('YYYY-MM-DD HH:mm')
+      editValue.value = dayjs(formData.deliveryTime).format('YYYY-MM-DD')
       break
     case 'quantity':
       editValue.value = String(formData.quantity)
@@ -463,7 +457,7 @@ const handlePrint = () => {
 
   .footer-right-section {
     margin-top: 16px;
-    margin-left: 50%;
+    margin-left: 70%;
   }
 }
 
@@ -472,7 +466,6 @@ const handlePrint = () => {
   padding: 16px 0 0 0;
   border-top: 1px solid #f0f0f0;
 }
-
 </style>
 
 <style lang="scss">

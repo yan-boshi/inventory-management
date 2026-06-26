@@ -78,6 +78,7 @@ class DeliveryOrder extends BaseModel {
       currency: data.currency || 'CNY',
       total_amount: totalAmount,
       expenses: expensesJson,
+      tracking_number: data.tracking_number || null,
       delivery_person: data.delivery_person || '',
       contact_phone: data.contact_phone || '',
       remarks: data.remarks || null

@@ -48,6 +48,7 @@
           <tr>
             <th>序号</th>
             <th>产品代码</th>
+            <th>产品名称</th>
             <th>产品规格/描述</th>
             <th>数量</th>
             <th>单位</th>
@@ -61,9 +62,10 @@
           <tr v-for="item in JSON.parse(orderData?.purchase_items || '[]')" :key="item.no">
             <td>{{ item.no }}</td>
             <td>{{ item.product_code || '-' }}</td>
+            <td>{{ item.product_name || '-' }}</td>
             <td>
-              <div>{{ item.product_name || '-' }}</div>
-              <div class="product-extra">{{ item.model || '' }}</div>
+              <div>{{ item.model || '-' }}</div>
+              <div class="product-extra">{{ item.description || '' }}</div>
             </td>
             <td>{{ item.quantity || '-' }}</td>
             <td>{{ item.unit || '-' }}</td>
@@ -76,11 +78,11 @@
           </tr>
           <!-- 金额总计行 -->
           <tr class="total-row">
-            <td colspan="6" class="total-label">金额总计（大写）：</td>
+            <td colspan="7" class="total-label">金额总计（大写）：</td>
             <td colspan="3">{{ formData.amountInWords }}</td>
           </tr>
           <tr class="total-row">
-            <td colspan="6" class="total-label">金额总计：</td>
+            <td colspan="7" class="total-label">金额总计：</td>
             <td colspan="3">{{ formData.total }}</td>
           </tr>
         </tbody>
