@@ -9,23 +9,27 @@
     :confirmLoading="loading"
   >
     <a-form ref="formRef" :model="form" :rules="rules" layout="vertical" v-if="visible">
-      <a-divider orientation="left" style="margin: 0 0 8px;">产品分类</a-divider>
+      <a-divider orientation="left" style="margin: 0 0 8px">产品分类</a-divider>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px;">
-        <a-form-item label="分类方案" style="margin-bottom: 8px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px">
+        <a-form-item label="分类方案" style="margin-bottom: 8px">
           <a-select
             v-model:value="selectedScheme"
             placeholder="请选择分类方案"
             allow-clear
             @change="onSchemeChange"
           >
-            <a-select-option v-for="item in schemeList" :key="item.product_classification_id" :value="item.classification_name">
+            <a-select-option
+              v-for="item in schemeList"
+              :key="item.product_classification_id"
+              :value="item.classification_name"
+            >
               {{ item.classification_name }}
             </a-select-option>
           </a-select>
         </a-form-item>
 
-        <a-form-item label="一级分类" style="margin-bottom: 8px;">
+        <a-form-item label="一级分类" style="margin-bottom: 8px">
           <a-select
             v-model:value="selectedLevel1"
             placeholder="请选择一级分类"
@@ -39,7 +43,7 @@
           </a-select>
         </a-form-item>
 
-        <a-form-item label="二级分类" style="margin-bottom: 8px;">
+        <a-form-item label="二级分类" style="margin-bottom: 8px">
           <a-select
             v-model:value="selectedLevel2"
             placeholder="请选择二级分类"
@@ -54,32 +58,47 @@
         </a-form-item>
       </div>
 
-      <a-divider orientation="left" style="margin: 4px 0 8px;">产品信息</a-divider>
+      <a-divider orientation="left" style="margin: 4px 0 8px">产品信息</a-divider>
 
-      <a-form-item label="产品名称" name="product_name" style="margin-bottom: 8px;">
+      <a-form-item label="产品名称" name="product_name" style="margin-bottom: 8px">
         <a-input v-model:value="form.product_name" placeholder="请输入产品名称" />
       </a-form-item>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px;">
-        <a-form-item label="产品代码" name="product_code" style="margin-bottom: 8px;">
-          <a-input v-model:value="form.product_code" placeholder="请输入产品代码" :disabled="isEdit" />
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px">
+        <a-form-item label="产品代码" name="product_code" style="margin-bottom: 8px">
+          <a-input
+            v-model:value="form.product_code"
+            placeholder="请输入产品代码"
+            :disabled="isEdit"
+          />
         </a-form-item>
 
-        <a-form-item label="规格型号" name="model" style="margin-bottom: 8px;">
+        <a-form-item label="规格型号" name="model" style="margin-bottom: 8px">
           <a-input v-model:value="form.model" placeholder="请输入规格型号" />
         </a-form-item>
 
-        <a-form-item label="单位" name="unit" style="margin-bottom: 8px;">
+        <a-form-item label="单位" name="unit" style="margin-bottom: 8px">
           <a-input v-model:value="form.unit" placeholder="请输入单位" />
         </a-form-item>
 
-        <a-form-item label="规格描述" name="description" style="margin-bottom: 8px;">
+        <a-form-item label="库存" name="stock" style="margin-bottom: 8px">
+          <a-input-number
+            v-model:value="form.stock"
+            :min="0"
+            :precision="0"
+            :disabled="!isAdmin"
+            placeholder="请输入库存数量"
+            style="width: 100%"
+          />
+        </a-form-item>
+
+        <a-form-item label="规格描述" name="description" style="margin-bottom: 8px">
           <a-input v-model:value="form.description" placeholder="请输入规格描述" />
         </a-form-item>
       </div>
 
-      <a-divider orientation="left" style="margin: 4px 0 8px;">备注</a-divider>
-      <a-form-item name="remarks" style="margin-bottom: 0;">
+      <a-divider orientation="left" style="margin: 4px 0 8px">备注</a-divider>
+      <a-form-item name="remarks" style="margin-bottom: 0">
         <a-textarea v-model:value="form.remarks" :rows="2" placeholder="请输入备注信息" />
       </a-form-item>
     </a-form>
@@ -91,7 +110,13 @@ import { ref, reactive, watch, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { productsApi } from '@/api/products'
 import { productClassificationApi } from '@/api/productClassification'
-import type { Product, CreateProductRequest, ProductClassificationSelection, ClassificationTree } from '@/types'
+import { useUserStore } from '@/stores/user'
+import type {
+  Product,
+  CreateProductRequest,
+  ProductClassificationSelection,
+  ClassificationTree,
+} from '@/types'
 
 const props = defineProps<{
   visible: boolean
@@ -103,6 +128,9 @@ const emit = defineEmits<{
   'update:visible': [value: boolean]
   success: []
 }>()
+
+const userStore = useUserStore()
+const isAdmin = computed(() => userStore.isAdmin)
 
 const formRef = ref()
 const loading = ref(false)
@@ -163,7 +191,8 @@ const loadClassifications = async () => {
       console.log('分类方案详情:', scheme.classification_name, detail)
       if (detail.data?.classification_data) {
         const data = detail.data.classification_data
-        classificationTrees.value[scheme.classification_name] = typeof data === 'string' ? JSON.parse(data) : data
+        classificationTrees.value[scheme.classification_name] =
+          typeof data === 'string' ? JSON.parse(data) : data
       }
     }
     console.log('分类树加载完成:', classificationTrees.value)
