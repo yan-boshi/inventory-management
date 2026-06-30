@@ -52,78 +52,67 @@
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
+              <ColumnConfig v-model:columns="allColumns" />
             </a-space>
           </a-form-item>
         </a-form>
       </div>
 
       <a-table
-        :columns="columns"
-        :data-source="orders"
+        :columns="visibleColumns"
+        :data-source="expandedOrders"
         :loading="loading"
         :pagination="pagination"
-        rowKey="sales_order_id"
+        rowKey="row_key"
         @change="handleTableChange"
+        :scroll="{ x: 1800 }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
-            <a @click="handleViewDetail(record)">{{ record.order_number || '-' }}</a>
+            <a v-if="record._isFirstRow" @click="handleViewDetail(record)">{{ record.order_number || '-' }}</a>
           </template>
 
-          <template v-else-if="column.key === 'item_count'">
-            {{ getItemCount(record.sales_items) }}
+          <template v-else-if="column.key === 'contract_number'">
+            <span v-if="record._isFirstRow">{{ record.contract_number || '-' }}</span>
           </template>
 
-          <template v-else-if="column.key === 'product_info'">
-            <table class="items-mini-table">
-              <thead>
-                <tr>
-                  <th>产品代码</th>
-                  <th>产品名称</th>
-                  <th>产品型号</th>
-                  <th>产品描述</th>
-                  <th>数量</th>
-                  <th>单位</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, idx) in parseSalesItems(record.sales_items)" :key="idx">
-                  <td>{{ item.product_code || '-' }}</td>
-                  <td>{{ item.product_name || '-' }}</td>
-                  <td>{{ item.model || '-' }}</td>
-                  <td>{{ item.description || '-' }}</td>
-                  <td class="num">{{ item.quantity || '-' }}</td>
-                  <td>{{ item.unit || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <template v-else-if="column.key === 'customer_name'">
+            <span v-if="record._isFirstRow">{{ record.customer_name || '-' }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'customer_code'">
+            <span v-if="record._isFirstRow">{{ record.customer_code || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'status'">
-            <a-tag :color="getStatusColor(record.status)">
+            <a-tag v-if="record._isFirstRow" :color="getStatusColor(record.status)">
               {{ getStatusText(record.status) }}
             </a-tag>
           </template>
 
           <template v-else-if="column.key === 'entry_date'">
-            {{ formatDate(record.entry_date) }}
+            <span v-if="record._isFirstRow">{{ formatDate(record.entry_date) }}</span>
           </template>
 
           <template v-else-if="column.key === 'payment_method'">
-            {{ record.payment_method }}
+            <span v-if="record._isFirstRow">{{ record.payment_method }}</span>
           </template>
 
           <template v-else-if="column.key === 'tax_included_amount'">
-            <span style="color: #f5222d; font-weight: 500">
+            <span v-if="record._isFirstRow" style="color: #f5222d; font-weight: 500">
               {{ record.tax_included_amount }}
             </span>
           </template>
           <template v-else-if="column.key === 'currency'">
-            {{ record.currency }}
+            <span v-if="record._isFirstRow">{{ record.currency }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'sales_person'">
+            <span v-if="record._isFirstRow">{{ record.sales_person || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'actions'">
-            <a-space>
+            <a-space v-if="record._isFirstRow">
               <a-button
                 type="link"
                 size="small"
@@ -173,7 +162,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import { salesOrdersApi } from '@/api/salesOrders'
@@ -181,6 +170,7 @@ import type { SalesOrder, SalesOrderQueryParams } from '@/types'
 import SalesOrderForm from '@/components/SalesOrderForm.vue'
 import SalesOrderDetail from '@/components/SalesOrderDetail.vue'
 import SalesOrderPrint from '@/components/SalesOrderPrint.vue'
+import ColumnConfig from '@/components/ColumnConfig.vue'
 import dayjs from 'dayjs'
 
 const orders = ref<SalesOrder[]>([])
@@ -191,6 +181,48 @@ const printVisible = ref(false)
 const isEdit = ref(false)
 const currentOrder = ref<SalesOrder | undefined>(undefined)
 const dateRange = ref<[any, any] | undefined>(undefined)
+
+// 展开订单数据，每个商品一行
+const expandedOrders = computed(() => {
+  const result: any[] = []
+  orders.value.forEach((order, orderIndex) => {
+    const items = parseSalesItems(order.sales_items)
+    if (items.length === 0) {
+      result.push({
+        ...order,
+        row_key: order.sales_order_id,
+        product_code: '-',
+        product_name: '-',
+        model: '-',
+        description: '-',
+        quantity: '-',
+        unit: '-',
+        amount: 0,
+        _isFirstRow: true,
+        _rowCount: 1,
+        _orderIndex: orderIndex,
+      })
+    } else {
+      items.forEach((item: any, index: number) => {
+        result.push({
+          ...order,
+          row_key: `${order.sales_order_id}_${index}`,
+          product_code: item.product_code || '-',
+          product_name: item.product_name || '-',
+          model: item.model || '-',
+          description: item.description || '-',
+          quantity: item.quantity || '-',
+          unit: item.unit || '-',
+          amount: item.tax_included_amount || 0,
+          _isFirstRow: index === 0,
+          _rowCount: items.length,
+          _orderIndex: orderIndex,
+        })
+      })
+    }
+  })
+  return result
+})
 
 const searchParams = reactive<SalesOrderQueryParams>({
   page: 1,
@@ -212,41 +244,149 @@ const pagination = reactive({
   pageSizeOptions: ['10', '20', '50', '100'],
 })
 
-const columns = [
+const allColumns = ref([
+  {
+    title: '序号',
+    key: 'index',
+    width: 60,
+    align: 'center',
+    fixed: 'left',
+    customRender: ({ record }: { record: any }) => {
+      if (record._isFirstRow) {
+        return (pagination.current - 1) * pagination.pageSize + record._orderIndex + 1
+      }
+      return ''
+    },
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
+  },
   {
     title: '默认单据编号',
     dataIndex: 'order_number',
     key: 'order_number',
     width: 150,
+    fixed: 'left',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '合同编号',
     dataIndex: 'contract_number',
     key: 'contract_number',
     width: 150,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '客户名称',
     dataIndex: 'customer_name',
     key: 'customer_name',
-    width: 300,
+    width: 200,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '客户代码',
     dataIndex: 'customer_code',
     key: 'customer_code',
     width: 120,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
-    title: '商品信息',
-    key: 'product_info',
-    width: 600,
+    title: '产品代码',
+    dataIndex: 'product_code',
+    key: 'product_code',
+    width: 120,
+  },
+  {
+    title: '产品名称',
+    dataIndex: 'product_name',
+    key: 'product_name',
+    width: 150,
+  },
+  {
+    title: '产品型号',
+    dataIndex: 'model',
+    key: 'model',
+    width: 120,
+  },
+  {
+    title: '产品描述',
+    dataIndex: 'description',
+    key: 'description',
+    width: 150,
+  },
+  {
+    title: '数量',
+    dataIndex: 'quantity',
+    key: 'quantity',
+    width: 80,
+    align: 'right',
+  },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    key: 'unit',
+    width: 60,
+    align: 'center',
+  },
+  {
+    title: '金额',
+    dataIndex: 'amount',
+    key: 'amount',
+    width: 100,
+    align: 'right',
   },
   {
     title: '结算方式',
     key: 'payment_method',
     width: 80,
     align: 'center',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '状态',
@@ -254,22 +394,59 @@ const columns = [
     key: 'status',
     width: 80,
     align: 'center',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '录入日期',
     dataIndex: 'entry_date',
     key: 'entry_date',
     width: 120,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '总价',
     key: 'tax_included_amount',
     width: 120,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '币种',
     key: 'currency',
-    width: 120,
+    width: 80,
+    align: 'center',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '销售人',
@@ -277,13 +454,36 @@ const columns = [
     key: 'sales_person',
     width: 80,
     align: 'center',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '操作',
     key: 'actions',
     width: 200,
+    fixed: 'right',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
-]
+])
+
+const visibleColumns = computed(() => {
+  return allColumns.value.filter(col => col.visible !== false)
+})
 
 const loadOrders = async () => {
   loading.value = true
@@ -490,27 +690,6 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
-  }
-
-  .items-mini-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-
-    th, td {
-      padding: 2px 6px;
-      border: 1px solid #f0f0f0;
-      white-space: nowrap;
-    }
-
-    th {
-      background: #fafafa;
-      font-weight: 500;
-    }
-
-    td.num {
-      text-align: right;
-    }
   }
 }
 </style>

@@ -52,13 +52,14 @@
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
+              <ColumnConfig v-model:columns="allColumns" />
             </a-space>
           </a-form-item>
         </a-form>
       </div>
 
       <a-table
-        :columns="columns"
+        :columns="visibleColumns"
         :data-source="quotations"
         :loading="loading"
         :pagination="pagination"
@@ -149,7 +150,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { PlusOutlined, SearchOutlined, ReloadOutlined, DownOutlined } from '@ant-design/icons-vue'
 import { quotationsApi } from '@/api/quotations'
@@ -159,6 +160,7 @@ import QuotationForm from '@/components/QuotationForm.vue'
 import QuotationPrint from '@/components/QuotationPrint.vue'
 import QuotationPrintEn from '@/components/QuotationPrintEn.vue'
 import SalesOrderForm from '@/components/SalesOrderForm.vue'
+import ColumnConfig from '@/components/ColumnConfig.vue'
 import dayjs from 'dayjs'
 
 const quotations = ref<Quotation[]>([])
@@ -193,7 +195,16 @@ const pagination = reactive({
   pageSizeOptions: ['10', '20', '50', '100'],
 })
 
-const columns = [
+const allColumns = ref([
+  {
+    title: '序号',
+    key: 'index',
+    width: 60,
+    align: 'center',
+    customRender: ({ index }: { index: number }) => {
+      return (pagination.current - 1) * pagination.pageSize + index + 1
+    },
+  },
   {
     title: '报价编号',
     dataIndex: 'quotation_number',
@@ -243,7 +254,11 @@ const columns = [
     width: 180,
     fixed: 'right',
   },
-]
+])
+
+const visibleColumns = computed(() => {
+  return allColumns.value.filter(col => col.visible !== false)
+})
 
 const loadQuotations = async () => {
   loading.value = true

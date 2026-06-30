@@ -9,23 +9,30 @@ class DeliveryOrder extends BaseModel {
 
   async generateOrderNumber() {
     const date = new Date()
-    const dateString = date.toISOString().slice(0, 10)
-    const dateStr = dateString.replace(/-/g, '')
+    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
+    // 年份取后两位 + 月日，共6位
+    const dateStr = fullDateStr.slice(2)
 
-    // 查询当天已有的出库单数量，生成递增数字
-    const todayStart = `${dateString} 00:00:00`
-    const todayEnd = `${dateString} 23:59:59`
-    const countQuery = `
-      SELECT COUNT(*) as count
+    // 查询当天已有的出库单最大序号，避免并发冲突
+    const query = `
+      SELECT order_number
       FROM ${this.tableName}
       WHERE order_number LIKE ?
-      AND created_at BETWEEN ? AND ?
+      ORDER BY order_number DESC
+      LIMIT 1
     `
-    const [result] = await pool.query(countQuery, [`XSD-O-${dateStr}%`, todayStart, todayEnd])
-    const count = result[0]?.count || 0
-    const sequence = (count + 1).toString().padStart(5, '0')
+    const [result] = await pool.query(query, [`XSD-O-${dateStr}-%`])
 
-    return `XSD-O-${dateStr}${sequence}`
+    let sequence = 1
+    if (result.length > 0) {
+      const lastOrderNumber = result[0].order_number
+      const lastSequence = parseInt(lastOrderNumber.split('-').pop(), 10)
+      if (!isNaN(lastSequence)) {
+        sequence = lastSequence + 1
+      }
+    }
+
+    return `XSD-O-${dateStr}-${sequence.toString().padStart(3, '0')}`
   }
 
   calculateTotal(items) {
@@ -63,7 +70,7 @@ class DeliveryOrder extends BaseModel {
       no: index + 1
     }))
 
-    const orderNumber = await this.generateOrderNumber()
+    const orderNumber = data.order_number || await this.generateOrderNumber()
 
     const orderData = {
       delivery_order_id: generateUUID(),

@@ -19,7 +19,7 @@
         <div class="form-row">
           <div class="form-item">
             <label class="form-label">默认单据编号：</label>
-            <span class="invisible-input">{{ orderNumber }}</span>
+            <a-input v-model:value="orderNumber" class="invisible-input" />
           </div>
           <div class="form-item">
             <label class="form-label"><span class="required">*</span>采购合同编号：</label>
@@ -111,12 +111,16 @@
                     :key="product.product_id"
                     :value="product.product_code"
                   >
-                    {{ product.product_name }}（{{product.product_code}}）
+                    {{ product.product_name }}（{{ product.product_code }}）
                   </a-select-option>
                 </a-select>
               </template>
               <template v-else-if="column.key === 'product_name'">
-                <a-input v-model:value="record.product_name" style="width: 100%" class="invisible-input" />
+                <a-input
+                  v-model:value="record.product_name"
+                  style="width: 100%"
+                  class="invisible-input"
+                />
               </template>
 
               <template v-else-if="column.key === 'model'">
@@ -208,12 +212,12 @@
                   class="invisible-input"
                 />
               </template>
-              
-                <template v-else-if="column.key === 'status'">
-                  <a-tag :color="getStatusColor(record.status)">
-                    {{ getStatusText(record.status) }}
-                  </a-tag>
-                </template>
+
+              <template v-else-if="column.key === 'status'">
+                <a-tag :color="getStatusColor(record.status)">
+                  {{ getStatusText(record.status) }}
+                </a-tag>
+              </template>
 
               <!-- <template v-else-if="column.key === 'status'">
                 <a-select
@@ -295,7 +299,7 @@
               <a-select-option value="EUR">欧元</a-select-option>
             </a-select>
           </div>
-          <div class="note-row">
+          <!-- <div class="note-row">
             <label class="note-label">汇率：</label>
             <a-input-number
               v-model:value="form.exchange_rate"
@@ -304,7 +308,7 @@
               style="width: 100%"
               class="invisible-input"
             />
-          </div>
+          </div> -->
 
           <!-- 采购费用登记 -->
           <div class="expenses-section" style="grid-column: span 2">
@@ -510,7 +514,7 @@ const handleProductSearch = async (value: string, index: number) => {
   }
   loading.products = true
   try {
-    const response = await productsApi.search(value,value)
+    const response = await productsApi.search(value, value)
     productOptions.value = response.data.map((p: any) => ({
       product_id: p.product_id || p.id,
       product_name: p.product_name || p.name,
@@ -527,7 +531,7 @@ const handleProductSearch = async (value: string, index: number) => {
 
 const handleProductChange = (value: string, index: number) => {
   const product = productOptions.value.find(p => p.product_code === value)
-  
+
   if (product) {
     form.purchase_items[index].product_name = product.product_name || ''
     form.purchase_items[index].model = product.model || ''
@@ -626,6 +630,7 @@ const handleSubmit = async () => {
     }))
 
     const submitData: CreatePurchaseOrderRequest = {
+      order_number: orderNumber.value,
       contract_number: form.contract_number,
       supplier_name: form.supplier_name,
       supplier_code: form.supplier_code,
@@ -757,11 +762,17 @@ const handleSaveDraft = () => {
     purchase_items: form.purchase_items,
     currency: form.currency,
     exchange_rate: form.exchange_rate,
-    entry_date: form.entry_date ? (typeof form.entry_date === 'string' ? form.entry_date : dayjs(form.entry_date).format('YYYY-MM-DD')) : '',
+    entry_date: form.entry_date
+      ? typeof form.entry_date === 'string'
+        ? form.entry_date
+        : dayjs(form.entry_date).format('YYYY-MM-DD')
+      : '',
     remarks: form.remarks,
     expenses: form.expenses,
   }
-  const summary = form.supplier_name ? `${form.supplier_name} - ${form.purchase_items.length}个商品` : `${form.purchase_items.length}个商品`
+  const summary = form.supplier_name
+    ? `${form.supplier_name} - ${form.purchase_items.length}个商品`
+    : `${form.purchase_items.length}个商品`
   saveDraft(DRAFT_KEY, draftData, summary)
   message.success('暂存成功')
 }
@@ -783,7 +794,12 @@ const restoreDraft = () => {
   // 将日期字符串转换为 dayjs 对象
   form.entry_date = draft.data.entry_date ? dayjs(draft.data.entry_date) : dayjs()
   form.remarks = draft.data.remarks || ''
-  form.expenses = draft.data.expenses || { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+  form.expenses = draft.data.expenses || {
+    transportationFee: 0,
+    entertainmentFee: 0,
+    giftFee: 0,
+    otherFee: 0,
+  }
 }
 
 const checkDraft = () => {
@@ -808,7 +824,6 @@ const checkDraft = () => {
     }
   }
 }
-
 
 const getStatusColor = (status: number) => {
   const colorMap: Record<number, string> = {

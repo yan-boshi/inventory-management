@@ -6,6 +6,8 @@ ALTER TABLE purchase_orders ADD COLUMN entry_date DATE DEFAULT NULL COMMENT '录
 
 ALTER TABLE warehousing_orders ADD COLUMN entry_date DATE DEFAULT NULL COMMENT '录入日期';
 
+ALTER TABLE delivery_orders ADD COLUMN entry_date DATE DEFAULT NULL COMMENT '录入日期';
+
 -- 删除 purchase_orders 表中的 delivery_date 和 arrival_date 列
 ALTER TABLE purchase_orders DROP COLUMN IF EXISTS delivery_date;
 ALTER TABLE purchase_orders DROP COLUMN IF EXISTS arrival_date;

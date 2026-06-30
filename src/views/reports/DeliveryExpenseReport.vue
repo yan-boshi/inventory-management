@@ -144,48 +144,48 @@
         <template #summary v-if="reportData.length > 0">
           <a-table-summary fixed>
             <a-table-summary-row>
-              <a-table-summary-cell :index="0" :colSpan="11" :align="'right'">
+              <a-table-summary-cell :index="0" :colSpan="10" :align="'right'">
                 <strong>合计</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="11" :align="'right'">
+              <a-table-summary-cell :index="10" :align="'right'">
                 <strong>{{ formatMoney(totals.total_price) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="12" :align="'right'">
+              <a-table-summary-cell :index="11" :align="'right'">
                 {{ formatMoney(totals.express_delivery_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="13" :align="'right'">
+              <a-table-summary-cell :index="12" :align="'right'">
                 {{ formatMoney(totals.transportation_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="14" :align="'right'">
+              <a-table-summary-cell :index="13" :align="'right'">
                 {{ formatMoney(totals.customs_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="15" :align="'right'">
+              <a-table-summary-cell :index="14" :align="'right'">
                 {{ formatMoney(totals.delivery_other_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="16" :align="'right'">
+              <a-table-summary-cell :index="15" :align="'right'">
                 <strong>{{ formatMoney(totals.delivery_expense_subtotal) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="17" :align="'right'">
+              <a-table-summary-cell :index="16" :align="'right'">
                 {{ formatMoney(totals.sales_transportation_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="18" :align="'right'">
+              <a-table-summary-cell :index="17" :align="'right'">
                 {{ formatMoney(totals.sales_entertainment_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="19" :align="'right'">
+              <a-table-summary-cell :index="18" :align="'right'">
                 {{ formatMoney(totals.sales_gift_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="20" :align="'right'">
+              <a-table-summary-cell :index="19" :align="'right'">
                 {{ formatMoney(totals.sales_other_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="21" :align="'right'">
+              <a-table-summary-cell :index="20" :align="'right'">
                 <strong>{{ formatMoney(totals.sales_expense_subtotal) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="22" :align="'right'">
+              <a-table-summary-cell :index="21" :align="'right'">
                 <span style="color: #f5222d; font-weight: bold">{{
                   formatMoney(totals.total_expenses)
                 }}</span>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="23" :colSpan="2" />
+              <a-table-summary-cell :index="22" :colSpan="2" />
             </a-table-summary-row>
           </a-table-summary>
         </template>

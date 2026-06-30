@@ -21,7 +21,7 @@
         <div class="form-row">
           <div class="form-item">
             <label class="form-label">默认单据编号：</label>
-            <span class="invisible-input">{{ orderNumber }}</span>
+            <a-input v-model:value="orderNumber" class="invisible-input" />
           </div>
           <div class="form-item">
             <label class="form-label"><span class="required">*</span>销售合同编号：</label>

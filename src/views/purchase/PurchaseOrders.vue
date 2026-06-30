@@ -52,91 +52,65 @@
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
+              <ColumnConfig v-model:columns="allColumns" />
             </a-space>
           </a-form-item>
         </a-form>
       </div>
 
       <a-table
-        :columns="columns"
-        :data-source="orders"
+        :columns="visibleColumns"
+        :data-source="expandedOrders"
         :loading="loading"
         :pagination="pagination"
-        rowKey="purchase_order_id"
+        rowKey="row_key"
         @change="handleTableChange"
+        :scroll="{ x: 1800 }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
-            <a @click="handleViewDetail(record)">{{ record.order_number || '-' }}</a>
+            <a v-if="record._isFirstRow" @click="handleViewDetail(record)">{{ record.order_number || '-' }}</a>
           </template>
 
-          <template v-else-if="column.key === 'purchase_items'">
-            <table class="items-mini-table">
-              <thead>
-                <tr>
-                  <th>产品代码</th>
-                  <th>产品名称</th>
-                  <th>产品型号</th>
-                  <th>产品描述</th>
-                  <th>数量</th>
-                  <th>单位</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, idx) in getParsedPurchaseItems(record)" :key="idx">
-                  <td>{{ item.product_code || '-' }}</td>
-                  <td>{{ item.product_name || '-' }}</td>
-                  <td>{{ item.model || '-' }}</td>
-                  <td>{{ item.description || '-' }}</td>
-                  <td class="num">{{ item.quantity || '-' }}</td>
-                  <td>{{ item.unit || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <template v-else-if="column.key === 'contract_number'">
+            <span v-if="record._isFirstRow">{{ record.contract_number || '-' }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'supplier_name'">
+            <span v-if="record._isFirstRow">{{ record.supplier_name || '-' }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'supplier_code'">
+            <span v-if="record._isFirstRow">{{ record.supplier_code || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'total_amount'">
-            <span style="color: #f5222d; font-weight: 500">
+            <span v-if="record._isFirstRow" style="color: #f5222d; font-weight: 500">
               {{ getTotalAmount(record) }}
             </span>
           </template>
 
           <template v-else-if="column.key === 'status'">
-            <a-tag :color="getStatusColor(record.status)">
+            <a-tag v-if="record._isFirstRow" :color="getStatusColor(record.status)">
               {{ getStatusText(record.status) }}
             </a-tag>
           </template>
 
           <template v-else-if="column.key === 'entry_date'">
-            {{ formatDate(record.entry_date) }}
+            <span v-if="record._isFirstRow">{{ formatDate(record.entry_date) }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'purchase_person'">
+            <span v-if="record._isFirstRow">{{ record.purchase_person || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'actions'">
-            <a-space>
+            <a-space v-if="record._isFirstRow">
               <a-button type="link" size="small" @click="handleEdit(record)"> 编辑 </a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record)">
                 删除
               </a-button>
-              <!-- <a-dropdown>
-                <template #overlay>
-                  <a-menu @click="({ key }) => handleStatusChange(record, key)">
-                    <a-menu-item key="1">未入库</a-menu-item>
-                    <a-menu-item key="2">已全部入库</a-menu-item>
-                    <a-menu-item key="3">已部分入库</a-menu-item>
-                    <a-menu-item key="4">退货</a-menu-item>
-                  </a-menu>
-                </template>
-                <a-button type="link" size="small"> 状态 <DownOutlined /> </a-button>
-              </a-dropdown> -->
-              <!-- <a-dropdown> -->
-                <a-button type="link" size="small" @click="({ key }) => handlePrint(record, key)"> 打印 <DownOutlined /> </a-button>
-                <!-- <template #overlay>
-                  <a-menu @click="({ key }) => handlePrint(record, key)">
-                    <a-menu-item key="zh">中文版</a-menu-item>
-                    <a-menu-item key="en">English</a-menu-item>
-                  </a-menu>
-                </template> -->
-              <!-- </a-dropdown> -->
+              <a-button type="link" size="small" @click="({ key }) => handlePrint(record, key)"> 打印 <DownOutlined /> </a-button>
             </a-space>
           </template>
         </template>
@@ -158,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { PlusOutlined, SearchOutlined, ReloadOutlined, DownOutlined } from '@ant-design/icons-vue'
 import { purchaseOrdersApi } from '@/api/purchaseOrders'
@@ -168,6 +142,7 @@ import PurchaseOrderForm from '@/components/PurchaseOrderForm.vue'
 import PurchaseOrderDetail from '@/components/PurchaseOrderDetail.vue'
 import PurchaseOrderPrint from '@/components/PurchaseOrderPrint.vue'
 import PurchaseOrderPrintEn from '@/components/PurchaseOrderPrintEn.vue'
+import ColumnConfig from '@/components/ColumnConfig.vue'
 import dayjs from 'dayjs'
 
 const orders = ref<PurchaseOrder[]>([])
@@ -179,6 +154,48 @@ const printEnVisible = ref(false)
 const isEdit = ref(false)
 const currentOrder = ref<PurchaseOrder | undefined>(undefined)
 const dateRange = ref<[any, any] | undefined>(undefined)
+
+// 展开订单数据，每个商品一行
+const expandedOrders = computed(() => {
+  const result: any[] = []
+  orders.value.forEach((order, orderIndex) => {
+    const items = getParsedPurchaseItems(order)
+    if (items.length === 0) {
+      result.push({
+        ...order,
+        row_key: order.purchase_order_id,
+        product_code: '-',
+        product_name: '-',
+        model: '-',
+        description: '-',
+        quantity: '-',
+        unit: '-',
+        amount: 0,
+        _isFirstRow: true,
+        _rowCount: 1,
+        _orderIndex: orderIndex,
+      })
+    } else {
+      items.forEach((item: any, index: number) => {
+        result.push({
+          ...order,
+          row_key: `${order.purchase_order_id}_${index}`,
+          product_code: item.product_code || '-',
+          product_name: item.product_name || '-',
+          model: item.model || '-',
+          description: item.description || '-',
+          quantity: item.quantity || '-',
+          unit: item.unit || '-',
+          amount: item.tax_included_amount || 0,
+          _isFirstRow: index === 0,
+          _rowCount: items.length,
+          _orderIndex: orderIndex,
+        })
+      })
+    }
+  })
+  return result
+})
 
 const searchParams = reactive<PurchaseOrderQueryParams>({
   page: 1,
@@ -200,41 +217,149 @@ const pagination = reactive({
   pageSizeOptions: ['10', '20', '50', '100'],
 })
 
-const columns = [
+const allColumns = ref([
+  {
+    title: '序号',
+    key: 'index',
+    width: 60,
+    align: 'center',
+    fixed: 'left',
+    customRender: ({ record }: { record: any }) => {
+      if (record._isFirstRow) {
+        return (pagination.current - 1) * pagination.pageSize + record._orderIndex + 1
+      }
+      return ''
+    },
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
+  },
   {
     title: '默认单据编号',
     dataIndex: 'order_number',
     key: 'order_number',
     width: 150,
+    fixed: 'left',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '合同编号',
     dataIndex: 'contract_number',
     key: 'contract_number',
     width: 150,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '供应商名称',
     dataIndex: 'supplier_name',
     key: 'supplier_name',
-    width: 300,
+    width: 200,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '供应商代码',
     dataIndex: 'supplier_code',
     key: 'supplier_code',
     width: 120,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
-    title: '商品信息',
-    key: 'purchase_items',
-    width: 600,
+    title: '产品代码',
+    dataIndex: 'product_code',
+    key: 'product_code',
+    width: 120,
+  },
+  {
+    title: '产品名称',
+    dataIndex: 'product_name',
+    key: 'product_name',
+    width: 150,
+  },
+  {
+    title: '产品型号',
+    dataIndex: 'model',
+    key: 'model',
+    width: 120,
+  },
+  {
+    title: '产品描述',
+    dataIndex: 'description',
+    key: 'description',
+    width: 150,
+  },
+  {
+    title: '数量',
+    dataIndex: 'quantity',
+    key: 'quantity',
+    width: 80,
+    align: 'right',
+  },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    key: 'unit',
+    width: 60,
+    align: 'center',
+  },
+  {
+    title: '金额',
+    dataIndex: 'amount',
+    key: 'amount',
+    width: 100,
+    align: 'right',
   },
   {
     title: '含税总价',
     key: 'total_amount',
     width: 120,
     align: 'right',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '状态',
@@ -242,12 +367,30 @@ const columns = [
     key: 'status',
     width: 100,
     align: 'center',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '录入日期',
     dataIndex: 'entry_date',
     key: 'entry_date',
     width: 120,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '采购人',
@@ -255,14 +398,36 @@ const columns = [
     key: 'purchase_person',
     width: 80,
     align: 'center',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '操作',
     key: 'actions',
     width: 220,
     fixed: 'right',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
-]
+])
+
+const visibleColumns = computed(() => {
+  return allColumns.value.filter(col => col.visible !== false)
+})
 
 const loadOrders = async () => {
   loading.value = true
@@ -448,27 +613,6 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
-  }
-
-  .items-mini-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-
-    th, td {
-      padding: 2px 6px;
-      border: 1px solid #f0f0f0;
-      white-space: nowrap;
-    }
-
-    th {
-      background: #fafafa;
-      font-weight: 500;
-    }
-
-    td.num {
-      text-align: right;
-    }
   }
 }
 </style>

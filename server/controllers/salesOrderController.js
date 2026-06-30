@@ -44,7 +44,7 @@ export const getAllSalesOrders = async (req, res) => {
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
     const result = await SalesOrder.paginateWithStatus({
       where: whereClause,
-      orderBy: 'sales_date DESC',
+      orderBy: 'entry_date DESC',
       page,
       pageSize,
       params
@@ -125,6 +125,7 @@ export const updateSalesOrder = async (req, res) => {
   try {
     const { id } = req.params
     const {
+      order_number,
       contract_number,
       customer_name,
       customer_code,
@@ -146,6 +147,7 @@ export const updateSalesOrder = async (req, res) => {
     }
 
     const updateData = {}
+    if (order_number !== undefined) updateData.order_number = order_number
     if (contract_number !== undefined) updateData.contract_number = contract_number
     if (customer_name !== undefined) updateData.customer_name = customer_name
     if (customer_code !== undefined) updateData.customer_code = customer_code

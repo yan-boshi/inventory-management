@@ -9,8 +9,9 @@ class WarehousingOrder extends BaseModel {
 
   async generateOrderNumber() {
     const date = new Date()
-    const dateString = date.toISOString().slice(0, 10)
-    const dateStr = dateString.replace(/-/g, '')
+    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
+    // 年份取后两位 + 月日，共6位
+    const dateStr = fullDateStr.slice(2)
 
     // 查询当天已有的入库单最大序号，避免并发冲突
     const query = `
@@ -20,18 +21,18 @@ class WarehousingOrder extends BaseModel {
       ORDER BY order_number DESC
       LIMIT 1
     `
-    const [result] = await pool.query(query, [`XSD-W-${dateStr}%`])
+    const [result] = await pool.query(query, [`XSD-W-${dateStr}-%`])
 
     let sequence = 1
     if (result.length > 0) {
       const lastOrderNumber = result[0].order_number
-      const lastSequence = parseInt(lastOrderNumber.slice(-5), 10)
+      const lastSequence = parseInt(lastOrderNumber.split('-').pop(), 10)
       if (!isNaN(lastSequence)) {
         sequence = lastSequence + 1
       }
     }
 
-    return `XSD-W-${dateStr}${sequence.toString().padStart(5, '0')}`
+    return `XSD-W-${dateStr}-${sequence.toString().padStart(3, '0')}`
   }
 
   async create(data) {
@@ -44,7 +45,7 @@ class WarehousingOrder extends BaseModel {
       try {
         const orderData = {
           warehousing_order_id: generateUUID(),
-          order_number: await this.generateOrderNumber(),
+          order_number: data.order_number || await this.generateOrderNumber(),
           contract_number: data.contract_number || null,
           warehousing_items: warehousingItems,
           warehousing_time: data.warehousing_time || new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -54,6 +55,7 @@ class WarehousingOrder extends BaseModel {
           customer_address: data.customer_address || null,
           total_amount: data.total_amount || 0,
           currency: data.currency || 'CNY',
+          exchange_rate: data.exchange_rate || null,
           warehousing_person: data.warehousing_person || null,
           contact_phone: data.contact_phone || null,
           remarks: data.remarks || null,

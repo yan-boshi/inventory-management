@@ -44,7 +44,7 @@ export const getAllQuotations = async (req, res) => {
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
     const result = await Quotation.paginate({
       where: whereClause,
-      orderBy: 'created_at DESC',
+      orderBy: 'entry_date DESC',
       page,
       pageSize,
       params
@@ -119,6 +119,7 @@ export const updateQuotation = async (req, res) => {
   try {
     const { id } = req.params
     const {
+      quotation_number,
       customer_name,
       customer_code,
       quotation_items,
@@ -137,6 +138,7 @@ export const updateQuotation = async (req, res) => {
     }
 
     const updateData = {}
+    if (quotation_number !== undefined) updateData.quotation_number = quotation_number
     if (customer_name !== undefined) updateData.customer_name = customer_name
     if (customer_code !== undefined) updateData.customer_code = customer_code
     if (quotation_items !== undefined) updateData.quotation_items = quotation_items
@@ -173,7 +175,7 @@ export const deleteQuotation = async (req, res) => {
 
 export const getNewQuotationNumber = async (req, res) => {
   try {
-    const quotationNumber = Quotation.generateQuotationNumber()
+    const quotationNumber = await Quotation.generateQuotationNumber()
     res.json({ success: true, data: { quotation_number: quotationNumber } })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })

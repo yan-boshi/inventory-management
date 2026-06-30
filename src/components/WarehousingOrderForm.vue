@@ -15,7 +15,7 @@
         <div class="form-row">
           <div class="form-item">
             <label class="form-label">默认单据编号：</label>
-            <span class="invisible-input">{{ orderNumber }}</span>
+            <a-input v-model:value="orderNumber" class="invisible-input" />
           </div>
           <div class="form-item">
             <label class="form-label">采购合同编号：</label>
@@ -206,11 +206,24 @@
 
         <div class="note-row">
           <label class="note-label">币种：</label>
-          <a-select v-model:value="form.currency" style="width: 100%">
+          <a-select v-model:value="form.currency" style="width: 100%" @change="handleCurrencyChange">
             <a-select-option value="CNY">人民币</a-select-option>
             <a-select-option value="USD">美元</a-select-option>
             <a-select-option value="EUR">欧元</a-select-option>
           </a-select>
+        </div>
+        <div class="note-row">
+          <label class="note-label">汇率：</label>
+          <a-input-number
+            v-model:value="form.exchange_rate"
+            :min="0"
+            :precision="4"
+            :step="0.0001"
+            :disabled="form.currency === 'CNY'"
+            placeholder="请输入汇率"
+            style="width: 100%"
+            class="invisible-input"
+          />
         </div>
         <div class="note-row">
           <label class="note-label">总计：</label>
@@ -371,6 +384,7 @@ const form = reactive<CreateWarehousingOrderRequest & { warehousing_items: Wareh
   customer_address: '',
   total_amount: 0,
   currency: 'CNY',
+  exchange_rate: undefined as number | undefined,
   warehousing_person: '',
   contact_phone: '',
   remarks: '',
@@ -549,6 +563,7 @@ const handleSubmit = async () => {
     submitting.value = true
 
     const submitData: CreateWarehousingOrderRequest = {
+      order_number: orderNumber.value,
       contract_number: form.contract_number,
       warehousing_items: JSON.stringify(form.warehousing_items),
       warehousing_time: formatDate(form.warehousing_time),
@@ -558,6 +573,7 @@ const handleSubmit = async () => {
       customer_address: form.customer_address,
       total_amount: form.total_amount,
       currency: form.currency,
+      exchange_rate: form.exchange_rate,
       warehousing_person: form.warehousing_person,
       contact_phone: form.contact_phone,
       remarks: form.remarks,
@@ -595,6 +611,7 @@ const handlePrint = () => {
     customer_address: form.customer_address,
     total_amount: form.total_amount,
     currency: form.currency,
+    exchange_rate: form.exchange_rate,
     warehousing_person: form.warehousing_person,
     contact_phone: form.contact_phone,
     remarks: form.remarks,
@@ -623,6 +640,7 @@ watch(
         form.customer_address = props.warehousingOrderData.customer_address || ''
         form.total_amount = props.warehousingOrderData.total_amount || 0
         form.currency = props.warehousingOrderData.currency || 'CNY'
+        form.exchange_rate = props.warehousingOrderData.exchange_rate || undefined
         form.warehousing_person = props.warehousingOrderData.warehousing_person || ''
         form.contact_phone = props.warehousingOrderData.contact_phone || ''
         form.remarks = props.warehousingOrderData.remarks || ''
@@ -679,6 +697,7 @@ const resetForm = () => {
   form.customer_address = ''
   form.total_amount = 0
   form.currency = 'CNY'
+  form.exchange_rate = undefined
   form.warehousing_person = currentUser.value?.username || ''
   form.contact_phone = currentUser.value?.phone || ''
   form.remarks = ''
@@ -701,6 +720,7 @@ const handleSaveDraft = () => {
     warehousing_items: form.warehousing_items,
     total_amount: form.total_amount,
     currency: form.currency,
+    exchange_rate: form.exchange_rate,
     warehousing_time: form.warehousing_time ? (typeof form.warehousing_time === 'string' ? form.warehousing_time : dayjs(form.warehousing_time).format('YYYY-MM-DD HH:mm')) : '',
     entry_date: form.entry_date ? (typeof form.entry_date === 'string' ? form.entry_date : dayjs(form.entry_date).format('YYYY-MM-DD')) : '',
     tracking_number: form.tracking_number,
@@ -723,6 +743,7 @@ const restoreDraft = () => {
   form.warehousing_items = draft.data.warehousing_items || []
   form.total_amount = draft.data.total_amount || 0
   form.currency = draft.data.currency || 'CNY'
+  form.exchange_rate = draft.data.exchange_rate || undefined
   form.warehousing_time = draft.data.warehousing_time ? dayjs(draft.data.warehousing_time) : dayjs()
   form.entry_date = draft.data.entry_date ? dayjs(draft.data.entry_date) : dayjs()
   form.tracking_number = draft.data.tracking_number || ''
@@ -844,6 +865,12 @@ const handleSupplierChange = (value: string) => {
   const supplier = supplierOptions.value.find((s: any) => s.supplier_name === value)
   if (supplier) {
     form.customer_name = supplier.supplier_name
+  }
+}
+
+const handleCurrencyChange = (value: string) => {
+  if (value === 'CNY') {
+    form.exchange_rate = undefined
   }
 }
 </script>

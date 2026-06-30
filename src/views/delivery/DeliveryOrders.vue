@@ -58,59 +58,52 @@
                 <ReloadOutlined />
                 重置
               </a-button>
+              <ColumnConfig v-model:columns="allColumns" />
             </a-space>
           </a-form-item>
         </a-form>
       </div>
 
       <a-table
-        :columns="columns"
-        :data-source="orders"
+        :columns="visibleColumns"
+        :data-source="expandedOrders"
         :loading="loading"
         :pagination="pagination"
-        rowKey="delivery_order_id"
+        rowKey="row_key"
         @change="handleTableChange"
+        :scroll="{ x: 1800 }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
-            <a @click="handleViewDetail(record)">{{ record.order_number || '-' }}</a>
+            <a v-if="record._isFirstRow" @click="handleViewDetail(record)">{{ record.order_number || '-' }}</a>
           </template>
 
-          <template v-else-if="column.key === 'delivery_items'">
-            <table class="items-mini-table">
-              <thead>
-                <tr>
-                  <th>产品代码</th>
-                  <th>产品名称</th>
-                  <th>产品型号</th>
-                  <th>产品描述</th>
-                  <th>数量</th>
-                  <th>单位</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, idx) in getDeliveryItems(record)" :key="idx">
-                  <td>{{ item.product_code || '-' }}</td>
-                  <td>{{ item.product_name || '-' }}</td>
-                  <td>{{ item.model || '-' }}</td>
-                  <td>{{ item.specification || '-' }}</td>
-                  <td class="num">{{ item.quantity || '-' }}</td>
-                  <td>{{ item.unit || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <template v-else-if="column.key === 'contract_number'">
+            <span v-if="record._isFirstRow">{{ record.contract_number || '-' }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'customer_name'">
+            <span v-if="record._isFirstRow">{{ record.customer_name || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'delivery_time'">
-            {{ formatDateTime(record.delivery_time) }}
+            <span v-if="record._isFirstRow">{{ formatDateTime(record.delivery_time) }}</span>
           </template>
 
           <template v-else-if="column.key === 'entry_date'">
-            {{ formatDate(record.entry_date) }}
+            <span v-if="record._isFirstRow">{{ formatDate(record.entry_date) }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'delivery_person'">
+            <span v-if="record._isFirstRow">{{ record.delivery_person || '-' }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'tracking_number'">
+            <span v-if="record._isFirstRow">{{ record.tracking_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'actions'">
-            <a-space>
+            <a-space v-if="record._isFirstRow">
               <a-button type="link" size="small" @click="handleEdit(record)">
                 编辑
               </a-button>
@@ -145,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import { deliveryOrdersApi } from '@/api/deliveryOrders'
@@ -153,6 +146,7 @@ import type { DeliveryOrder, DeliveryOrderQueryParams } from '@/types'
 import DeliveryOrderForm from '@/components/DeliveryOrderForm.vue'
 import DeliveryOrderPrint from '@/components/DeliveryOrderPrint.vue'
 import DeliveryOrderDetail from '@/components/DeliveryOrderDetail.vue'
+import ColumnConfig from '@/components/ColumnConfig.vue'
 import dayjs from 'dayjs'
 
 const orders = ref<DeliveryOrder[]>([])
@@ -164,6 +158,46 @@ const isEdit = ref(false)
 const currentOrder = ref<DeliveryOrder | null>(null)
 const printOrder = ref<DeliveryOrder | null>(null)
 const dateRange = ref<[any, any] | undefined>(undefined)
+
+// 展开订单数据，每个商品一行
+const expandedOrders = computed(() => {
+  const result: any[] = []
+  orders.value.forEach((order, orderIndex) => {
+    const items = getDeliveryItems(order)
+    if (items.length === 0) {
+      result.push({
+        ...order,
+        row_key: order.delivery_order_id,
+        product_code: '-',
+        product_name: '-',
+        model: '-',
+        specification: '-',
+        quantity: '-',
+        unit: '-',
+        _isFirstRow: true,
+        _rowCount: 1,
+        _orderIndex: orderIndex,
+      })
+    } else {
+      items.forEach((item: any, index: number) => {
+        result.push({
+          ...order,
+          row_key: `${order.delivery_order_id}_${index}`,
+          product_code: item.product_code || '-',
+          product_name: item.product_name || '-',
+          model: item.model || '-',
+          specification: item.specification || '-',
+          quantity: item.quantity || '-',
+          unit: item.unit || '-',
+          _isFirstRow: index === 0,
+          _rowCount: items.length,
+          _orderIndex: orderIndex,
+        })
+      })
+    }
+  })
+  return result
+})
 
 const searchParams = reactive<DeliveryOrderQueryParams>({
   page: 1,
@@ -184,61 +218,193 @@ const pagination = reactive({
   pageSizeOptions: ['10', '20', '50', '100'],
 })
 
-const columns = [
+const allColumns = ref([
+  {
+    title: '序号',
+    key: 'index',
+    width: 60,
+    align: 'center',
+    fixed: 'left',
+    customRender: ({ record }: { record: any }) => {
+      if (record._isFirstRow) {
+        return (pagination.current - 1) * pagination.pageSize + record._orderIndex + 1
+      }
+      return ''
+    },
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
+  },
   {
     title: '出库单编号',
     dataIndex: 'order_number',
     key: 'order_number',
     width: 180,
+    fixed: 'left',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '销售合同编号',
     dataIndex: 'contract_number',
     key: 'contract_number',
     width: 150,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
-    title: '出库商品',
-    key: 'delivery_items',
-    width: 600,
+    title: '产品代码',
+    dataIndex: 'product_code',
+    key: 'product_code',
+    width: 120,
+  },
+  {
+    title: '产品名称',
+    dataIndex: 'product_name',
+    key: 'product_name',
+    width: 150,
+  },
+  {
+    title: '产品型号',
+    dataIndex: 'model',
+    key: 'model',
+    width: 120,
+  },
+  {
+    title: '产品描述',
+    dataIndex: 'specification',
+    key: 'specification',
+    width: 150,
+  },
+  {
+    title: '数量',
+    dataIndex: 'quantity',
+    key: 'quantity',
+    width: 80,
+    align: 'right',
+  },
+  {
+    title: '单位',
+    dataIndex: 'unit',
+    key: 'unit',
+    width: 60,
+    align: 'center',
   },
   {
     title: '客户名称',
     dataIndex: 'customer_name',
     key: 'customer_name',
     width: 150,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '出库时间',
     dataIndex: 'delivery_time',
     key: 'delivery_time',
     width: 160,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '录入日期',
     dataIndex: 'entry_date',
     key: 'entry_date',
     width: 120,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '制单人',
     dataIndex: 'delivery_person',
     key: 'delivery_person',
     width: 100,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '快递单号',
     dataIndex: 'tracking_number',
     key: 'tracking_number',
     width: 150,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
     title: '操作',
     key: 'actions',
     width: 200,
     fixed: 'right',
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
-]
+])
+
+const visibleColumns = computed(() => {
+  return allColumns.value.filter(col => col.visible !== false)
+})
 
 const loadOrders = async () => {
   loading.value = true
@@ -385,27 +551,6 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
-  }
-
-  .items-mini-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-
-    th, td {
-      padding: 2px 6px;
-      border: 1px solid #f0f0f0;
-      white-space: nowrap;
-    }
-
-    th {
-      background: #fafafa;
-      font-weight: 500;
-    }
-
-    td.num {
-      text-align: right;
-    }
   }
 }
 </style>

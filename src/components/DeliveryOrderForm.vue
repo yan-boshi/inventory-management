@@ -13,7 +13,7 @@
         <div class="form-row">
           <div class="form-item">
             <label class="form-label">默认单据编号：</label>
-            <span class="order-number">{{ orderNumber }}</span>
+            <a-input v-model:value="orderNumber" class="order-number" />
           </div>
           <div class="form-item">
             <label class="form-label">销售合同编号：</label>
@@ -101,11 +101,11 @@
                   :key="product.product_id"
                   :value="product.product_code"
                 >
-                  {{ product.product_name }}（{{product.product_code}}）
+                  {{ product.product_name }}（{{ product.product_code }}）
                 </a-select-option>
               </a-select>
             </template>
-             <template v-else-if="column.key === 'product_name'">
+            <template v-else-if="column.key === 'product_name'">
               <a-input
                 v-model:value="record.product_name"
                 placeholder="产品名称"
@@ -113,11 +113,7 @@
               />
             </template>
             <template v-else-if="column.key === 'model'">
-              <a-input
-                v-model:value="record.model"
-                placeholder="规格型号"
-                style="width: 100%"
-              />
+              <a-input v-model:value="record.model" placeholder="规格型号" style="width: 100%" />
             </template>
             <template v-else-if="column.key === 'specification'">
               <a-input
@@ -145,8 +141,16 @@
                 :min="1"
                 :max="record.max_quantity || undefined"
                 :precision="0"
-                :class="{ 'quantity-exceeded': record.stock !== undefined && record.quantity > record.stock }"
-                :style="{ width: '100%', borderColor: record.stock !== undefined && record.quantity > record.stock ? '#ff4d4f' : undefined }"
+                :class="{
+                  'quantity-exceeded': record.stock !== undefined && record.quantity > record.stock,
+                }"
+                :style="{
+                  width: '100%',
+                  borderColor:
+                    record.stock !== undefined && record.quantity > record.stock
+                      ? '#ff4d4f'
+                      : undefined,
+                }"
                 @change="() => calculateTotal()"
               />
             </template>
@@ -227,12 +231,12 @@
             />
           </div>
           <div class="footer-item">
-            <label class="footer-label">送货日期：</label>
+            <!-- <label class="footer-label">送货日期：</label>
             <a-date-picker
               v-model:value="formData.delivery_date"
               format="YYYY-MM-DD"
               style="width: 100%"
-            />
+            /> -->
           </div>
         </div>
         <div class="footer-row">
@@ -244,8 +248,7 @@
               style="width: 100%"
             />
           </div>
-                    <div class="footer-item">
-          </div>
+          <div class="footer-item"></div>
         </div>
 
         <div class="footer-row">
@@ -299,7 +302,11 @@
         <div class="footer-row">
           <div class="footer-item full-width">
             <label class="footer-label">快递单号：</label>
-            <a-input v-model:value="formData.tracking_number" placeholder="请输入快递单号" style="width: 300px" />
+            <a-input
+              v-model:value="formData.tracking_number"
+              placeholder="请输入快递单号"
+              style="width: 300px"
+            />
           </div>
         </div>
 
@@ -618,7 +625,7 @@ const addItem = () => {
 // 计算总计
 const calculateTotal = () => {
   formData.total_amount = formData.delivery_items.reduce(
-    (sum, item) => sum + (item.quantity * (item.tax_included_price || 0)),
+    (sum, item) => sum + item.quantity * (item.tax_included_price || 0),
     0
   )
   // 更新每行的合计金额
@@ -647,7 +654,11 @@ const handleSave = async () => {
   // 前端超量校验：检查出库数量是否超过库存数量
   for (const item of formData.delivery_items) {
     if (item.stock !== undefined && item.quantity > item.stock) {
-      message.error(`商品 ${item.product_name} 出库数量(${item.quantity})超过库存数量(${Math.floor(item.stock)})`)
+      message.error(
+        `商品 ${item.product_name} 出库数量(${item.quantity})超过库存数量(${Math.floor(
+          item.stock
+        )})`
+      )
       return
     }
   }
@@ -656,7 +667,9 @@ const handleSave = async () => {
   if (formData.contract_number) {
     for (const item of formData.delivery_items) {
       if (item.max_quantity && item.quantity > item.max_quantity) {
-        message.error(`商品 ${item.product_name} 出库数量(${item.quantity})超过剩余可出库数量(${item.max_quantity})`)
+        message.error(
+          `商品 ${item.product_name} 出库数量(${item.quantity})超过剩余可出库数量(${item.max_quantity})`
+        )
         return
       }
     }
@@ -676,6 +689,7 @@ const handleSave = async () => {
     saving.value = true
 
     const submitData: CreateDeliveryOrderRequest = {
+      order_number: orderNumber.value,
       contract_number: formData.contract_number || undefined,
       delivery_items: JSON.stringify(formData.delivery_items),
       delivery_time: formatDate(formData.delivery_time, 'YYYY-MM-DD'),
@@ -773,16 +787,30 @@ const handleSaveDraft = () => {
     delivery_items: formData.delivery_items,
     total_amount: formData.total_amount,
     currency: formData.currency,
-    delivery_time: formData.delivery_time ? (typeof formData.delivery_time === 'string' ? formData.delivery_time : dayjs(formData.delivery_time).format('YYYY-MM-DD HH:mm')) : '',
-    delivery_date: formData.delivery_date ? (typeof formData.delivery_date === 'string' ? formData.delivery_date : dayjs(formData.delivery_date).format('YYYY-MM-DD')) : '',
-    entry_date: formData.entry_date ? (typeof formData.entry_date === 'string' ? formData.entry_date : dayjs(formData.entry_date).format('YYYY-MM-DD')) : '',
+    delivery_time: formData.delivery_time
+      ? typeof formData.delivery_time === 'string'
+        ? formData.delivery_time
+        : dayjs(formData.delivery_time).format('YYYY-MM-DD HH:mm')
+      : '',
+    delivery_date: formData.delivery_date
+      ? typeof formData.delivery_date === 'string'
+        ? formData.delivery_date
+        : dayjs(formData.delivery_date).format('YYYY-MM-DD')
+      : '',
+    entry_date: formData.entry_date
+      ? typeof formData.entry_date === 'string'
+        ? formData.entry_date
+        : dayjs(formData.entry_date).format('YYYY-MM-DD')
+      : '',
     delivery_person: formData.delivery_person,
     contact_phone: formData.contact_phone,
     remarks: formData.remarks,
     expenses: formData.expenses,
     tracking_number: formData.tracking_number,
   }
-  const summary = formData.customer_name ? `${formData.customer_name} - ${formData.delivery_items.length}个商品` : `${formData.delivery_items.length}个商品`
+  const summary = formData.customer_name
+    ? `${formData.customer_name} - ${formData.delivery_items.length}个商品`
+    : `${formData.delivery_items.length}个商品`
   saveDraft(DRAFT_KEY, draftData, summary)
   message.success('暂存成功')
 }

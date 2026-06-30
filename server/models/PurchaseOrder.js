@@ -7,11 +7,32 @@ class PurchaseOrder extends BaseModel {
     super('purchase_orders', 'purchase_order_id')
   }
 
-  generateOrderNumber() {
+  async generateOrderNumber() {
     const date = new Date()
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0')
-    return `XSD-P-${dateStr}${random}`
+    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
+    // 年份取后两位 + 月日，共6位
+    const dateStr = fullDateStr.slice(2)
+
+    // 查询当天已有的采购订单最大序号
+    const query = `
+      SELECT order_number
+      FROM ${this.tableName}
+      WHERE order_number LIKE ?
+      ORDER BY order_number DESC
+      LIMIT 1
+    `
+    const [result] = await pool.query(query, [`XSD-P-${dateStr}-%`])
+
+    let sequence = 1
+    if (result.length > 0) {
+      const lastOrderNumber = result[0].order_number
+      const lastSequence = parseInt(lastOrderNumber.split('-').pop(), 10)
+      if (!isNaN(lastSequence)) {
+        sequence = lastSequence + 1
+      }
+    }
+
+    return `XSD-P-${dateStr}-${sequence.toString().padStart(3, '0')}`
   }
 
   calculateTaxExcludedPrice(taxIncludedPrice, taxRate) {
@@ -93,7 +114,7 @@ class PurchaseOrder extends BaseModel {
 
     const orderData = {
       purchase_order_id: generateUUID(),
-      order_number: this.generateOrderNumber(),
+      order_number: data.order_number || await this.generateOrderNumber(),
       contract_number: data.contract_number || null,
       supplier_name: data.supplier_name,
       supplier_code: data.supplier_code,

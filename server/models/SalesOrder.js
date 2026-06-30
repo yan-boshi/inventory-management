@@ -9,9 +9,30 @@ class SalesOrder extends BaseModel {
 
   async generateOrderNumber() {
     const date = new Date()
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    const random = Math.floor(Math.random() * 10000).toString().padStart(5, '0')
-    return `XSD-S-${dateStr}-${random}`
+    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
+    // 年份取后两位 + 月日，共6位
+    const dateStr = fullDateStr.slice(2)
+
+    // 查询当天已有的销售订单最大序号
+    const query = `
+      SELECT order_number
+      FROM ${this.tableName}
+      WHERE order_number LIKE ?
+      ORDER BY order_number DESC
+      LIMIT 1
+    `
+    const [result] = await pool.query(query, [`XSD-S-${dateStr}-%`])
+
+    let sequence = 1
+    if (result.length > 0) {
+      const lastOrderNumber = result[0].order_number
+      const lastSequence = parseInt(lastOrderNumber.split('-').pop(), 10)
+      if (!isNaN(lastSequence)) {
+        sequence = lastSequence + 1
+      }
+    }
+
+    return `XSD-S-${dateStr}-${sequence.toString().padStart(3, '0')}`
   }
 
   calculateTaxExcludedPrice(taxIncludedPrice, taxRate) {
@@ -57,7 +78,7 @@ class SalesOrder extends BaseModel {
 
     const orderData = {
       sales_order_id: generateUUID(),
-      order_number: await this.generateOrderNumber(),
+      order_number: data.order_number || await this.generateOrderNumber(),
       contract_number: data.contract_number || null,
       customer_name: data.customer_name,
       customer_code: data.customer_code,
@@ -120,10 +141,10 @@ class SalesOrder extends BaseModel {
       const salesItems = JSON.parse(order.sales_items || '[]')
       if (salesItems.length === 0) return 1
 
-      // 查询关联的出库单
+      // 查询关联的出库单（通过合同编号关联）
       const [deliveryOrders] = await pool.query(
-        `SELECT delivery_items FROM delivery_orders WHERE sales_order_number = ?`,
-        [order.order_number]
+        `SELECT delivery_items FROM delivery_orders WHERE contract_number = ?`,
+        [order.contract_number]
       )
 
       // 如果没有出库单，返回未出库

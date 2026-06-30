@@ -21,7 +21,7 @@
         <div class="form-row">
           <div class="form-item">
             <label class="form-label">报价编号：</label>
-            <span class="invisible-input">{{ quotationNumber }}</span>
+            <a-input v-model:value="quotationNumber" class="invisible-input" />
           </div>
           <div class="form-item">
             <label class="form-label">客户名称：</label>
@@ -525,6 +525,7 @@ const handleSubmit = async () => {
     submitting.value = true
 
     const submitData = {
+      quotation_number: quotationNumber.value,
       customer_name: form.customer_name,
       customer_code: form.customer_code,
       quotation_items: JSON.stringify(form.quotation_items),

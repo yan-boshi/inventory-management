@@ -44,7 +44,7 @@ export const getAllPurchaseOrders = async (req, res) => {
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
     const result = await PurchaseOrder.paginateWithStatus({
       where: whereClause,
-      orderBy: 'created_at DESC',
+      orderBy: 'entry_date DESC',
       page,
       pageSize,
       params
@@ -113,7 +113,7 @@ export const createPurchaseOrder = async (req, res) => {
 export const updatePurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params
-    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person } = req.body
+    const { order_number, supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person } = req.body
 
     const existing = await PurchaseOrder.findById(id)
     if (!existing) {
@@ -121,6 +121,7 @@ export const updatePurchaseOrder = async (req, res) => {
     }
 
     const updateData = {}
+    if (order_number !== undefined) updateData.order_number = order_number
     if (supplier_name !== undefined) updateData.supplier_name = supplier_name
     if (supplier_code !== undefined) updateData.supplier_code = supplier_code
     if (currency !== undefined) updateData.currency = currency
@@ -202,7 +203,7 @@ export const updatePurchaseOrderStatus = async (req, res) => {
 
 export const getNewOrderNumber = async (req, res) => {
   try {
-    const orderNumber = PurchaseOrder.generateOrderNumber()
+    const orderNumber = await PurchaseOrder.generateOrderNumber()
     res.json({ success: true, data: { order_number: orderNumber } })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })

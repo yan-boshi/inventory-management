@@ -39,7 +39,7 @@ export const getAllDeliveryOrders = async (req, res) => {
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
     const result = await DeliveryOrder.paginate({
       where: whereClause,
-      orderBy: 'created_at DESC',
+      orderBy: 'entry_date DESC',
       page,
       pageSize,
       params
@@ -238,6 +238,7 @@ export const updateDeliveryOrder = async (req, res) => {
   try {
     const { id } = req.params
     const {
+      order_number,
       contract_number,
       customer_name,
       customer_address,
@@ -258,7 +259,60 @@ export const updateDeliveryOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: '出库单不存在' })
     }
 
+    // 如果出库商品发生变化，同步更新库存
+    if (delivery_items !== undefined) {
+      const oldItems = JSON.parse(existing.delivery_items || '[]')
+      const newItems = typeof delivery_items === 'string' ? JSON.parse(delivery_items) : delivery_items
+
+      // 计算每个产品的新旧数量差（正数表示需要多扣库存）
+      const quantityDelta = new Map()
+      for (const item of newItems) {
+        if (!item.product_code) continue
+        quantityDelta.set(item.product_code, (quantityDelta.get(item.product_code) || 0) + parseFloat(item.quantity || 0))
+      }
+      for (const item of oldItems) {
+        if (!item.product_code) continue
+        quantityDelta.set(item.product_code, (quantityDelta.get(item.product_code) || 0) - parseFloat(item.quantity || 0))
+      }
+
+      // 校验库存是否充足（仅针对需要多扣库存的产品）
+      for (const [productCode, delta] of quantityDelta) {
+        if (delta <= 0) continue
+        const [productResult] = await pool.query(
+          'SELECT stock, product_name FROM products WHERE product_code = ?',
+          [productCode]
+        )
+        if (productResult.length > 0) {
+          const currentStock = parseFloat(productResult[0].stock || 0)
+          if (delta > currentStock) {
+            return res.status(400).json({
+              success: false,
+              message: `商品 ${productResult[0].product_name}(${productCode}) 库存不足，当前库存: ${currentStock}，需额外扣减: ${delta}`
+            })
+          }
+        }
+      }
+
+      // 更新库存
+      for (const [productCode, delta] of quantityDelta) {
+        if (delta === 0) continue
+        const [productResult] = await pool.query(
+          'SELECT stock FROM products WHERE product_code = ?',
+          [productCode]
+        )
+        if (productResult.length > 0) {
+          const currentStock = parseFloat(productResult[0].stock || 0)
+          const newStock = Math.max(0, currentStock - delta)
+          await pool.query(
+            'UPDATE products SET stock = ? WHERE product_code = ?',
+            [newStock.toFixed(2), productCode]
+          )
+        }
+      }
+    }
+
     const updateData = {}
+    if (order_number !== undefined) updateData.order_number = order_number
     if (contract_number !== undefined) updateData.contract_number = contract_number
     if (customer_name !== undefined) updateData.customer_name = customer_name
     if (customer_address !== undefined) updateData.customer_address = customer_address
@@ -377,8 +431,27 @@ export const getNewOrderNumber = async (req, res) => {
 
 export const getUndeliveredSalesOrders = async (req, res) => {
   try {
-    const orders = await DeliveryOrder.getUndeliveredSalesOrders()
-    res.json({ success: true, data: orders })
+    // 获取状态为未出库或已部分出库的销售订单（基于存储的状态字段）
+    const [orders] = await pool.query(
+      `SELECT * FROM sales_orders
+       WHERE status = '1' OR status = '3'
+       ORDER BY created_at DESC`
+    )
+    // 二次校验：排除实际已全部出库的订单（通过 outbound_quantity 判断）
+    const filtered = orders.filter(order => {
+      try {
+        const items = JSON.parse(order.sales_items || '[]')
+        // 只要有任意商品的未出库数 > 0，则认为可选出库
+        return items.some(item => {
+          const required = item.quantity || 0
+          const outbound = item.outbound_quantity || 0
+          return outbound < required
+        })
+      } catch {
+        return true
+      }
+    })
+    res.json({ success: true, data: filtered })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }

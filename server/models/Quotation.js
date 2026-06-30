@@ -1,4 +1,5 @@
 import BaseModel from './BaseModel.js'
+import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
 
 class Quotation extends BaseModel {
@@ -6,11 +7,32 @@ class Quotation extends BaseModel {
     super('quotations', 'quotation_id')
   }
 
-  generateQuotationNumber() {
+  async generateQuotationNumber() {
     const date = new Date()
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    const random = Math.floor(Math.random() * 10000).toString().padStart(5, '0')
-    return `XSD-Q-${dateStr}-${random}`
+    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
+    // 年份取后两位 + 月日，共6位
+    const dateStr = fullDateStr.slice(2)
+
+    // 查询当天已有的报价单最大序号
+    const query = `
+      SELECT quotation_number
+      FROM ${this.tableName}
+      WHERE quotation_number LIKE ?
+      ORDER BY quotation_number DESC
+      LIMIT 1
+    `
+    const [result] = await pool.query(query, [`XSD-Q-${dateStr}-%`])
+
+    let sequence = 1
+    if (result.length > 0) {
+      const lastNumber = result[0].quotation_number
+      const lastSequence = parseInt(lastNumber.split('-').pop(), 10)
+      if (!isNaN(lastSequence)) {
+        sequence = lastSequence + 1
+      }
+    }
+
+    return `XSD-Q-${dateStr}-${sequence.toString().padStart(3, '0')}`
   }
 
   async create(data) {
@@ -28,7 +50,7 @@ class Quotation extends BaseModel {
 
     const orderData = {
       quotation_id: generateUUID(),
-      quotation_number: this.generateQuotationNumber(),
+      quotation_number: data.quotation_number || await this.generateQuotationNumber(),
       customer_name: data.customer_name,
       customer_code: data.customer_code,
       quotation_items: quotationItems,

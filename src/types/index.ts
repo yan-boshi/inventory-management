@@ -676,6 +676,7 @@ export interface WarehousingOrder {
   customer_address?: string
   total_amount: number
   currency: string
+  exchange_rate?: number
   warehousing_person?: string
   contact_phone?: string
   remarks?: string
@@ -694,6 +695,7 @@ export interface CreateWarehousingOrderRequest {
   customer_address?: string
   total_amount?: number
   currency?: string
+  exchange_rate?: number
   warehousing_person?: string
   contact_phone?: string
   remarks?: string
