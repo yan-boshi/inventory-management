@@ -18,7 +18,25 @@
               v-model:value="searchParams.orderNumber"
               placeholder="请输入出库单号"
               allow-clear
-              style="width: 200px"
+              style="width: 160px"
+            />
+          </a-form-item>
+
+          <a-form-item label="销售合同编号">
+            <a-input
+              v-model:value="searchParams.contractNumber"
+              placeholder="请输入销售合同编号"
+              allow-clear
+              style="width: 160px"
+            />
+          </a-form-item>
+
+          <a-form-item label="客户名称">
+            <a-input
+              v-model:value="searchParams.customerName"
+              placeholder="请输入客户名称"
+              allow-clear
+              style="width: 160px"
             />
           </a-form-item>
 
@@ -27,16 +45,16 @@
               v-model:value="searchParams.productName"
               placeholder="请输入产品名称"
               allow-clear
-              style="width: 200px"
+              style="width: 160px"
             />
           </a-form-item>
 
-          <a-form-item label="产品代码">
+          <a-form-item label="产品型号">
             <a-input
-              v-model:value="searchParams.productCode"
-              placeholder="请输入产品代码"
+              v-model:value="searchParams.productModel"
+              placeholder="请输入产品型号"
               allow-clear
-              style="width: 200px"
+              style="width: 160px"
             />
           </a-form-item>
 
@@ -58,7 +76,7 @@
                 <ReloadOutlined />
                 重置
               </a-button>
-              <ColumnConfig v-model:columns="allColumns" />
+              <ColumnConfig v-model:columns="allColumns" cacheKey="deliveryOrders" />
             </a-space>
           </a-form-item>
         </a-form>
@@ -68,14 +86,13 @@
         :columns="visibleColumns"
         :data-source="expandedOrders"
         :loading="loading"
-        :pagination="pagination"
+        :pagination="false"
         rowKey="row_key"
-        @change="handleTableChange"
         :scroll="{ x: 1800 }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
-            <a v-if="record._isFirstRow" @click="handleViewDetail(record)">{{ record.order_number || '-' }}</a>
+            <span class="order-link">{{ record.order_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'contract_number'">
@@ -117,6 +134,18 @@
           </template>
         </template>
       </a-table>
+      <a-pagination
+        v-model:current="pagination.current"
+        v-model:pageSize="pagination.pageSize"
+        :total="pagination.total"
+        show-total
+        show-size-changer
+        show-quick-jumper
+        :page-size-options="['10', '20', '50', '100']"
+        style="margin-top: 16px; text-align: right"
+        @change="handlePageChange"
+        @showSizeChange="handlePageChange"
+      />
     </a-card>
 
     <DeliveryOrderForm
@@ -203,8 +232,11 @@ const searchParams = reactive<DeliveryOrderQueryParams>({
   page: 1,
   pageSize: 10,
   orderNumber: '',
+  contractNumber: '',
+  customerName: '',
   productName: '',
   productCode: '',
+  productModel: '',
   deliveryDate: '',
 })
 
@@ -212,10 +244,6 @@ const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total: number) => `共 ${total} 条记录`,
-  pageSizeOptions: ['10', '20', '50', '100'],
 })
 
 const allColumns = ref([
@@ -247,30 +275,12 @@ const allColumns = ref([
     key: 'order_number',
     width: 180,
     fixed: 'left',
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '销售合同编号',
     dataIndex: 'contract_number',
     key: 'contract_number',
     width: 150,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '产品代码',
@@ -315,45 +325,18 @@ const allColumns = ref([
     dataIndex: 'customer_name',
     key: 'customer_name',
     width: 150,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '出库时间',
     dataIndex: 'delivery_time',
     key: 'delivery_time',
     width: 160,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '录入日期',
     dataIndex: 'entry_date',
     key: 'entry_date',
     width: 120,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '制单人',
@@ -375,15 +358,6 @@ const allColumns = ref([
     dataIndex: 'tracking_number',
     key: 'tracking_number',
     width: 150,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '操作',
@@ -431,8 +405,11 @@ const handleSearch = () => {
 
 const handleReset = () => {
   searchParams.orderNumber = ''
+  searchParams.contractNumber = ''
+  searchParams.customerName = ''
   searchParams.productName = ''
   searchParams.productCode = ''
+  searchParams.productModel = ''
   searchParams.deliveryDate = ''
   dateRange.value = undefined
   handleSearch()
@@ -446,9 +423,9 @@ const handleDateRangeChange = (dates: [any, any]) => {
   }
 }
 
-const handleTableChange = (pag: any) => {
-  searchParams.page = pag.current
-  searchParams.pageSize = pag.pageSize
+const handlePageChange = (page: number, pageSize: number) => {
+  searchParams.page = page
+  searchParams.pageSize = pageSize
   loadOrders()
 }
 
@@ -551,6 +528,15 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+  }
+
+  .order-link {
+    color: #1890ff;
+    cursor: pointer;
+
+    &:hover {
+      color: #40a9ff;
+    }
   }
 }
 </style>

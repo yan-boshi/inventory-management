@@ -709,7 +709,10 @@ export interface WarehousingOrderQueryParams {
   pageSize?: number
   productName?: string
   productCode?: string
+  productModel?: string
   orderNumber?: string
+  contractNumber?: string
+  customerName?: string
   warehousingDate?: string
 }
 
@@ -781,7 +784,10 @@ export interface DeliveryOrderQueryParams {
   pageSize?: number
   productName?: string
   productCode?: string
+  productModel?: string
   orderNumber?: string
+  contractNumber?: string
+  customerName?: string
   deliveryDate?: string
 }
 

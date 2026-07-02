@@ -105,11 +105,10 @@
         :columns="filteredColumns"
         :data-source="reportData"
         :loading="loading"
-        :pagination="pagination"
+        :pagination="false"
         rowKey="product_id"
         bordered
         size="small"
-        @change="handleTableChange"
         :scroll="{ x: 2800 }"
       >
         <template #bodyCell="{ column, record }">
@@ -136,6 +135,18 @@
           </template>
         </template>
       </a-table>
+      <a-pagination
+        v-model:current="pagination.current"
+        v-model:pageSize="pagination.pageSize"
+        :total="pagination.total"
+        show-total
+        show-size-changer
+        show-quick-jumper
+        :page-size-options="['10', '20', '50', '100']"
+        style="margin-top: 16px; text-align: right"
+        @change="handlePageChange"
+        @showSizeChange="handlePageChange"
+      />
     </a-card>
 
     <InventoryReportPrint
@@ -230,10 +241,6 @@ const pagination = reactive({
   current: 1,
   pageSize: 20,
   total: 0,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total: number) => `共 ${total} 条记录`,
-  pageSizeOptions: ['10', '20', '50', '100'],
 })
 
 const formatNumber = (value: number) => {
@@ -273,9 +280,9 @@ const handleReset = () => {
   fetchReport()
 }
 
-const handleTableChange = (pag: any) => {
-  pagination.current = pag.current
-  pagination.pageSize = pag.pageSize
+const handlePageChange = (page: number, pageSize: number) => {
+  pagination.current = page
+  pagination.pageSize = pageSize
 }
 
 const handlePrint = () => {

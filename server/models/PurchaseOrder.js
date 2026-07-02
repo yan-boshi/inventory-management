@@ -131,64 +131,35 @@ class PurchaseOrder extends BaseModel {
   }
 
   /**
-   * 计算采购订单的入库状态
+   * 根据商品行状态推导订单整体状态
+   * @param {Array} purchaseItems - 采购商品列表
+   * @returns {number} 状态值: 1=未入库, 2=已全部入库, 3=已部分入库
+   */
+  deriveOrderStatus(purchaseItems) {
+    const statuses = purchaseItems.map(item => item.status || 1)
+    if (statuses.every(s => s === 2)) return 2
+    if (statuses.some(s => s === 2 || s === 3)) return 3
+    return 1
+  }
+
+  /**
+   * 计算采购订单的入库状态（读取已存储的商品行状态）
    * @param {string} orderId - 采购订单ID
    * @returns {number} 状态值: 1=未入库, 2=已全部入库, 3=已部分入库, 4=退货
    */
   async calculateStatus(orderId) {
     try {
-      // 获取采购订单
       const order = await this.findById(orderId)
       if (!order) return 1
 
-      // 如果已退货，直接返回4
-      if (order.status === '4') return 4
+      // 退货状态直接返回
+      if (String(order.status) === '4') return 4
 
-      // 解析采购订单项
+      // 从 purchase_items 中读取每个商品的已存储状态
       const purchaseItems = JSON.parse(order.purchase_items || '[]')
       if (purchaseItems.length === 0) return 1
 
-      // 查询关联的入库单
-      const [warehousingOrders] = await pool.query(
-        `SELECT warehousing_items FROM warehousing_orders WHERE contract_number = ?`,
-        [order.contract_number]
-      )
-
-      // 如果没有入库单，返回未入库
-      if (warehousingOrders.length === 0) return 1
-
-      // 汇总已入库数量（按产品代码）
-      const warehousedQuantities = {}
-      for (const warehousingOrder of warehousingOrders) {
-        const items = JSON.parse(warehousingOrder.warehousing_items || '[]')
-        for (const item of items) {
-          const code = item.product_code
-          if (code) {
-            warehousedQuantities[code] = (warehousedQuantities[code] || 0) + (item.quantity || 0)
-          }
-        }
-      }
-
-      // 比较已入库数量与需求数量
-      let allWarehoused = true
-      let anyWarehoused = false
-
-      for (const purchaseItem of purchaseItems) {
-        const code = purchaseItem.product_code
-        const requiredQty = purchaseItem.quantity || 0
-        const warehousedQty = warehousedQuantities[code] || 0
-
-        if (warehousedQty > 0) {
-          anyWarehoused = true
-        }
-        if (warehousedQty < requiredQty) {
-          allWarehoused = false
-        }
-      }
-
-      if (allWarehoused && anyWarehoused) return 2  // 已全部入库
-      if (anyWarehoused) return 3  // 已部分入库
-      return 1  // 未入库
+      return this.deriveOrderStatus(purchaseItems)
     } catch (error) {
       console.error('计算采购订单状态失败:', error)
       return 1

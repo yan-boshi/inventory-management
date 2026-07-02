@@ -9,7 +9,10 @@ export const getAllDeliveryOrders = async (req, res) => {
       pageSize = 10,
       productName,
       productCode,
+      productModel,
       orderNumber,
+      contractNumber,
+      customerName,
       deliveryDate
     } = req.query
 
@@ -21,6 +24,16 @@ export const getAllDeliveryOrders = async (req, res) => {
       params.push(`%${orderNumber}%`)
     }
 
+    if (contractNumber) {
+      where.push('contract_number LIKE ?')
+      params.push(`%${contractNumber}%`)
+    }
+
+    if (customerName) {
+      where.push('customer_name LIKE ?')
+      params.push(`%${customerName}%`)
+    }
+
     if (productName) {
       where.push('delivery_items LIKE ?')
       params.push(`%${productName}%`)
@@ -29,6 +42,11 @@ export const getAllDeliveryOrders = async (req, res) => {
     if (productCode) {
       where.push('delivery_items LIKE ?')
       params.push(`%${productCode}%`)
+    }
+
+    if (productModel) {
+      where.push('delivery_items LIKE ?')
+      params.push(`%${productModel}%`)
     }
 
     if (deliveryDate) {
@@ -123,6 +141,40 @@ export const createDeliveryOrder = async (req, res) => {
       }
     }
 
+    // 校验销售订单出库数量是否超量（在创建出库单之前）
+    if (contract_number && delivery_items) {
+      const salesOrder = await SalesOrder.findOne('contract_number = ?', [contract_number])
+      if (salesOrder) {
+        const salesItems = JSON.parse(salesOrder.sales_items || '[]')
+        const parsedDeliveryItems = typeof delivery_items === 'string'
+          ? JSON.parse(delivery_items)
+          : delivery_items
+
+        for (const deliveryItem of parsedDeliveryItems) {
+          const targetItem = salesItems.find(
+            si => si.product_code === deliveryItem.product_code
+          )
+
+          if (!targetItem) {
+            return res.status(400).json({
+              success: false,
+              message: `商品 ${deliveryItem.product_code} 不在销售订单中`
+            })
+          }
+
+          const currentOutbound = targetItem.outbound_quantity || 0
+          const newOutbound = currentOutbound + deliveryItem.quantity
+
+          if (newOutbound > targetItem.quantity) {
+            return res.status(400).json({
+              success: false,
+              message: `商品 ${targetItem.product_name} 已超出销售数量，订单数量: ${targetItem.quantity}，已出库: ${currentOutbound}，本次出库: ${deliveryItem.quantity}`
+            })
+          }
+        }
+      }
+    }
+
     // 创建出库单
     const order = await DeliveryOrder.create({
       contract_number,
@@ -176,31 +228,17 @@ export const createDeliveryOrder = async (req, res) => {
           ? JSON.parse(delivery_items)
           : delivery_items
 
-        // 遍历出库项，同步数量并校验
+        // 遍历出库项，同步数量（校验已在创建前完成）
         for (const deliveryItem of parsedDeliveryItems) {
           const targetItem = salesItems.find(
             si => si.product_code === deliveryItem.product_code
           )
 
-          if (!targetItem) {
-            return res.status(400).json({
-              success: false,
-              message: `商品 ${deliveryItem.product_code} 不在销售订单中`
-            })
-          }
-
-          const currentOutbound = targetItem.outbound_quantity || 0
-          const newOutbound = currentOutbound + deliveryItem.quantity
-
-          // 超量校验
-          if (newOutbound > targetItem.quantity) {
-            return res.status(400).json({
-              success: false,
-              message: `商品 ${targetItem.product_name} 已超出销售数量，订单数量: ${targetItem.quantity}，已出库: ${currentOutbound}，本次出库: ${deliveryItem.quantity}`
-            })
-          }
+          if (!targetItem) continue
 
           // 更新出库数量
+          const currentOutbound = targetItem.outbound_quantity || 0
+          const newOutbound = currentOutbound + deliveryItem.quantity
           targetItem.outbound_quantity = newOutbound
 
           // 更新行状态
@@ -212,13 +250,7 @@ export const createDeliveryOrder = async (req, res) => {
         }
 
         // 计算订单整体状态
-        const statuses = salesItems.map(item => item.status || 1)
-        let orderStatus = '1'
-        if (statuses.every(s => s === 2)) {
-          orderStatus = '2' // 全部出库
-        } else if (statuses.some(s => s === 2 || s === 3)) {
-          orderStatus = '3' // 部分出库
-        }
+        const orderStatus = SalesOrder.deriveOrderStatus(salesItems)
 
         // 更新销售订单
         await SalesOrder.update(salesOrder.sales_order_id, {
@@ -376,13 +408,7 @@ export const deleteDeliveryOrder = async (req, res) => {
         }
 
         // 重新计算订单整体状态
-        const statuses = salesItems.map(item => item.status || 1)
-        let orderStatus = '1'
-        if (statuses.every(s => s === 2)) {
-          orderStatus = '2' // 全部出库
-        } else if (statuses.some(s => s === 2 || s === 3)) {
-          orderStatus = '3' // 部分出库
-        }
+        const orderStatus = SalesOrder.deriveOrderStatus(salesItems)
 
         // 更新销售订单
         await SalesOrder.update(salesOrder.sales_order_id, {

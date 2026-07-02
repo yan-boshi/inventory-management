@@ -194,7 +194,20 @@ export const updatePurchaseOrderStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Purchase order not found' })
     }
 
-    const updated = await PurchaseOrder.updateStatus(id, parseInt(status))
+    // 退货时同步更新商品行状态
+    const parsedStatus = parseInt(status)
+    let updateData = { status: parsedStatus }
+    if (parsedStatus === 4) {
+      const purchaseItems = JSON.parse(existing.purchase_items || '[]')
+      const resetItems = purchaseItems.map(item => ({
+        ...item,
+        inbound_quantity: 0,
+        status: 4
+      }))
+      updateData.purchase_items = JSON.stringify(resetItems)
+    }
+
+    const updated = await PurchaseOrder.update(id, updateData)
     res.json({ success: true, data: updated })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })

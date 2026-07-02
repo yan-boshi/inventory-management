@@ -53,24 +53,7 @@
                 <template #icon><ReloadOutlined /></template>
                 重置
               </a-button>
-              <a-popover title="显示列" trigger="click" placement="bottomRight">
-                <template #content>
-                  <div class="column-settings">
-                    <div v-for="col in allFlatColumns" :key="col.key" class="column-item">
-                      <a-checkbox
-                        :checked="visibleColumnKeys.includes(col.key)"
-                        @change="(e: any) => handleColumnChange(col.key, e.target.checked)"
-                      >
-                        {{ col.title }}
-                      </a-checkbox>
-                    </div>
-                  </div>
-                </template>
-                <a-button>
-                  <template #icon><SettingOutlined /></template>
-                  列设置
-                </a-button>
-              </a-popover>
+              <ColumnConfig v-model:columns="allColumns" cacheKey="warehousingExpenseReport" />
               <a-button @click="handlePrint" :disabled="reportData.length === 0">
                 <template #icon><PrinterOutlined /></template>
                 打印
@@ -84,11 +67,10 @@
         :columns="filteredColumns"
         :data-source="reportData"
         :loading="loading"
-        :pagination="pagination"
+        :pagination="false"
         rowKey="warehousing_order_id"
         bordered
         size="small"
-        @change="handleTableChange"
         :scroll="{ x: 2600 }"
       >
         <template #bodyCell="{ column, record }">
@@ -142,61 +124,73 @@
         </template>
 
         <template #summary v-if="reportData.length > 0">
-          <a-table-summary fixed>
+          <a-table-summary>
             <a-table-summary-row>
-              <a-table-summary-cell :index="0" :colSpan="10" :align="'right'">
+              <a-table-summary-cell :index="0" :colSpan="11" :align="'right'">
                 <strong>合计</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="10" :align="'right'">
+              <a-table-summary-cell :index="11" :align="'right'">
                 <strong>{{ formatMoney(totals.total_price) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="11" :align="'right'">
+              <a-table-summary-cell :index="12" :align="'right'">
                 {{ formatMoney(totals.express_delivery_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="12" :align="'right'">
+              <a-table-summary-cell :index="13" :align="'right'">
                 {{ formatMoney(totals.transportation_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="13" :align="'right'">
+              <a-table-summary-cell :index="14" :align="'right'">
                 {{ formatMoney(totals.customs_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="14" :align="'right'">
+              <a-table-summary-cell :index="15" :align="'right'">
                 {{ formatMoney(totals.warehousing_other_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="15" :align="'right'">
+              <a-table-summary-cell :index="16" :align="'right'">
                 <strong>{{ formatMoney(totals.warehousing_expense_subtotal) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="16" :align="'right'">
+              <a-table-summary-cell :index="17" :align="'right'">
                 {{ formatMoney(totals.purchase_transportation_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="17" :align="'right'">
+              <a-table-summary-cell :index="18" :align="'right'">
                 {{ formatMoney(totals.purchase_entertainment_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="18" :align="'right'">
+              <a-table-summary-cell :index="19" :align="'right'">
                 {{ formatMoney(totals.purchase_gift_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="19" :align="'right'">
+              <a-table-summary-cell :index="20" :align="'right'">
                 {{ formatMoney(totals.purchase_other_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="20" :align="'right'">
+              <a-table-summary-cell :index="21" :align="'right'">
                 <strong>{{ formatMoney(totals.purchase_expense_subtotal) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="21" :align="'right'">
+              <a-table-summary-cell :index="22" :align="'right'">
                 <span style="color: #f5222d; font-weight: bold">{{
                   formatMoney(totals.total_expenses)
                 }}</span>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="22" :colSpan="2" />
+              <a-table-summary-cell :index="23" :colSpan="2" />
             </a-table-summary-row>
           </a-table-summary>
         </template>
       </a-table>
+      <a-pagination
+        v-model:current="pagination.current"
+        v-model:pageSize="pagination.pageSize"
+        :total="pagination.total"
+        show-total
+        show-size-changer
+        show-quick-jumper
+        :page-size-options="['10', '20', '50', '100']"
+        style="margin-top: 16px; text-align: right"
+        @change="handlePageChange"
+        @showSizeChange="handlePageChange"
+      />
     </a-card>
 
     <WarehousingExpenseReportPrint
       v-model:visible="printVisible"
       :data="reportData"
       :search-params="searchParams"
-      :visible-columns="visibleColumnKeys"
+      :visible-columns="visibleColumns.map(col => col.key)"
     />
   </div>
 </template>
@@ -208,10 +202,10 @@ import {
   SearchOutlined,
   ReloadOutlined,
   PrinterOutlined,
-  SettingOutlined,
 } from '@ant-design/icons-vue'
 import { warehousingExpenseReportApi } from '@/api/warehousingExpenseReport'
 import WarehousingExpenseReportPrint from '@/components/WarehousingExpenseReportPrint.vue'
+import ColumnConfig from '@/components/ColumnConfig.vue'
 import type { WarehousingExpenseReportItem, WarehousingExpenseReportParams } from '@/types'
 import type { Dayjs } from 'dayjs'
 
@@ -219,122 +213,6 @@ const loading = ref(false)
 const reportData = ref<WarehousingExpenseReportItem[]>([])
 const dateRange = ref<[Dayjs, Dayjs] | null>(null)
 const printVisible = ref(false)
-
-// 扁平化的列配置（用于列设置面板）
-const allFlatColumns = [
-  { title: '入库单号', key: 'order_number' },
-  { title: '入库时间', key: 'warehousing_time' },
-  { title: '采购订单号', key: 'purchase_order_number' },
-  { title: '商品编码', key: 'product_code' },
-  { title: '商品名称', key: 'product_name' },
-  { title: '规格型号', key: 'model' },
-  { title: '单位', key: 'unit' },
-  { title: '入库数量', key: 'quantity' },
-  { title: '含税单价', key: 'tax_included_price' },
-  { title: '含税金额', key: 'total_price' },
-  { title: '快递费', key: 'express_delivery_fee' },
-  { title: '运杂费', key: 'transportation_fee' },
-  { title: '报关费', key: 'customs_fee' },
-  { title: '其他(入库)', key: 'warehousing_other_fee' },
-  { title: '小计(入库)', key: 'warehousing_expense_subtotal' },
-  { title: '交通费', key: 'purchase_transportation_fee' },
-  { title: '招待费', key: 'purchase_entertainment_fee' },
-  { title: '礼品费', key: 'purchase_gift_fee' },
-  { title: '其他(采购)', key: 'purchase_other_fee' },
-  { title: '小计(采购)', key: 'purchase_expense_subtotal' },
-  { title: '费用合计', key: 'total_expenses' },
-  { title: '入库人', key: 'warehousing_person' },
-  { title: '备注', key: 'remarks' },
-]
-
-const visibleColumnKeys = ref<string[]>(allFlatColumns.map(col => col.key))
-
-const handleColumnChange = (key: string, checked: boolean) => {
-  if (checked) {
-    if (!visibleColumnKeys.value.includes(key)) {
-      visibleColumnKeys.value.push(key)
-    }
-  } else {
-    visibleColumnKeys.value = visibleColumnKeys.value.filter(k => k !== key)
-  }
-}
-
-// 判断列是否可见
-const isColumnVisible = (key: string) => visibleColumnKeys.value.includes(key)
-
-// 获取可见的列（带分组）
-const filteredColumns = computed(() => {
-  const result: any[] = []
-
-  // 基础列
-  const basicKeys = [
-    'order_number',
-    'warehousing_time',
-    'purchase_order_number',
-    'product_code',
-    'product_name',
-    'model',
-    'unit',
-    'quantity',
-    'tax_included_price',
-    'total_price',
-  ]
-  basicKeys.forEach(key => {
-    if (isColumnVisible(key)) {
-      const col = columns.find(c => c.key === key)
-      if (col) result.push(col)
-    }
-  })
-
-  // 入库费用分组
-  const expenseKeys = [
-    'express_delivery_fee',
-    'transportation_fee',
-    'customs_fee',
-    'warehousing_other_fee',
-    'warehousing_expense_subtotal',
-  ]
-  const visibleExpenseCols = expenseKeys.filter(key => isColumnVisible(key))
-  if (visibleExpenseCols.length > 0) {
-    const expenseGroup = columns.find(c => c.title === '入库费用')
-    if (expenseGroup && expenseGroup.children) {
-      result.push({
-        title: '入库费用',
-        children: expenseGroup.children.filter((c: any) => isColumnVisible(c.key)),
-      })
-    }
-  }
-
-  // 采购费用分组
-  const purchaseKeys = [
-    'purchase_transportation_fee',
-    'purchase_entertainment_fee',
-    'purchase_gift_fee',
-    'purchase_other_fee',
-    'purchase_expense_subtotal',
-  ]
-  const visiblePurchaseCols = purchaseKeys.filter(key => isColumnVisible(key))
-  if (visiblePurchaseCols.length > 0) {
-    const purchaseGroup = columns.find(c => c.title === '采购费用')
-    if (purchaseGroup && purchaseGroup.children) {
-      result.push({
-        title: '采购费用',
-        children: purchaseGroup.children.filter((c: any) => isColumnVisible(c.key)),
-      })
-    }
-  }
-
-  // 尾部列
-  const tailKeys = ['total_expenses', 'warehousing_person', 'remarks']
-  tailKeys.forEach(key => {
-    if (isColumnVisible(key)) {
-      const col = columns.find(c => c.key === key)
-      if (col) result.push(col)
-    }
-  })
-
-  return result
-})
 
 const searchParams = reactive<WarehousingExpenseReportParams>({
   startDate: undefined,
@@ -348,10 +226,6 @@ const pagination = reactive({
   current: 1,
   pageSize: 20,
   total: 0,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total: number) => `共 ${total} 条记录`,
-  pageSizeOptions: ['10', '20', '50', '100'],
 })
 
 // 计算同一入库单号的行合并信息，返回 recordIndex 对应的 rowSpan（0 表示被合并隐藏）
@@ -530,6 +404,54 @@ const columns = [
   },
 ]
 
+// 列配置（带序号列）
+const allColumns = ref([
+  {
+    title: '序号',
+    key: 'index',
+    width: 60,
+    align: 'center' as const,
+    fixed: 'left' as const,
+    customRender: ({ index }: { index: number }) => index + 1,
+  },
+  ...columns.map(col => ({
+    ...col,
+    visible: true,
+  })),
+])
+
+// 获取可见的列（带分组）
+const visibleColumns = computed(() => {
+  return allColumns.value.filter(col => col.visible !== false)
+})
+
+const filteredColumns = computed(() => {
+  const result: any[] = []
+  const visible = visibleColumns.value
+
+  visible.forEach(col => {
+    if (col.key === 'index') {
+      result.push(col)
+    } else if (!col.children) {
+      result.push(col)
+    } else {
+      // 处理分组列
+      const visibleChildren = col.children.filter((c: any) => {
+        const allCol = allColumns.value.find(ac => ac.key === c.key)
+        return allCol ? allCol.visible !== false : true
+      })
+      if (visibleChildren.length > 0) {
+        result.push({
+          ...col,
+          children: visibleChildren,
+        })
+      }
+    }
+  })
+
+  return result
+})
+
 // 汇总计算
 const totals = computed(() => {
   return reportData.value.reduce(
@@ -614,9 +536,9 @@ const handleReset = () => {
   fetchReport()
 }
 
-const handleTableChange = (pag: any) => {
-  pagination.current = pag.current
-  pagination.pageSize = pag.pageSize
+const handlePageChange = (page: number, pageSize: number) => {
+  pagination.current = page
+  pagination.pageSize = pageSize
 }
 
 const handlePrint = () => {
@@ -644,14 +566,5 @@ onMounted(() => {
 
 .search-bar {
   margin-bottom: 16px;
-}
-
-.column-settings {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.column-item {
-  padding: 4px 0;
 }
 </style>

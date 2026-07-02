@@ -58,6 +58,7 @@ interface ColumnConfig {
 
 const props = defineProps<{
   columns: ColumnConfig[]
+  cacheKey?: string
 }>()
 
 const emit = defineEmits<{
@@ -69,16 +70,99 @@ const localColumns = ref<ColumnConfig[]>([])
 const dragIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
 
+// 从 localStorage 加载缓存的列配置
+const loadCache = (): { visibleKeys: string[], columnOrder: string[] } | null => {
+  if (!props.cacheKey) return null
+  try {
+    const cached = localStorage.getItem(`column_config_${props.cacheKey}`)
+    if (cached) {
+      return JSON.parse(cached)
+    }
+  } catch (e) {
+    console.error('Failed to load column config cache:', e)
+  }
+  return null
+}
+
+// 保存列配置到 localStorage
+const saveCache = () => {
+  if (!props.cacheKey) return
+  try {
+    const visibleKeys = localColumns.value
+      .filter(col => col.visible !== false)
+      .map(col => col.key || col.dataIndex || '')
+    const columnOrder = localColumns.value
+      .map(col => col.key || col.dataIndex || '')
+    localStorage.setItem(
+      `column_config_${props.cacheKey}`,
+      JSON.stringify({ visibleKeys, columnOrder })
+    )
+  } catch (e) {
+    console.error('Failed to save column config cache:', e)
+  }
+}
+
+// 应用缓存的列配置
+const applyCache = (columns: ColumnConfig[]): ColumnConfig[] => {
+  const cache = loadCache()
+  if (!cache) return columns
+
+  const { visibleKeys, columnOrder } = cache
+
+  // 按缓存的顺序排列列
+  const orderedColumns: ColumnConfig[] = []
+  const remainingColumns = [...columns]
+
+  // 先按缓存顺序添加存在的列
+  for (const key of columnOrder) {
+    const index = remainingColumns.findIndex(
+      col => (col.key || col.dataIndex) === key
+    )
+    if (index !== -1) {
+      const col = remainingColumns.splice(index, 1)[0]
+      orderedColumns.push({
+        ...col,
+        visible: visibleKeys.includes(key)
+      })
+    }
+  }
+
+  // 添加缓存中没有的新列（默认可见）
+  for (const col of remainingColumns) {
+    orderedColumns.push({
+      ...col,
+      visible: true
+    })
+  }
+
+  return orderedColumns
+}
+
+// 标记是否正在从 ColumnConfig 更新
+let isUpdatingFromConfig = false
+
 // 监听 props 变化
 watch(
   () => props.columns,
   (newColumns) => {
-    localColumns.value = newColumns.map(col => ({
-      ...col,
-      visible: col.visible !== false
-    }))
+    // 如果是从 ColumnConfig 发起的更新，不覆盖 localColumns
+    if (isUpdatingFromConfig) {
+      isUpdatingFromConfig = false
+      return
+    }
+    // 应用缓存的列配置
+    const cachedColumns = applyCache(newColumns)
+    localColumns.value = cachedColumns
+
+    // 将缓存的配置发射给父组件，更新父组件的 allColumns
+    // 只在初始化时或有缓存时发射
+    const cache = loadCache()
+    if (cache) {
+      isUpdatingFromConfig = true
+      emit('update:columns', cachedColumns.map(col => ({ ...col })))
+    }
   },
-  { immediate: true, deep: true }
+  { immediate: true }
 )
 
 // 点击外部关闭面板
@@ -168,7 +252,12 @@ const handleDragEnd = () => {
 
 // 发送更新
 const emitUpdate = () => {
-  emit('update:columns', [...localColumns.value])
+  saveCache()
+  // 标记为从 ColumnConfig 发起的更新
+  isUpdatingFromConfig = true
+  // 创建深拷贝，确保父组件能检测到变化
+  const columnsCopy = localColumns.value.map(col => ({ ...col }))
+  emit('update:columns', columnsCopy)
 }
 </script>
 

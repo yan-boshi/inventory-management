@@ -13,12 +13,30 @@
     <a-card>
       <div class="search-bar">
         <a-form layout="inline">
-          <a-form-item label="订单号">
+          <a-form-item label="入库单号">
             <a-input
               v-model:value="searchParams.orderNumber"
-              placeholder="请输入订单号"
+              placeholder="请输入入库单号"
               allow-clear
-              style="width: 200px"
+              style="width: 160px"
+            />
+          </a-form-item>
+
+          <a-form-item label="采购合同编号">
+            <a-input
+              v-model:value="searchParams.contractNumber"
+              placeholder="请输入采购合同编号"
+              allow-clear
+              style="width: 160px"
+            />
+          </a-form-item>
+
+          <a-form-item label="客户名称">
+            <a-input
+              v-model:value="searchParams.customerName"
+              placeholder="请输入客户名称"
+              allow-clear
+              style="width: 160px"
             />
           </a-form-item>
 
@@ -27,16 +45,16 @@
               v-model:value="searchParams.productName"
               placeholder="请输入产品名称"
               allow-clear
-              style="width: 200px"
+              style="width: 160px"
             />
           </a-form-item>
 
-          <a-form-item label="产品代码">
+          <a-form-item label="产品型号">
             <a-input
-              v-model:value="searchParams.productCode"
-              placeholder="请输入产品代码"
+              v-model:value="searchParams.productModel"
+              placeholder="请输入产品型号"
               allow-clear
-              style="width: 200px"
+              style="width: 160px"
             />
           </a-form-item>
 
@@ -52,7 +70,7 @@
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
-              <ColumnConfig v-model:columns="allColumns" />
+              <ColumnConfig v-model:columns="allColumns" cacheKey="warehousingOrders" />
             </a-space>
           </a-form-item>
         </a-form>
@@ -69,7 +87,7 @@
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
-            <a v-if="record._isFirstRow" @click="handleViewDetail(record)">{{ record.order_number || '-' }}</a>
+            <span class="order-link">{{ record.order_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'contract_number'">
@@ -191,8 +209,11 @@ const searchParams = reactive<WarehousingOrderQueryParams>({
   page: 1,
   pageSize: 10,
   orderNumber: '',
+  contractNumber: '',
+  customerName: '',
   productName: '',
   productCode: '',
+  productModel: '',
   warehousingDate: '',
 })
 
@@ -235,30 +256,12 @@ const allColumns = ref([
     key: 'order_number',
     width: 180,
     fixed: 'left',
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '采购合同编号',
     dataIndex: 'contract_number',
     key: 'contract_number',
     width: 150,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '产品代码',
@@ -303,60 +306,24 @@ const allColumns = ref([
     dataIndex: 'customer_name',
     key: 'customer_name',
     width: 150,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '入库时间',
     dataIndex: 'warehousing_time',
     key: 'warehousing_time',
     width: 160,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '录入日期',
     dataIndex: 'entry_date',
     key: 'entry_date',
     width: 120,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '快递单号',
     dataIndex: 'tracking_number',
     key: 'tracking_number',
     width: 150,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '总计',
@@ -419,8 +386,11 @@ const handleSearch = () => {
 
 const handleReset = () => {
   searchParams.orderNumber = ''
+  searchParams.contractNumber = ''
+  searchParams.customerName = ''
   searchParams.productName = ''
   searchParams.productCode = ''
+  searchParams.productModel = ''
   searchParams.warehousingDate = ''
   dateRange.value = undefined
   handleSearch()
@@ -542,6 +512,15 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+  }
+
+  .order-link {
+    color: #1890ff;
+    cursor: pointer;
+
+    &:hover {
+      color: #40a9ff;
+    }
   }
 }
 </style>

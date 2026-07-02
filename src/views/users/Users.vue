@@ -17,9 +17,8 @@
       :columns="columns"
       :data-source="dataSource"
       :loading="loading"
-      :pagination="pagination"
+      :pagination="false"
       row-key="user_id"
-      @change="handleTableChange"
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'role'">
@@ -54,6 +53,18 @@
         </template>
       </template>
     </a-table>
+    <a-pagination
+      v-model:current="pagination.current"
+      v-model:pageSize="pagination.pageSize"
+      :total="pagination.total"
+      show-total
+      show-size-changer
+      show-quick-jumper
+      :page-size-options="['10', '20', '50', '100']"
+      style="margin-top: 16px; text-align: right"
+      @change="handlePageChange"
+      @showSizeChange="handlePageChange"
+    />
 
     <a-modal
       v-model:open="modalVisible"
@@ -165,7 +176,6 @@ const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0,
-  showTotal: (total: number) => `共 ${total} 条`
 })
 
 const columns = [
@@ -298,9 +308,9 @@ const handleCancel = () => {
   modalVisible.value = false
 }
 
-const handleTableChange = (pag: { current: number; pageSize: number }) => {
-  pagination.current = pag.current
-  pagination.pageSize = pag.pageSize
+const handlePageChange = (page: number, pageSize: number) => {
+  pagination.current = page
+  pagination.pageSize = pageSize
   fetchUsers()
 }
 

@@ -29,6 +29,11 @@ instance.interceptors.response.use(
       localStorage.removeItem('user')
       window.location.href = '/login'
     }
+    // 将后端返回的错误信息提取到 error.message 中
+    const backendMessage = error.response?.data?.message
+    if (backendMessage) {
+      error.message = backendMessage
+    }
     return Promise.reject(error)
   }
 )

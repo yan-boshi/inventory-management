@@ -218,7 +218,7 @@ export const returnSalesOrder = async (req, res) => {
     const resetItems = salesItems.map(item => ({
       ...item,
       outbound_quantity: 0,
-      status: 1
+      status: 4
     }))
 
     const updated = await SalesOrder.update(id, {

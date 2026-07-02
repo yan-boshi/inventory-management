@@ -66,7 +66,7 @@
             <span>出库单</span>
           </a-menu-item>
           <a-menu-item key="DeliveryExpenseReport" @click="navigateTo('/delivery-expense-report')">
-            出库费用表
+            出库明细表
           </a-menu-item>
           <a-menu-item key="InventoryReport" @click="navigateTo('/inventory-report')">
             进销存明细表

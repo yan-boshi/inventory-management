@@ -103,7 +103,7 @@
               :pagination="false"
               bordered
               size="small"
-              :scroll="{ x: 1630 }"
+              :scroll="{ x: 2250 }"
             >
               <template #bodyCell="{ column, record, index }">
                 <template v-if="column.key === 'no'">
@@ -271,6 +271,70 @@
                     style="width: 100%"
                     class="invisible-input"
                   />
+                </template>
+
+                <template v-else-if="column.key === 'invoice_date'">
+                  <a-date-picker
+                    v-model:value="record.invoice_date"
+                    format="YYYY-MM-DD"
+                    style="width: 100%"
+                    class="invisible-input"
+                  />
+                </template>
+
+                <template v-else-if="column.key === 'invoice_number'">
+                  <a-input
+                    v-model:value="record.invoice_number"
+                    style="width: 100%"
+                    class="invisible-input"
+                  />
+                </template>
+
+                <template v-else-if="column.key === 'invoice_received'">
+                  <a-select
+                    v-model:value="record.invoice_received"
+                    placeholder="请选择"
+                    style="width: 100%"
+                    class="invisible-select"
+                  >
+                    <a-select-option value="是">是</a-select-option>
+                    <a-select-option value="否">否</a-select-option>
+                  </a-select>
+                </template>
+
+                <template v-else-if="column.key === 'settlement_date'">
+                  <a-date-picker
+                    v-model:value="record.settlement_date"
+                    format="YYYY-MM-DD"
+                    style="width: 100%"
+                    class="invisible-input"
+                  />
+                </template>
+
+                <template v-else-if="column.key === 'settlement_amount'">
+                  <a-input-number
+                    v-model:value="record.settlement_amount"
+                    :min="0"
+                    :precision="2"
+                    style="width: 100%"
+                    class="invisible-input"
+                    @change="() => { record.unsettled_amount = parseFloat(((record.tax_included_amount || 0) - (record.settlement_amount || 0)).toFixed(2)); record.settlement_status = record.unsettled_amount === 0 ? '全部结算' : (record.settlement_amount > 0 ? '部分结算' : '未结算') }"
+                  />
+                </template>
+
+                <template v-else-if="column.key === 'unsettled_amount'">
+                  <a-input
+                    :value="(record.unsettled_amount ?? ((record.tax_included_amount || 0) - (record.settlement_amount || 0))).toFixed(2)"
+                    disabled
+                    style="width: 100%"
+                    class="invisible-input"
+                  />
+                </template>
+
+                <template v-else-if="column.key === 'settlement_status'">
+                  <a-tag :color="record.settlement_status === '全部结算' ? 'green' : record.settlement_status === '部分结算' ? 'orange' : 'red'">
+                    {{ record.settlement_status || '未结算' }}
+                  </a-tag>
                 </template>
 
                 <template v-else-if="column.key === 'remarks'">
@@ -489,6 +553,13 @@ const itemColumns = [
   { title: '税额', key: 'tax_amount', width: 100, align: 'right' as const },
   { title: '状态', key: 'status', width: 80 },
   { title: '发货日期', key: 'delivery_date', width: 130 },
+  { title: '开票日期', key: 'invoice_date', width: 130 },
+  { title: '发票号', key: 'invoice_number', width: 120 },
+  { title: '是否到票', key: 'invoice_received', width: 90 },
+  { title: '结算日期', key: 'settlement_date', width: 130 },
+  { title: '结算金额', key: 'settlement_amount', width: 100, align: 'right' as const },
+  { title: '未结算金额', key: 'unsettled_amount', width: 100, align: 'right' as const },
+  { title: '结算状态', key: 'settlement_status', width: 100 },
   { title: '备注', key: 'remarks', width: 150 },
   { title: '操作', key: 'actions', width: 70, fixed: 'right' as const },
 ]
@@ -735,6 +806,13 @@ const addNewItem = () => {
     tax_amount: 0,
     status: 1,
     delivery_date: undefined,
+    invoice_date: undefined,
+    invoice_number: '',
+    invoice_received: '否',
+    settlement_date: undefined,
+    settlement_amount: 0,
+    unsettled_amount: 0,
+    settlement_status: '未结算',
     remarks: '',
   })
 }
@@ -786,13 +864,21 @@ const handleSubmit = async () => {
   try {
     submitting.value = true
 
+    // 格式化 sales_items 中的日期字段
+    const formattedItems = form.sales_items.map((item: any) => ({
+      ...item,
+      delivery_date: formatDate(item.delivery_date),
+      invoice_date: formatDate(item.invoice_date),
+      settlement_date: formatDate(item.settlement_date),
+    }))
+
     const submitData = {
       order_number: orderNumber.value,
       contract_number: form.contract_number,
       customer_name: form.customer_name,
       customer_code: form.customer_code,
       payment_method: form.payment_method,
-      sales_items: JSON.stringify(form.sales_items),
+      sales_items: JSON.stringify(formattedItems),
       currency: form.currency,
       entry_date: formatDate(form.entry_date),
       tax_included_amount: totalAmount.value,
@@ -887,10 +973,12 @@ watch(
         orderNumber.value = props.salesOrderData.order_number || ''
         try {
           const items = JSON.parse(props.salesOrderData.sales_items || '[]')
-          // 将 delivery_date 字符串转换为 dayjs 对象
+          // 将日期字符串转换为 dayjs 对象
           form.sales_items = items.map((item: any) => ({
             ...item,
             delivery_date: item.delivery_date ? dayjs(item.delivery_date) : undefined,
+            invoice_date: item.invoice_date ? dayjs(item.invoice_date) : undefined,
+            settlement_date: item.settlement_date ? dayjs(item.settlement_date) : undefined,
           }))
         } catch {
           form.sales_items = []

@@ -52,7 +52,7 @@
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
-              <ColumnConfig v-model:columns="allColumns" />
+              <ColumnConfig v-model:columns="allColumns" cacheKey="quotations" />
             </a-space>
           </a-form-item>
         </a-form>
@@ -62,13 +62,12 @@
         :columns="visibleColumns"
         :data-source="quotations"
         :loading="loading"
-        :pagination="pagination"
+        :pagination="false"
         rowKey="quotation_id"
-        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'quotation_number'">
-            <a @click="handleViewDetail(record)">{{ record.quotation_number || '-' }}</a>
+            <span class="order-link">{{ record.quotation_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'status'">
@@ -117,6 +116,18 @@
           </template>
         </template>
       </a-table>
+      <a-pagination
+        v-model:current="pagination.current"
+        v-model:pageSize="pagination.pageSize"
+        :total="pagination.total"
+        show-total
+        show-size-changer
+        show-quick-jumper
+        :page-size-options="['10', '20', '50', '100']"
+        style="margin-top: 16px; text-align: right"
+        @change="handlePageChange"
+        @showSizeChange="handlePageChange"
+      />
     </a-card>
 
     <QuotationForm
@@ -189,10 +200,6 @@ const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total: number) => `共 ${total} 条记录`,
-  pageSizeOptions: ['10', '20', '50', '100'],
 })
 
 const allColumns = ref([
@@ -303,9 +310,9 @@ const handleDateRangeChange = (dates: [any, any]) => {
   }
 }
 
-const handleTableChange = (pag: any) => {
-  searchParams.page = pag.current
-  searchParams.pageSize = pag.pageSize
+const handlePageChange = (page: number, pageSize: number) => {
+  searchParams.page = page
+  searchParams.pageSize = pageSize
   loadQuotations()
 }
 
@@ -548,6 +555,15 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+  }
+
+  .order-link {
+    color: #1890ff;
+    cursor: pointer;
+
+    &:hover {
+      color: #40a9ff;
+    }
   }
 }
 </style>

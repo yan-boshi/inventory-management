@@ -52,7 +52,7 @@
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
-              <ColumnConfig v-model:columns="allColumns" />
+              <ColumnConfig v-model:columns="allColumns" cacheKey="purchaseOrders" />
             </a-space>
           </a-form-item>
         </a-form>
@@ -62,14 +62,13 @@
         :columns="visibleColumns"
         :data-source="expandedOrders"
         :loading="loading"
-        :pagination="pagination"
+        :pagination="false"
         rowKey="row_key"
-        @change="handleTableChange"
         :scroll="{ x: 1800 }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
-            <a v-if="record._isFirstRow" @click="handleViewDetail(record)">{{ record.order_number || '-' }}</a>
+            <span class="order-link">{{ record.order_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'contract_number'">
@@ -91,8 +90,8 @@
           </template>
 
           <template v-else-if="column.key === 'status'">
-            <a-tag v-if="record._isFirstRow" :color="getStatusColor(record.status)">
-              {{ getStatusText(record.status) }}
+            <a-tag :color="getStatusColor(record.item_status)">
+              {{ getStatusText(record.item_status) }}
             </a-tag>
           </template>
 
@@ -110,11 +109,25 @@
               <a-button type="link" size="small" danger @click="handleDelete(record)">
                 删除
               </a-button>
-              <a-button type="link" size="small" @click="({ key }) => handlePrint(record, key)"> 打印 <DownOutlined /> </a-button>
+              <a-button type="link" size="small" @click="({ key }) => handlePrint(record, key)">
+                打印 <DownOutlined />
+              </a-button>
             </a-space>
           </template>
         </template>
       </a-table>
+      <a-pagination
+        v-model:current="pagination.current"
+        v-model:pageSize="pagination.pageSize"
+        :total="pagination.total"
+        :show-total="(total: number) => `共 ${total} 条记录`"
+        show-size-changer
+        show-quick-jumper
+        :page-size-options="['10', '20', '50', '100']"
+        style="margin-top: 16px; text-align: right"
+        @change="handlePageChange"
+        @showSizeChange="handlePageChange"
+      />
     </a-card>
 
     <PurchaseOrderForm
@@ -171,6 +184,7 @@ const expandedOrders = computed(() => {
         quantity: '-',
         unit: '-',
         amount: 0,
+        item_status: order.status,
         _isFirstRow: true,
         _rowCount: 1,
         _orderIndex: orderIndex,
@@ -187,6 +201,7 @@ const expandedOrders = computed(() => {
           quantity: item.quantity || '-',
           unit: item.unit || '-',
           amount: item.tax_included_amount || 0,
+          item_status: item.status || 1,
           _isFirstRow: index === 0,
           _rowCount: items.length,
           _orderIndex: orderIndex,
@@ -211,10 +226,6 @@ const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total: number) => `共 ${total} 条记录`,
-  pageSizeOptions: ['10', '20', '50', '100'],
 })
 
 const allColumns = ref([
@@ -246,60 +257,24 @@ const allColumns = ref([
     key: 'order_number',
     width: 150,
     fixed: 'left',
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '合同编号',
     dataIndex: 'contract_number',
     key: 'contract_number',
     width: 150,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '供应商名称',
     dataIndex: 'supplier_name',
     key: 'supplier_name',
-    width: 200,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
+    width: 250,
   },
   {
     title: '供应商代码',
     dataIndex: 'supplier_code',
     key: 'supplier_code',
     width: 120,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '产品代码',
@@ -363,34 +338,16 @@ const allColumns = ref([
   },
   {
     title: '状态',
-    dataIndex: 'status',
+    dataIndex: 'item_status',
     key: 'status',
     width: 100,
     align: 'center',
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '录入日期',
     dataIndex: 'entry_date',
     key: 'entry_date',
     width: 120,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '采购人',
@@ -434,9 +391,9 @@ const loadOrders = async () => {
   try {
     const response = await purchaseOrdersApi.getAll(searchParams)
     orders.value = response.data || []
-    pagination.total = response.data.pagination?.total || 0
-    pagination.current = response.data.pagination?.page || 1
-    pagination.pageSize = response.data.pagination?.pageSize || 10
+    pagination.total = response.pagination?.total || 0
+    pagination.current = response.pagination?.page || 1
+    pagination.pageSize = response.pagination?.pageSize || 10
   } catch (error) {
     console.error('加载采购订单失败:', error)
     message.error('加载采购订单失败')
@@ -472,9 +429,9 @@ const handleDateRangeChange = (dates: [any, any]) => {
   }
 }
 
-const handleTableChange = (pag: any) => {
-  searchParams.page = pag.current
-  searchParams.pageSize = pag.pageSize
+const handlePageChange = (page: number, pageSize: number) => {
+  searchParams.page = page
+  searchParams.pageSize = pageSize
   loadOrders()
 }
 
@@ -516,12 +473,17 @@ const handleDelete = (order: PurchaseOrder) => {
 const handleStatusChange = (order: PurchaseOrder, status: string) => {
   Modal.confirm({
     title: '确认更新状态',
-    content: `确定要将采购订单 ${order.order_number} 的状态更新为 ${getStatusText(parseInt(status))}吗？`,
+    content: `确定要将采购订单 ${order.order_number} 的状态更新为 ${getStatusText(
+      parseInt(status)
+    )}吗？`,
     okText: '确认',
     cancelText: '取消',
     onOk: async () => {
       try {
-        await purchaseOrdersApi.updateStatus(order.purchase_order_id, parseInt(status) as 1 | 2 | 3 | 4)
+        await purchaseOrdersApi.updateStatus(
+          order.purchase_order_id,
+          parseInt(status) as 1 | 2 | 3 | 4
+        )
         message.success('状态更新成功')
         loadOrders()
       } catch (error) {
@@ -571,10 +533,10 @@ const formatDate = (dateString: string) => {
 
 const getStatusColor = (status: number) => {
   const colorMap: Record<number, string> = {
-    1: 'blue',    // 未入库
-    2: 'green',   // 已全部入库
-    3: 'orange',  // 已部分入库
-    4: 'red',     // 退货
+    1: 'blue', // 未入库
+    2: 'green', // 已全部入库
+    3: 'orange', // 已部分入库
+    4: 'red', // 退货
   }
   return colorMap[status] || 'default'
 }
@@ -613,6 +575,15 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+  }
+
+  .order-link {
+    color: #1890ff;
+    cursor: pointer;
+
+    &:hover {
+      color: #40a9ff;
+    }
   }
 }
 </style>

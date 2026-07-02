@@ -718,6 +718,7 @@ const handleSave = async () => {
     emit('success')
     emit('update:open', false)
   } catch (error: any) {
+    console.log('error', error)
     message.error(error?.message || '操作失败')
   } finally {
     saving.value = false

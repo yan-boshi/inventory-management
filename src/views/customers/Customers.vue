@@ -44,9 +44,8 @@
         :columns="columns"
         :data-source="customers"
         :loading="loading"
-        :pagination="pagination"
+        :pagination="false"
         rowKey="customer_id"
-        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'customer_name'">
@@ -67,6 +66,18 @@
           </template>
         </template>
       </a-table>
+      <a-pagination
+        v-model:current="pagination.current"
+        v-model:pageSize="pagination.pageSize"
+        :total="pagination.total"
+        show-total
+        show-size-changer
+        show-quick-jumper
+        :page-size-options="['10', '20', '50', '100']"
+        style="margin-top: 16px; text-align: right"
+        @change="handlePageChange"
+        @showSizeChange="handlePageChange"
+      />
     </a-card>
 
     <CustomerForm
@@ -104,10 +115,6 @@ const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total: number) => `共 ${total} 条记录`,
-  pageSizeOptions: ['10', '20', '50', '100'],
 })
 
 const columns = [
@@ -190,9 +197,9 @@ const handleReset = () => {
   handleSearch()
 }
 
-const handleTableChange = (pag: any) => {
-  searchParams.page = pag.current
-  searchParams.pageSize = pag.pageSize
+const handlePageChange = (page: number, pageSize: number) => {
+  searchParams.page = page
+  searchParams.pageSize = pageSize
   loadCustomers()
 }
 

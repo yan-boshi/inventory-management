@@ -9,7 +9,10 @@ export const getAllWarehousingOrders = async (req, res) => {
       pageSize = 10,
       productName,
       productCode,
+      productModel,
       orderNumber,
+      contractNumber,
+      customerName,
       warehousingDate
     } = req.query
 
@@ -21,6 +24,16 @@ export const getAllWarehousingOrders = async (req, res) => {
       params.push(`%${orderNumber}%`)
     }
 
+    if (contractNumber) {
+      where.push('contract_number LIKE ?')
+      params.push(`%${contractNumber}%`)
+    }
+
+    if (customerName) {
+      where.push('customer_name LIKE ?')
+      params.push(`%${customerName}%`)
+    }
+
     if (productName) {
       where.push('warehousing_items LIKE ?')
       params.push(`%${productName}%`)
@@ -29,6 +42,11 @@ export const getAllWarehousingOrders = async (req, res) => {
     if (productCode) {
       where.push('warehousing_items LIKE ?')
       params.push(`%${productCode}%`)
+    }
+
+    if (productModel) {
+      where.push('warehousing_items LIKE ?')
+      params.push(`%${productModel}%`)
     }
 
     if (warehousingDate) {
