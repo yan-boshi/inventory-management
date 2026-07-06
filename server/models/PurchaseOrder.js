@@ -125,7 +125,8 @@ class PurchaseOrder extends BaseModel {
       status: data.status || 1,
       remarks: data.remarks || null,
       expenses: expensesJson,
-      purchase_person: data.purchase_person || null
+      purchase_person: data.purchase_person || null,
+      related_sales_order_id: data.related_sales_order_id || null
     }
     return super.create(orderData)
   }

@@ -483,6 +483,7 @@ export interface PurchaseOrder {
   remarks?: string
   expenses?: string
   purchase_person?: string
+  related_sales_order_id?: string
   created_at: string
   updated_at: string
 }
@@ -498,6 +499,7 @@ export interface CreatePurchaseOrderRequest {
   remarks?: string
   expenses?: Expenses
   purchase_person?: string
+  related_sales_order_id?: string
 }
 
 export interface UpdatePurchaseOrderRequest extends Partial<CreatePurchaseOrderRequest> { }

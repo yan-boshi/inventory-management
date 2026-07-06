@@ -1,4 +1,6 @@
 import PurchaseOrder from '../models/PurchaseOrder.js'
+import SalesOrder from '../models/SalesOrder.js'
+import pool from '../config/database.js'
 
 export const getAllPurchaseOrders = async (req, res) => {
   try {
@@ -82,7 +84,7 @@ export const getPurchaseOrderById = async (req, res) => {
 
 export const createPurchaseOrder = async (req, res) => {
   try {
-    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person } = req.body
+    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person, related_sales_order_id } = req.body
 
     if (!supplier_name || !supplier_code) {
       return res.status(400).json({ success: false, message: 'Supplier name and code are required' })
@@ -102,8 +104,15 @@ export const createPurchaseOrder = async (req, res) => {
       remarks,
       contract_number,
       expenses,
-      purchase_person
+      purchase_person,
+      related_sales_order_id
     })
+
+    // 更新关联销售订单商品的采购状态
+    if (related_sales_order_id) {
+      await updateSalesOrderPurchaseStatus(related_sales_order_id)
+    }
+
     res.status(201).json({ success: true, data: order })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
@@ -113,7 +122,7 @@ export const createPurchaseOrder = async (req, res) => {
 export const updatePurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params
-    const { order_number, supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person } = req.body
+    const { order_number, supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person, related_sales_order_id } = req.body
 
     const existing = await PurchaseOrder.findById(id)
     if (!existing) {
@@ -131,6 +140,7 @@ export const updatePurchaseOrder = async (req, res) => {
     if (contract_number !== undefined) updateData.contract_number = contract_number
     if (expenses !== undefined) updateData.expenses = expenses
     if (purchase_person !== undefined) updateData.purchase_person = purchase_person
+    if (related_sales_order_id !== undefined) updateData.related_sales_order_id = related_sales_order_id || null
 
     if (purchase_items !== undefined) {
       if (!Array.isArray(purchase_items) || purchase_items.length === 0) {
@@ -158,6 +168,19 @@ export const updatePurchaseOrder = async (req, res) => {
     }
 
     const order = await PurchaseOrder.update(id, updateData)
+
+    // 更新关联销售订单商品的采购状态
+    // 如果修改了关联的销售订单，需要同时更新旧的和新的销售订单
+    const oldSalesOrderId = existing.related_sales_order_id
+    const newSalesOrderId = related_sales_order_id !== undefined ? (related_sales_order_id || null) : oldSalesOrderId
+
+    if (oldSalesOrderId && oldSalesOrderId !== newSalesOrderId) {
+      await updateSalesOrderPurchaseStatus(oldSalesOrderId)
+    }
+    if (newSalesOrderId) {
+      await updateSalesOrderPurchaseStatus(newSalesOrderId)
+    }
+
     res.json({ success: true, data: order })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
@@ -173,7 +196,15 @@ export const deletePurchaseOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Purchase order not found' })
     }
 
+    const relatedSalesOrderId = existing.related_sales_order_id
+
     await PurchaseOrder.delete(id)
+
+    // 删除后更新关联销售订单商品的采购状态
+    if (relatedSalesOrderId) {
+      await updateSalesOrderPurchaseStatus(relatedSalesOrderId)
+    }
+
     res.json({ success: true, message: 'Purchase order deleted successfully' })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
@@ -220,5 +251,73 @@ export const getNewOrderNumber = async (req, res) => {
     res.json({ success: true, data: { order_number: orderNumber } })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
+  }
+}
+
+/**
+ * 更新销售订单商品行的采购状态
+ * 根据所有关联该销售订单的采购订单的商品数量汇总来判断：
+ * - 采购数量 >= 销售数量 → 3（已采购）
+ * - 0 < 采购数量 < 销售数量 → 2（部分采购）
+ * - 采购数量 = 0 或无对应采购 → 1（未采购）
+ * - 原本标记为 4（无需采购）的保持不变
+ * @param {string} salesOrderId - 销售订单ID
+ */
+async function updateSalesOrderPurchaseStatus(salesOrderId) {
+  try {
+    const salesOrder = await SalesOrder.findById(salesOrderId)
+    if (!salesOrder) return
+
+    const salesItems = JSON.parse(salesOrder.sales_items || '[]')
+    if (salesItems.length === 0) return
+
+    // 查询所有关联该销售订单的采购订单
+    const [purchaseOrders] = await pool.query(
+      `SELECT purchase_items FROM purchase_orders WHERE related_sales_order_id = ?`,
+      [salesOrderId]
+    )
+
+    // 按 product_code 汇总采购数量
+    const purchaseQuantityMap = {}
+    for (const po of purchaseOrders) {
+      const items = JSON.parse(po.purchase_items || '[]')
+      for (const item of items) {
+        const code = item.product_code
+        if (!code) continue
+        purchaseQuantityMap[code] = (purchaseQuantityMap[code] || 0) + (item.quantity || 0)
+      }
+    }
+
+    // 更新每个销售商品行的采购状态
+    let updated = false
+    const updatedItems = salesItems.map(item => {
+      // 无需采购的保持不变
+      if (item.purchase_status === 4) return item
+
+      const code = item.product_code
+      const purchasedQty = purchaseQuantityMap[code] || 0
+      const salesQty = item.quantity || 0
+
+      let newStatus = 1 // 未采购
+      if (salesQty > 0 && purchasedQty >= salesQty) {
+        newStatus = 3 // 已采购
+      } else if (purchasedQty > 0) {
+        newStatus = 2 // 部分采购
+      }
+
+      if (item.purchase_status !== newStatus) {
+        updated = true
+        return { ...item, purchase_status: newStatus }
+      }
+      return item
+    })
+
+    if (updated) {
+      await SalesOrder.update(salesOrderId, {
+        sales_items: JSON.stringify(updatedItems)
+      })
+    }
+  } catch (error) {
+    console.error('更新销售订单采购状态失败:', error)
   }
 }

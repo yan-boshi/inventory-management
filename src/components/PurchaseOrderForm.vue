@@ -63,6 +63,31 @@
           </div>
         </div>
 
+        <div class="form-row">
+          <div class="form-item">
+            <label class="form-label">关联销售订单：</label>
+            <a-select
+              v-model:value="form.related_sales_order_id"
+              placeholder="请选择关联销售订单"
+              :loading="loading.salesOrders"
+              show-search
+              :filter-option="filterSalesOrderOption"
+              allow-clear
+              class="invisible-select supplier-name-input"
+              @change="handleSalesOrderChange"
+            >
+              <a-select-option
+                v-for="order in salesOrderOptions"
+                :key="order.sales_order_id"
+                :value="order.sales_order_id"
+              >
+                {{ order.contract_number || order.order_number }}
+              </a-select-option>
+            </a-select>
+          </div>
+          <div class="form-item"></div>
+        </div>
+
         <div class="table-container">
           <a-table
             :columns="itemColumns"
@@ -483,6 +508,7 @@ import 'dayjs/locale/zh-cn'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { purchaseOrdersApi } from '@/api/purchaseOrders'
+import { salesOrdersApi } from '@/api/salesOrders'
 import { suppliersApi } from '@/api/suppliers'
 import { productsApi } from '@/api/products'
 import { businessCategoriesApi } from '@/api/businessCategories'
@@ -495,6 +521,7 @@ import type {
   SupplierOption,
   ProductOption,
   BusinessCategoryOption,
+  SalesOrder,
 } from '@/types'
 
 const userStore = useUserStore()
@@ -518,11 +545,13 @@ const loading = reactive({
   suppliers: false,
   products: false,
   businessCategories: false,
+  salesOrders: false,
 })
 
 const supplierOptions = ref<SupplierOption[]>([])
 const productOptions = ref<ProductOption[]>([])
 const businessCategoryOptions = ref<BusinessCategoryOption[]>([])
+const salesOrderOptions = ref<SalesOrder[]>([])
 
 const form = reactive<
   CreatePurchaseOrderRequest & { purchase_items: PurchaseItem[]; expenses: any }
@@ -536,6 +565,7 @@ const form = reactive<
   entry_date: dayjs(),
   remarks: '',
   purchase_person: '',
+  related_sales_order_id: undefined,
   expenses: {
     transportationFee: 0,
     tariff: 0,
@@ -615,6 +645,25 @@ const handleSupplierChange = (value: string) => {
   }
 }
 
+const filterSalesOrderOption = (input: string, option: any) => {
+  const order = salesOrderOptions.value.find(o => o.sales_order_id === option.value)
+  if (!order) return false
+  const searchText = (order.contract_number || order.order_number || '').toLowerCase()
+  return searchText.includes(input.toLowerCase())
+}
+
+const loadSalesOrders = async () => {
+  try {
+    loading.salesOrders = true
+    const res = await salesOrdersApi.getAll({ pageSize: 1000 })
+    salesOrderOptions.value = res.data?.data || res.data || []
+  } catch (error) {
+    console.error('加载销售订单列表失败', error)
+  } finally {
+    loading.salesOrders = false
+  }
+}
+
 const handleProductSearch = async (value: string, index: number) => {
   if (!value) {
     const res = await productsApi.getAllList()
@@ -646,6 +695,62 @@ const handleProductChange = (value: string, index: number) => {
     form.purchase_items[index].model = product.model || ''
     form.purchase_items[index].description = product.description || ''
     form.purchase_items[index].unit = product.unit || ''
+  }
+}
+
+const handleSalesOrderChange = (value: string | undefined) => {
+  if (!value) {
+    // 清除关联时不做操作，保留当前商品行
+    return
+  }
+
+  const salesOrder = salesOrderOptions.value.find(o => o.sales_order_id === value)
+  if (!salesOrder) return
+
+  try {
+    const salesItems = JSON.parse(salesOrder.sales_items || '[]')
+    if (salesItems.length === 0) {
+      message.warning('该销售订单没有商品')
+      return
+    }
+
+    // 用销售订单的商品行填充采购商品行
+    form.purchase_items = salesItems.map((item: any, index: number) => ({
+      no: index + 1,
+      business_category: '',
+      product_name: item.product_name || '',
+      product_code: item.product_code || '',
+      model: item.model || '',
+      description: item.description || '',
+      unit: item.unit || '',
+      quantity: item.quantity || 1,
+      inbound_quantity: 0,
+      tax_rate: 13,
+      tax_included_price: 0,
+      tax_excluded_price: 0,
+      tax_included_amount: 0,
+      tax_excluded_amount: 0,
+      tax_amount: 0,
+      status: 1,
+      delivery_date: undefined,
+      invoice_date: undefined,
+      invoice_number: '',
+      invoice_received: '否',
+      settlement_date: undefined,
+      settlement_amount: 0,
+      unsettled_amount: 0,
+      settlement_status: '未结算',
+      remarks: '',
+      total_price: 0,
+    }))
+
+    // 重新计算每行金额
+    form.purchase_items.forEach((_, index) => calculateRowTotal(index))
+
+    message.success(`已加载销售订单 ${salesOrder.contract_number || salesOrder.order_number} 的 ${salesItems.length} 个商品`)
+  } catch (error) {
+    console.error('解析销售订单商品失败', error)
+    message.error('解析销售订单商品失败')
   }
 }
 
@@ -759,6 +864,7 @@ const handleSubmit = async () => {
       remarks: form.remarks,
       expenses: form.expenses,
       purchase_person: userStore.user?.username || '',
+      related_sales_order_id: form.related_sales_order_id,
     }
 
     if (props.isEdit && props.purchaseOrderData?.purchase_order_id) {
@@ -799,6 +905,7 @@ watch(
         form.supplier_code = props.purchaseOrderData.supplier_code
         form.currency = props.purchaseOrderData.currency || 'CNY'
         form.purchase_person = props.purchaseOrderData.purchase_person || ''
+        form.related_sales_order_id = props.purchaseOrderData.related_sales_order_id || undefined
         form.exchange_rate = props.purchaseOrderData.exchange_rate || 1.0
         if (props.purchaseOrderData.entry_date) {
           form.entry_date = dayjs(props.purchaseOrderData.entry_date)
@@ -861,6 +968,7 @@ const loadBasicData = async () => {
   } catch (error) {
     message.error('加载基础数据失败')
   }
+  await loadSalesOrders()
 }
 
 const resetForm = () => {
@@ -873,6 +981,7 @@ const resetForm = () => {
   form.entry_date = dayjs()
   form.remarks = ''
   form.purchase_person = ''
+  form.related_sales_order_id = undefined
   form.expenses = { transportationFee: 0, tariff: 0, valueAddedTax: 0, handlingFee: 0, otherFee: 0 }
   orderNumber.value = ''
 }
@@ -895,6 +1004,7 @@ const handleSaveDraft = () => {
       : '',
     remarks: form.remarks,
     expenses: form.expenses,
+    related_sales_order_id: form.related_sales_order_id,
   }
   const summary = form.supplier_name
     ? `${form.supplier_name} - ${form.purchase_items.length}个商品`
@@ -920,6 +1030,7 @@ const restoreDraft = () => {
   // 将日期字符串转换为 dayjs 对象
   form.entry_date = draft.data.entry_date ? dayjs(draft.data.entry_date) : dayjs()
   form.remarks = draft.data.remarks || ''
+  form.related_sales_order_id = draft.data.related_sales_order_id || undefined
   form.expenses = draft.data.expenses || {
     transportationFee: 0,
     tariff: 0,
