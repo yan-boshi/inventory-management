@@ -49,9 +49,8 @@
               <th v-if="isVisible('customs_fee')">报关费</th>
               <th v-if="isVisible('delivery_other_fee')">其他</th>
               <th v-if="isVisible('delivery_expense_subtotal')">小计</th>
-              <th v-if="isVisible('sales_transportation_fee')">交通费</th>
-              <th v-if="isVisible('sales_entertainment_fee')">招待费</th>
-              <th v-if="isVisible('sales_gift_fee')">礼品费</th>
+              <th v-if="isVisible('sales_transportation_fee')">运输费</th>
+              <th v-if="isVisible('sales_handling_fee')">手续费</th>
               <th v-if="isVisible('sales_other_fee')">其他</th>
               <th v-if="isVisible('sales_expense_subtotal')">小计</th>
             </tr>
@@ -93,11 +92,8 @@
               <td v-if="isVisible('sales_transportation_fee')" class="text-right">
                 {{ formatMoney(item.sales_transportation_fee) }}
               </td>
-              <td v-if="isVisible('sales_entertainment_fee')" class="text-right">
-                {{ formatMoney(item.sales_entertainment_fee) }}
-              </td>
-              <td v-if="isVisible('sales_gift_fee')" class="text-right">
-                {{ formatMoney(item.sales_gift_fee) }}
+              <td v-if="isVisible('sales_handling_fee')" class="text-right">
+                {{ formatMoney(item.sales_handling_fee) }}
               </td>
               <td v-if="isVisible('sales_other_fee')" class="text-right">
                 {{ formatMoney(item.sales_other_fee) }}
@@ -140,11 +136,8 @@
               <td v-if="isVisible('sales_transportation_fee')" class="text-right">
                 {{ formatMoney(totals.sales_transportation_fee) }}
               </td>
-              <td v-if="isVisible('sales_entertainment_fee')" class="text-right">
-                {{ formatMoney(totals.sales_entertainment_fee) }}
-              </td>
-              <td v-if="isVisible('sales_gift_fee')" class="text-right">
-                {{ formatMoney(totals.sales_gift_fee) }}
+              <td v-if="isVisible('sales_handling_fee')" class="text-right">
+                {{ formatMoney(totals.sales_handling_fee) }}
               </td>
               <td v-if="isVisible('sales_other_fee')" class="text-right">
                 {{ formatMoney(totals.sales_other_fee) }}
@@ -193,8 +186,7 @@ const defaultVisibleColumns = [
   'delivery_other_fee',
   'delivery_expense_subtotal',
   'sales_transportation_fee',
-  'sales_entertainment_fee',
-  'sales_gift_fee',
+  'sales_handling_fee',
   'sales_other_fee',
   'sales_expense_subtotal',
   'total_expenses',
@@ -248,8 +240,7 @@ const visibleExpenseColCount = computed(() => expenseKeys.filter(key => isVisibl
 // 销售费用列
 const salesKeys = [
   'sales_transportation_fee',
-  'sales_entertainment_fee',
-  'sales_gift_fee',
+  'sales_handling_fee',
   'sales_other_fee',
   'sales_expense_subtotal',
 ]
@@ -283,8 +274,7 @@ const totals = computed(() => {
       acc.delivery_other_fee += item.delivery_other_fee || 0
       acc.delivery_expense_subtotal += item.delivery_expense_subtotal || 0
       acc.sales_transportation_fee += item.sales_transportation_fee || 0
-      acc.sales_entertainment_fee += item.sales_entertainment_fee || 0
-      acc.sales_gift_fee += item.sales_gift_fee || 0
+      acc.sales_handling_fee += item.sales_handling_fee || 0
       acc.sales_other_fee += item.sales_other_fee || 0
       acc.sales_expense_subtotal += item.sales_expense_subtotal || 0
       acc.total_expenses += item.total_expenses || 0
@@ -298,8 +288,7 @@ const totals = computed(() => {
       delivery_other_fee: 0,
       delivery_expense_subtotal: 0,
       sales_transportation_fee: 0,
-      sales_entertainment_fee: 0,
-      sales_gift_fee: 0,
+      sales_handling_fee: 0,
       sales_other_fee: 0,
       sales_expense_subtotal: 0,
       total_expenses: 0,

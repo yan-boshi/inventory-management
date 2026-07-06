@@ -1,7 +1,8 @@
 export interface Expenses {
   transportationFee?: number
-  entertainmentFee?: number
-  giftFee?: number
+  tariff?: number
+  valueAddedTax?: number
+  handlingFee?: number
   otherFee?: number
 }
 
@@ -192,8 +193,9 @@ export interface WarehousingExpenseReportItem {
   warehousing_other_fee: number
   warehousing_expense_subtotal: number
   purchase_transportation_fee: number
-  purchase_entertainment_fee: number
-  purchase_gift_fee: number
+  purchase_tariff: number
+  purchase_value_added_tax: number
+  purchase_handling_fee: number
   purchase_other_fee: number
   purchase_expense_subtotal: number
   total_expenses: number
@@ -229,8 +231,7 @@ export interface DeliveryExpenseReportItem {
   delivery_other_fee: number
   delivery_expense_subtotal: number
   sales_transportation_fee: number
-  sales_entertainment_fee: number
-  sales_gift_fee: number
+  sales_handling_fee: number
   sales_other_fee: number
   sales_expense_subtotal: number
   total_expenses: number
@@ -306,6 +307,7 @@ export interface SalesOrderItem {
   tax_excluded_amount: number
   tax_amount: number
   status?: number
+  purchase_status?: number
   remarks?: string
   product_code?: string
 }

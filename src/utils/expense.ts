@@ -6,9 +6,10 @@
 // 费用键名到中文标签的映射
 const EXPENSE_LABELS: Record<string, string> = {
   // 销售/采购费用
-  transportationFee: '交通费',
-  entertainmentFee: '招待费',
-  giftFee: '礼品费',
+  transportationFee: '运输费',
+  tariff: '关税',
+  valueAddedTax: '增值税',
+  handlingFee: '手续费',
   // 入库/出库费用
   expressDeliveryFee: '快递费',
   customsFee: '报关费',

@@ -287,13 +287,32 @@
                   :precision="2"
                   style="width: 100%"
                   class="invisible-input"
-                  @change="() => { record.unsettled_amount = parseFloat(((record.tax_included_amount || 0) - (record.settlement_amount || 0)).toFixed(2)); record.settlement_status = record.unsettled_amount === 0 ? '全部结算' : (record.settlement_amount > 0 ? '部分结算' : '未结算') }"
+                  @change="
+                    () => {
+                      record.unsettled_amount = parseFloat(
+                        (
+                          (record.tax_included_amount || 0) - (record.settlement_amount || 0)
+                        ).toFixed(2)
+                      )
+                      record.settlement_status =
+                        record.unsettled_amount === 0
+                          ? '全部结算'
+                          : record.settlement_amount > 0
+                          ? '部分结算'
+                          : '未结算'
+                    }
+                  "
                 />
               </template>
 
               <template v-else-if="column.key === 'unsettled_amount'">
                 <a-input
-                  :value="(record.unsettled_amount ?? ((record.tax_included_amount || 0) - (record.settlement_amount || 0))).toFixed(2)"
+                  :value="
+                    (
+                      record.unsettled_amount ??
+                      (record.tax_included_amount || 0) - (record.settlement_amount || 0)
+                    ).toFixed(2)
+                  "
                   disabled
                   style="width: 100%"
                   class="invisible-input"
@@ -301,7 +320,15 @@
               </template>
 
               <template v-else-if="column.key === 'settlement_status'">
-                <a-tag :color="record.settlement_status === '全部结算' ? 'green' : record.settlement_status === '部分结算' ? 'orange' : 'red'">
+                <a-tag
+                  :color="
+                    record.settlement_status === '全部结算'
+                      ? 'green'
+                      : record.settlement_status === '部分结算'
+                      ? 'orange'
+                      : 'red'
+                  "
+                >
                   {{ record.settlement_status || '未结算' }}
                 </a-tag>
               </template>
@@ -379,7 +406,7 @@
             <div class="expenses-label">采购费用登记</div>
             <div class="expenses-row">
               <div class="expense-item">
-                <label>交通费</label>
+                <label>运输费</label>
                 <a-input-number
                   v-model:value="form.expenses.transportationFee"
                   :min="0"
@@ -389,9 +416,9 @@
                 />
               </div>
               <div class="expense-item">
-                <label>招待费</label>
+                <label>关税</label>
                 <a-input-number
-                  v-model:value="form.expenses.entertainmentFee"
+                  v-model:value="form.expenses.tariff"
                   :min="0"
                   :precision="2"
                   style="width: 100%"
@@ -399,9 +426,19 @@
                 />
               </div>
               <div class="expense-item">
-                <label>礼品费</label>
+                <label>增值税</label>
                 <a-input-number
-                  v-model:value="form.expenses.giftFee"
+                  v-model:value="form.expenses.valueAddedTax"
+                  :min="0"
+                  :precision="2"
+                  style="width: 100%"
+                  class="expense-input"
+                />
+              </div>
+              <div class="expense-item">
+                <label>手续费</label>
+                <a-input-number
+                  v-model:value="form.expenses.handlingFee"
                   :min="0"
                   :precision="2"
                   style="width: 100%"
@@ -501,8 +538,9 @@ const form = reactive<
   purchase_person: '',
   expenses: {
     transportationFee: 0,
-    entertainmentFee: 0,
-    giftFee: 0,
+    tariff: 0,
+    valueAddedTax: 0,
+    handlingFee: 0,
     otherFee: 0,
   },
 })
@@ -784,9 +822,15 @@ watch(
         try {
           form.expenses = props.purchaseOrderData.expenses
             ? JSON.parse(props.purchaseOrderData.expenses)
-            : { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+            : { transportationFee: 0, tariff: 0, valueAddedTax: 0, handlingFee: 0, otherFee: 0 }
         } catch {
-          form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+          form.expenses = {
+            transportationFee: 0,
+            tariff: 0,
+            valueAddedTax: 0,
+            handlingFee: 0,
+            otherFee: 0,
+          }
         }
       }
     }
@@ -829,7 +873,7 @@ const resetForm = () => {
   form.entry_date = dayjs()
   form.remarks = ''
   form.purchase_person = ''
-  form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+  form.expenses = { transportationFee: 0, tariff: 0, valueAddedTax: 0, handlingFee: 0, otherFee: 0 }
   orderNumber.value = ''
 }
 
@@ -878,8 +922,9 @@ const restoreDraft = () => {
   form.remarks = draft.data.remarks || ''
   form.expenses = draft.data.expenses || {
     transportationFee: 0,
-    entertainmentFee: 0,
-    giftFee: 0,
+    tariff: 0,
+    valueAddedTax: 0,
+    handlingFee: 0,
     otherFee: 0,
   }
 }

@@ -105,10 +105,13 @@
             {{ formatMoney(record.purchase_transportation_fee) }}
           </template>
           <template v-else-if="column.key === 'purchase_entertainment_fee'">
-            {{ formatMoney(record.purchase_entertainment_fee) }}
+            {{ formatMoney(record.purchase_tariff) }}
           </template>
-          <template v-else-if="column.key === 'purchase_gift_fee'">
-            {{ formatMoney(record.purchase_gift_fee) }}
+          <template v-else-if="column.key === 'purchase_value_added_tax'">
+            {{ formatMoney(record.purchase_value_added_tax) }}
+          </template>
+          <template v-else-if="column.key === 'purchase_handling_fee'">
+            {{ formatMoney(record.purchase_handling_fee) }}
           </template>
           <template v-else-if="column.key === 'purchase_other_fee'">
             {{ formatMoney(record.purchase_other_fee) }}
@@ -151,12 +154,15 @@
                 {{ formatMoney(totals.purchase_transportation_fee) }}
               </a-table-summary-cell>
               <a-table-summary-cell :index="18" :align="'right'">
-                {{ formatMoney(totals.purchase_entertainment_fee) }}
+                {{ formatMoney(totals.purchase_tariff) }}
               </a-table-summary-cell>
               <a-table-summary-cell :index="19" :align="'right'">
-                {{ formatMoney(totals.purchase_gift_fee) }}
+                {{ formatMoney(totals.purchase_value_added_tax) }}
               </a-table-summary-cell>
               <a-table-summary-cell :index="20" :align="'right'">
+                {{ formatMoney(totals.purchase_handling_fee) }}
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="21" :align="'right'">
                 {{ formatMoney(totals.purchase_other_fee) }}
               </a-table-summary-cell>
               <a-table-summary-cell :index="21" :align="'right'">
@@ -198,11 +204,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import {
-  SearchOutlined,
-  ReloadOutlined,
-  PrinterOutlined,
-} from '@ant-design/icons-vue'
+import { SearchOutlined, ReloadOutlined, PrinterOutlined } from '@ant-design/icons-vue'
 import { warehousingExpenseReportApi } from '@/api/warehousingExpenseReport'
 import WarehousingExpenseReportPrint from '@/components/WarehousingExpenseReportPrint.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
@@ -339,25 +341,33 @@ const columns = [
     title: '采购费用',
     children: [
       {
-        title: '交通费',
+        title: '运输费',
         dataIndex: 'purchase_transportation_fee',
         key: 'purchase_transportation_fee',
+        width: 100,
+        align: 'right' as const,
+        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
+      },
+      {
+        title: '关税',
+        dataIndex: 'purchase_tariff',
+        key: 'purchase_tariff',
         width: 90,
         align: 'right' as const,
         customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
       {
-        title: '招待费',
-        dataIndex: 'purchase_entertainment_fee',
-        key: 'purchase_entertainment_fee',
+        title: '增值税',
+        dataIndex: 'purchase_value_added_tax',
+        key: 'purchase_value_added_tax',
         width: 90,
         align: 'right' as const,
         customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
       {
-        title: '礼品费',
-        dataIndex: 'purchase_gift_fee',
-        key: 'purchase_gift_fee',
+        title: '手续费',
+        dataIndex: 'purchase_handling_fee',
+        key: 'purchase_handling_fee',
         width: 90,
         align: 'right' as const,
         customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
@@ -463,8 +473,9 @@ const totals = computed(() => {
       acc.warehousing_other_fee += item.warehousing_other_fee || 0
       acc.warehousing_expense_subtotal += item.warehousing_expense_subtotal || 0
       acc.purchase_transportation_fee += item.purchase_transportation_fee || 0
-      acc.purchase_entertainment_fee += item.purchase_entertainment_fee || 0
-      acc.purchase_gift_fee += item.purchase_gift_fee || 0
+      acc.purchase_tariff += item.purchase_tariff || 0
+      acc.purchase_value_added_tax += item.purchase_value_added_tax || 0
+      acc.purchase_handling_fee += item.purchase_handling_fee || 0
       acc.purchase_other_fee += item.purchase_other_fee || 0
       acc.purchase_expense_subtotal += item.purchase_expense_subtotal || 0
       acc.total_expenses += item.total_expenses || 0
@@ -478,8 +489,9 @@ const totals = computed(() => {
       warehousing_other_fee: 0,
       warehousing_expense_subtotal: 0,
       purchase_transportation_fee: 0,
-      purchase_entertainment_fee: 0,
-      purchase_gift_fee: 0,
+      purchase_tariff: 0,
+      purchase_value_added_tax: 0,
+      purchase_handling_fee: 0,
       purchase_other_fee: 0,
       purchase_expense_subtotal: 0,
       total_expenses: 0,

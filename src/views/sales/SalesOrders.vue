@@ -64,7 +64,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="row_key"
-        :scroll="{ x: 1800 }"
+        :scroll="{ x: 1900 }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
@@ -86,6 +86,12 @@
           <template v-else-if="column.key === 'status'">
             <a-tag :color="getStatusColor(record.item_status)">
               {{ getStatusText(record.item_status) }}
+            </a-tag>
+          </template>
+
+          <template v-else-if="column.key === 'purchase_status'">
+            <a-tag :color="getPurchaseStatusColor(record.purchase_status || 1)">
+              {{ getPurchaseStatusText(record.purchase_status || 1) }}
             </a-tag>
           </template>
 
@@ -210,6 +216,7 @@ const expandedOrders = computed(() => {
         unit: '-',
         amount: 0,
         item_status: order.status,
+        purchase_status: 1,
         _isFirstRow: true,
         _rowCount: 1,
         _orderIndex: orderIndex,
@@ -227,6 +234,7 @@ const expandedOrders = computed(() => {
           unit: item.unit || '-',
           amount: item.tax_included_amount || 0,
           item_status: item.status || 1,
+          purchase_status: item.purchase_status || 1,
           _isFirstRow: index === 0,
           _rowCount: items.length,
           _orderIndex: orderIndex,
@@ -357,6 +365,13 @@ const allColumns = ref([
     dataIndex: 'item_status',
     key: 'status',
     width: 80,
+    align: 'center',
+  },
+  {
+    title: '采购状态',
+    dataIndex: 'purchase_status',
+    key: 'purchase_status',
+    width: 100,
     align: 'center',
   },
   {
@@ -598,6 +613,26 @@ const getStatusText = (status: number) => {
     4: '退货',
   }
   return textMap[status] || '未知'
+}
+
+const getPurchaseStatusColor = (status: number) => {
+  const colorMap: Record<number, string> = {
+    1: 'default', // 未采购
+    2: 'orange', // 部分采购
+    3: 'green', // 已采购
+    4: 'blue', // 无需采购
+  }
+  return colorMap[status] || 'default'
+}
+
+const getPurchaseStatusText = (status: number) => {
+  const textMap: Record<number, string> = {
+    1: '未采购',
+    2: '部分采购',
+    3: '已采购',
+    4: '无需采购',
+  }
+  return textMap[status] || '未采购'
 }
 
 const getTotalAmount = (salesItems: string) => {

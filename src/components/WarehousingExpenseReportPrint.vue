@@ -48,9 +48,10 @@
               <th v-if="isVisible('customs_fee')">报关费</th>
               <th v-if="isVisible('warehousing_other_fee')">其他</th>
               <th v-if="isVisible('warehousing_expense_subtotal')">小计</th>
-              <th v-if="isVisible('purchase_transportation_fee')">交通费</th>
-              <th v-if="isVisible('purchase_entertainment_fee')">招待费</th>
-              <th v-if="isVisible('purchase_gift_fee')">礼品费</th>
+              <th v-if="isVisible('purchase_transportation_fee')">运输费</th>
+              <th v-if="isVisible('purchase_tariff')">关税</th>
+              <th v-if="isVisible('purchase_value_added_tax')">增值税</th>
+              <th v-if="isVisible('purchase_handling_fee')">手续费</th>
               <th v-if="isVisible('purchase_other_fee')">其他</th>
               <th v-if="isVisible('purchase_expense_subtotal')">小计</th>
             </tr>
@@ -91,11 +92,14 @@
               <td v-if="isVisible('purchase_transportation_fee')" class="text-right">
                 {{ formatMoney(item.purchase_transportation_fee) }}
               </td>
-              <td v-if="isVisible('purchase_entertainment_fee')" class="text-right">
-                {{ formatMoney(item.purchase_entertainment_fee) }}
+              <td v-if="isVisible('purchase_tariff')" class="text-right">
+                {{ formatMoney(item.purchase_tariff) }}
               </td>
-              <td v-if="isVisible('purchase_gift_fee')" class="text-right">
-                {{ formatMoney(item.purchase_gift_fee) }}
+              <td v-if="isVisible('purchase_value_added_tax')" class="text-right">
+                {{ formatMoney(item.purchase_value_added_tax) }}
+              </td>
+              <td v-if="isVisible('purchase_handling_fee')" class="text-right">
+                {{ formatMoney(item.purchase_handling_fee) }}
               </td>
               <td v-if="isVisible('purchase_other_fee')" class="text-right">
                 {{ formatMoney(item.purchase_other_fee) }}
@@ -138,11 +142,14 @@
               <td v-if="isVisible('purchase_transportation_fee')" class="text-right">
                 {{ formatMoney(totals.purchase_transportation_fee) }}
               </td>
-              <td v-if="isVisible('purchase_entertainment_fee')" class="text-right">
-                {{ formatMoney(totals.purchase_entertainment_fee) }}
+              <td v-if="isVisible('purchase_tariff')" class="text-right">
+                {{ formatMoney(totals.purchase_tariff) }}
               </td>
-              <td v-if="isVisible('purchase_gift_fee')" class="text-right">
-                {{ formatMoney(totals.purchase_gift_fee) }}
+              <td v-if="isVisible('purchase_value_added_tax')" class="text-right">
+                {{ formatMoney(totals.purchase_value_added_tax) }}
+              </td>
+              <td v-if="isVisible('purchase_handling_fee')" class="text-right">
+                {{ formatMoney(totals.purchase_handling_fee) }}
               </td>
               <td v-if="isVisible('purchase_other_fee')" class="text-right">
                 {{ formatMoney(totals.purchase_other_fee) }}
@@ -190,8 +197,9 @@ const defaultVisibleColumns = [
   'warehousing_other_fee',
   'warehousing_expense_subtotal',
   'purchase_transportation_fee',
-  'purchase_entertainment_fee',
-  'purchase_gift_fee',
+  'purchase_tariff',
+  'purchase_value_added_tax',
+  'purchase_handling_fee',
   'purchase_other_fee',
   'purchase_expense_subtotal',
   'total_expenses',
@@ -245,8 +253,9 @@ const visibleExpenseColCount = computed(() => expenseKeys.filter(key => isVisibl
 // 采购费用列
 const purchaseKeys = [
   'purchase_transportation_fee',
-  'purchase_entertainment_fee',
-  'purchase_gift_fee',
+  'purchase_tariff',
+  'purchase_value_added_tax',
+  'purchase_handling_fee',
   'purchase_other_fee',
   'purchase_expense_subtotal',
 ]
@@ -279,8 +288,9 @@ const totals = computed(() => {
       acc.warehousing_other_fee += item.warehousing_other_fee || 0
       acc.warehousing_expense_subtotal += item.warehousing_expense_subtotal || 0
       acc.purchase_transportation_fee += item.purchase_transportation_fee || 0
-      acc.purchase_entertainment_fee += item.purchase_entertainment_fee || 0
-      acc.purchase_gift_fee += item.purchase_gift_fee || 0
+      acc.purchase_tariff += item.purchase_tariff || 0
+      acc.purchase_value_added_tax += item.purchase_value_added_tax || 0
+      acc.purchase_handling_fee += item.purchase_handling_fee || 0
       acc.purchase_other_fee += item.purchase_other_fee || 0
       acc.purchase_expense_subtotal += item.purchase_expense_subtotal || 0
       acc.total_expenses += item.total_expenses || 0
@@ -294,8 +304,9 @@ const totals = computed(() => {
       warehousing_other_fee: 0,
       warehousing_expense_subtotal: 0,
       purchase_transportation_fee: 0,
-      purchase_entertainment_fee: 0,
-      purchase_gift_fee: 0,
+      purchase_tariff: 0,
+      purchase_value_added_tax: 0,
+      purchase_handling_fee: 0,
       purchase_other_fee: 0,
       purchase_expense_subtotal: 0,
       total_expenses: 0,

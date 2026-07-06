@@ -110,10 +110,9 @@ export const getDeliveryExpenseReport = async (req, res) => {
 
       // 销售费用
       const soTransportationFee = parseFloat(salesExpenses.transportationFee) || 0
-      const entertainmentFee = parseFloat(salesExpenses.entertainmentFee) || 0
-      const giftFee = parseFloat(salesExpenses.giftFee) || 0
+      const handlingFee = parseFloat(salesExpenses.handlingFee) || 0
       const soOtherFee = parseFloat(salesExpenses.otherFee) || 0
-      const salesExpenseSubtotal = soTransportationFee + entertainmentFee + giftFee + soOtherFee
+      const salesExpenseSubtotal = soTransportationFee + handlingFee + soOtherFee
 
       // 每个商品生成一行
       for (const item of filteredItems) {
@@ -145,8 +144,7 @@ export const getDeliveryExpenseReport = async (req, res) => {
           delivery_expense_subtotal: deliveryExpenseSubtotal,
           // 销售费用
           sales_transportation_fee: soTransportationFee,
-          sales_entertainment_fee: entertainmentFee,
-          sales_gift_fee: giftFee,
+          sales_handling_fee: handlingFee,
           sales_other_fee: soOtherFee,
           sales_expense_subtotal: salesExpenseSubtotal,
           // 费用合计

@@ -110,10 +110,11 @@ export const getWarehousingExpenseReport = async (req, res) => {
 
       // 采购费用
       const poTransportationFee = parseFloat(purchaseExpenses.transportationFee) || 0
-      const entertainmentFee = parseFloat(purchaseExpenses.entertainmentFee) || 0
-      const giftFee = parseFloat(purchaseExpenses.giftFee) || 0
+      const tariff = parseFloat(purchaseExpenses.tariff) || 0
+      const valueAddedTax = parseFloat(purchaseExpenses.valueAddedTax) || 0
+      const handlingFee = parseFloat(purchaseExpenses.handlingFee) || 0
       const poOtherFee = parseFloat(purchaseExpenses.otherFee) || 0
-      const purchaseExpenseSubtotal = poTransportationFee + entertainmentFee + giftFee + poOtherFee
+      const purchaseExpenseSubtotal = poTransportationFee + tariff + valueAddedTax + handlingFee + poOtherFee
 
       // 每个商品生成一行
       for (const item of filteredItems) {
@@ -144,8 +145,9 @@ export const getWarehousingExpenseReport = async (req, res) => {
           warehousing_expense_subtotal: warehousingExpenseSubtotal,
           // 采购费用
           purchase_transportation_fee: poTransportationFee,
-          purchase_entertainment_fee: entertainmentFee,
-          purchase_gift_fee: giftFee,
+          purchase_tariff: tariff,
+          purchase_value_added_tax: valueAddedTax,
+          purchase_handling_fee: handlingFee,
           purchase_other_fee: poOtherFee,
           purchase_expense_subtotal: purchaseExpenseSubtotal,
           // 费用合计

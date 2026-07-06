@@ -144,11 +144,11 @@
                       :key="product.product_id"
                       :value="product.product_code"
                     >
-                      {{ product.product_name }}（{{product.product_code}}）
+                      {{ product.product_name }}（{{ product.product_code }}）
                     </a-select-option>
                   </a-select>
                 </template>
-               <template v-else-if="column.key === 'product_name'">
+                <template v-else-if="column.key === 'product_name'">
                   <a-input
                     v-model:value="record.product_name"
                     style="width: 100%"
@@ -264,6 +264,20 @@
                   </a-tag>
                 </template>
 
+                <template v-else-if="column.key === 'purchase_status'">
+                  <a-select
+                    v-model:value="record.purchase_status"
+                    placeholder="请选择"
+                    style="width: 100%"
+                    class="invisible-select"
+                  >
+                    <a-select-option :value="1">未采购</a-select-option>
+                    <a-select-option :value="2">部分采购</a-select-option>
+                    <a-select-option :value="3">已采购</a-select-option>
+                    <a-select-option :value="4">无需采购</a-select-option>
+                  </a-select>
+                </template>
+
                 <template v-else-if="column.key === 'delivery_date'">
                   <a-date-picker
                     v-model:value="record.delivery_date"
@@ -318,13 +332,32 @@
                     :precision="2"
                     style="width: 100%"
                     class="invisible-input"
-                    @change="() => { record.unsettled_amount = parseFloat(((record.tax_included_amount || 0) - (record.settlement_amount || 0)).toFixed(2)); record.settlement_status = record.unsettled_amount === 0 ? '全部结算' : (record.settlement_amount > 0 ? '部分结算' : '未结算') }"
+                    @change="
+                      () => {
+                        record.unsettled_amount = parseFloat(
+                          (
+                            (record.tax_included_amount || 0) - (record.settlement_amount || 0)
+                          ).toFixed(2)
+                        )
+                        record.settlement_status =
+                          record.unsettled_amount === 0
+                            ? '全部结算'
+                            : record.settlement_amount > 0
+                            ? '部分结算'
+                            : '未结算'
+                      }
+                    "
                   />
                 </template>
 
                 <template v-else-if="column.key === 'unsettled_amount'">
                   <a-input
-                    :value="(record.unsettled_amount ?? ((record.tax_included_amount || 0) - (record.settlement_amount || 0))).toFixed(2)"
+                    :value="
+                      (
+                        record.unsettled_amount ??
+                        (record.tax_included_amount || 0) - (record.settlement_amount || 0)
+                      ).toFixed(2)
+                    "
                     disabled
                     style="width: 100%"
                     class="invisible-input"
@@ -332,7 +365,15 @@
                 </template>
 
                 <template v-else-if="column.key === 'settlement_status'">
-                  <a-tag :color="record.settlement_status === '全部结算' ? 'green' : record.settlement_status === '部分结算' ? 'orange' : 'red'">
+                  <a-tag
+                    :color="
+                      record.settlement_status === '全部结算'
+                        ? 'green'
+                        : record.settlement_status === '部分结算'
+                        ? 'orange'
+                        : 'red'
+                    "
+                  >
                     {{ record.settlement_status || '未结算' }}
                   </a-tag>
                 </template>
@@ -385,7 +426,7 @@
               <div class="expenses-label">销售费用登记</div>
               <div class="expenses-row">
                 <div class="expense-item">
-                  <label>交通费</label>
+                  <label>运输费</label>
                   <a-input-number
                     v-model:value="form.expenses.transportationFee"
                     :min="0"
@@ -395,19 +436,9 @@
                   />
                 </div>
                 <div class="expense-item">
-                  <label>招待费</label>
+                  <label>手续费</label>
                   <a-input-number
-                    v-model:value="form.expenses.entertainmentFee"
-                    :min="0"
-                    :precision="2"
-                    style="width: 100%"
-                    class="expense-input"
-                  />
-                </div>
-                <div class="expense-item">
-                  <label>礼品费</label>
-                  <a-input-number
-                    v-model:value="form.expenses.giftFee"
+                    v-model:value="form.expenses.handlingFee"
                     :min="0"
                     :precision="2"
                     style="width: 100%"
@@ -514,6 +545,26 @@ const getStatusText = (status: number) => {
   return textMap[status] || '未知'
 }
 
+const getPurchaseStatusColor = (status: number) => {
+  const colorMap: Record<number, string> = {
+    1: 'default', // 未采购
+    2: 'orange', // 部分采购
+    3: 'green', // 已采购
+    4: 'blue', // 无需采购
+  }
+  return colorMap[status] || 'default'
+}
+
+const getPurchaseStatusText = (status: number) => {
+  const textMap: Record<number, string> = {
+    1: '未采购',
+    2: '部分采购',
+    3: '已采购',
+    4: '无需采购',
+  }
+  return textMap[status] || '未采购'
+}
+
 const customerOptions = ref<CustomerOption[]>([])
 const productOptions = ref<ProductOption[]>([])
 const paymentMethodOptions = ref<PaymentMethodOption[]>([])
@@ -530,8 +581,7 @@ const form = reactive<CreateSalesOrderRequest & { sales_items: SalesOrderItem[];
   sales_person: '',
   expenses: {
     transportationFee: 0,
-    entertainmentFee: 0,
-    giftFee: 0,
+    handlingFee: 0,
     otherFee: 0,
   },
 })
@@ -551,7 +601,8 @@ const itemColumns = [
   { title: '含税金额', key: 'tax_included_amount', width: 110, align: 'right' as const },
   { title: '未税金额', key: 'tax_excluded_amount', width: 110, align: 'right' as const },
   { title: '税额', key: 'tax_amount', width: 100, align: 'right' as const },
-  { title: '状态', key: 'status', width: 80 },
+  { title: '出库状态', key: 'status', width: 80 },
+  { title: '采购状态', key: 'purchase_status', width: 100 },
   { title: '发货日期', key: 'delivery_date', width: 130 },
   { title: '开票日期', key: 'invoice_date', width: 130 },
   { title: '发票号', key: 'invoice_number', width: 120 },
@@ -805,6 +856,7 @@ const addNewItem = () => {
     tax_excluded_amount: 0,
     tax_amount: 0,
     status: 1,
+    purchase_status: 1,
     delivery_date: undefined,
     invoice_date: undefined,
     invoice_number: '',
@@ -986,9 +1038,9 @@ watch(
         try {
           form.expenses = props.salesOrderData.expenses
             ? JSON.parse(props.salesOrderData.expenses)
-            : { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+            : { transportationFee: 0, handlingFee: 0, otherFee: 0 }
         } catch {
-          form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+          form.expenses = { transportationFee: 0, handlingFee: 0, otherFee: 0 }
         }
       }
 
@@ -1025,7 +1077,7 @@ const resetForm = () => {
   form.entry_date = dayjs()
   form.remarks = ''
   form.sales_person = ''
-  form.expenses = { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+  form.expenses = { transportationFee: 0, handlingFee: 0, otherFee: 0 }
   orderNumber.value = ''
 }
 
@@ -1041,11 +1093,17 @@ const handleSaveDraft = () => {
     payment_method: form.payment_method,
     sales_items: form.sales_items,
     currency: form.currency,
-    entry_date: form.entry_date ? (typeof form.entry_date === 'string' ? form.entry_date : dayjs(form.entry_date).format('YYYY-MM-DD')) : '',
+    entry_date: form.entry_date
+      ? typeof form.entry_date === 'string'
+        ? form.entry_date
+        : dayjs(form.entry_date).format('YYYY-MM-DD')
+      : '',
     remarks: form.remarks,
     expenses: form.expenses,
   }
-  const summary = form.customer_name ? `${form.customer_name} - ${form.sales_items.length}个商品` : `${form.sales_items.length}个商品`
+  const summary = form.customer_name
+    ? `${form.customer_name} - ${form.sales_items.length}个商品`
+    : `${form.sales_items.length}个商品`
   saveDraft(DRAFT_KEY, draftData, summary)
   message.success('暂存成功')
 }
@@ -1069,7 +1127,7 @@ const restoreDraft = () => {
   // 将日期字符串转换为 dayjs 对象
   form.entry_date = draft.data.entry_date ? dayjs(draft.data.entry_date) : ''
   form.remarks = draft.data.remarks || ''
-  form.expenses = draft.data.expenses || { transportationFee: 0, entertainmentFee: 0, giftFee: 0, otherFee: 0 }
+  form.expenses = draft.data.expenses || { transportationFee: 0, handlingFee: 0, otherFee: 0 }
 }
 
 // 检查暂存并提示

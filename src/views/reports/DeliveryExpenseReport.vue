@@ -105,10 +105,7 @@
             {{ formatMoney(record.sales_transportation_fee) }}
           </template>
           <template v-else-if="column.key === 'sales_entertainment_fee'">
-            {{ formatMoney(record.sales_entertainment_fee) }}
-          </template>
-          <template v-else-if="column.key === 'sales_gift_fee'">
-            {{ formatMoney(record.sales_gift_fee) }}
+            {{ formatMoney(record.sales_handling_fee) }}
           </template>
           <template v-else-if="column.key === 'sales_other_fee'">
             {{ formatMoney(record.sales_other_fee) }}
@@ -151,12 +148,9 @@
                 {{ formatMoney(totals.sales_transportation_fee) }}
               </a-table-summary-cell>
               <a-table-summary-cell :index="18" :align="'right'">
-                {{ formatMoney(totals.sales_entertainment_fee) }}
+                {{ formatMoney(totals.sales_handling_fee) }}
               </a-table-summary-cell>
               <a-table-summary-cell :index="19" :align="'right'">
-                {{ formatMoney(totals.sales_gift_fee) }}
-              </a-table-summary-cell>
-              <a-table-summary-cell :index="20" :align="'right'">
                 {{ formatMoney(totals.sales_other_fee) }}
               </a-table-summary-cell>
               <a-table-summary-cell :index="21" :align="'right'">
@@ -198,11 +192,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import {
-  SearchOutlined,
-  ReloadOutlined,
-  PrinterOutlined,
-} from '@ant-design/icons-vue'
+import { SearchOutlined, ReloadOutlined, PrinterOutlined } from '@ant-design/icons-vue'
 import { deliveryExpenseReportApi } from '@/api/deliveryExpenseReport'
 import DeliveryExpenseReportPrint from '@/components/DeliveryExpenseReportPrint.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
@@ -344,25 +334,17 @@ const columns = [
     title: '销售费用',
     children: [
       {
-        title: '交通费',
+        title: '运输费',
         dataIndex: 'sales_transportation_fee',
         key: 'sales_transportation_fee',
-        width: 90,
+        width: 100,
         align: 'right' as const,
         customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
       {
-        title: '招待费',
-        dataIndex: 'sales_entertainment_fee',
-        key: 'sales_entertainment_fee',
-        width: 90,
-        align: 'right' as const,
-        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
-      },
-      {
-        title: '礼品费',
-        dataIndex: 'sales_gift_fee',
-        key: 'sales_gift_fee',
+        title: '手续费',
+        dataIndex: 'sales_handling_fee',
+        key: 'sales_handling_fee',
         width: 90,
         align: 'right' as const,
         customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
@@ -468,8 +450,7 @@ const totals = computed(() => {
       acc.delivery_other_fee += item.delivery_other_fee || 0
       acc.delivery_expense_subtotal += item.delivery_expense_subtotal || 0
       acc.sales_transportation_fee += item.sales_transportation_fee || 0
-      acc.sales_entertainment_fee += item.sales_entertainment_fee || 0
-      acc.sales_gift_fee += item.sales_gift_fee || 0
+      acc.sales_handling_fee += item.sales_handling_fee || 0
       acc.sales_other_fee += item.sales_other_fee || 0
       acc.sales_expense_subtotal += item.sales_expense_subtotal || 0
       acc.total_expenses += item.total_expenses || 0
@@ -483,8 +464,7 @@ const totals = computed(() => {
       delivery_other_fee: 0,
       delivery_expense_subtotal: 0,
       sales_transportation_fee: 0,
-      sales_entertainment_fee: 0,
-      sales_gift_fee: 0,
+      sales_handling_fee: 0,
       sales_other_fee: 0,
       sales_expense_subtotal: 0,
       total_expenses: 0,
