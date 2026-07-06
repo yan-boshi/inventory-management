@@ -339,6 +339,7 @@ import 'dayjs/locale/zh-cn'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { deliveryOrdersApi } from '@/api/deliveryOrders'
+import { salesOrdersApi } from '@/api/salesOrders'
 import type { CreateDeliveryOrderRequest, DeliveryItem, DeliveryExpenses } from '@/types'
 import { productsApi } from '@/api/products'
 import { customersApi } from '@/api/customers'
@@ -384,6 +385,7 @@ const defaultExpenses: DeliveryExpenses = {
 }
 
 const formData = reactive({
+  contract_number: '',
   sales_order_number: '',
   delivery_items: [] as DeliveryItem[],
   delivery_time: '' as string | any,
@@ -882,7 +884,7 @@ const loadBasicData = async () => {
 // 监听显示状态变化
 watch(
   () => props.open,
-  visible => {
+  async visible => {
     if (visible) {
       loadBasicData()
       if (!props.isEdit) {
@@ -895,7 +897,7 @@ watch(
         }
       } else if (props.deliveryOrderData) {
         orderNumber.value = props.deliveryOrderData.order_number || ''
-        formData.contract_number = props.deliveryOrderData.sales_order_number || ''
+        formData.contract_number = props.deliveryOrderData.contract_number || ''
         formData.customer_name = props.deliveryOrderData.customer_name || ''
         formData.customer_address = props.deliveryOrderData.customer_address || ''
         formData.total_amount = props.deliveryOrderData.total_amount || 0
@@ -939,7 +941,19 @@ watch(
           formData.expenses = { ...defaultExpenses }
         }
 
-        getSalesOrdersForDelivery()
+        await getSalesOrdersForDelivery()
+        // 如果当前合同编号不在下拉选项中（如销售订单已全部出库），则补充加载
+        if (formData.contract_number && !salesOrderOptions.value.some((o: any) => o.contract_number === formData.contract_number)) {
+          try {
+            const res = await salesOrdersApi.getAll({ contract_number: formData.contract_number })
+            const orders = res.data?.data || res.data || []
+            if (orders.length > 0) {
+              salesOrderOptions.value.push(orders[0])
+            }
+          } catch (e) {
+            console.error('加载当前销售订单失败:', e)
+          }
+        }
       }
     }
   }

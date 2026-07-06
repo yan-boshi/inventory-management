@@ -802,9 +802,10 @@ const handleProductChange = (value: string, index: number) => {
 // 计算行合计
 const taxIncludedPriceRowTotal = (index: number) => {
   const item = form.sales_items[index]
+  const taxRateDecimal = Number(item.tax_rate) / 100
   if (item.tax_included_price) {
     item.tax_excluded_price = parseFloat(
-      (Number(item.tax_included_price) * (1 - Number(item.tax_rate) / 100)).toFixed(2)
+      (Number(item.tax_included_price) / (1 + taxRateDecimal)).toFixed(2)
     )
   } else {
     item.tax_excluded_price = Number(item.tax_included_price)
@@ -814,15 +815,10 @@ const taxIncludedPriceRowTotal = (index: number) => {
       (Number(item.quantity) * Number(item.tax_included_price)).toFixed(2)
     )
     item.tax_excluded_amount = parseFloat(
-      (
-        Number(item.quantity) *
-        (1 - Number(item.tax_rate) / 100) *
-        Number(item.tax_included_price)
-      ).toFixed(2)
+      (Number(item.quantity) * item.tax_excluded_price).toFixed(2)
     )
-    console.log('item.tax_excluded_amount', item.tax_excluded_amount)
     item.tax_amount = parseFloat(
-      ((Number(item.tax_included_amount) * Number(item.tax_rate)) / 100).toFixed(2)
+      ((item.tax_included_amount / (1 + taxRateDecimal)) * taxRateDecimal).toFixed(2)
     )
   } else {
     item.tax_included_amount = 0
@@ -1069,6 +1065,7 @@ const loadBasicData = async () => {
 
 // 重置表单
 const resetForm = () => {
+  form.contract_number = ''
   form.customer_name = ''
   form.customer_code = ''
   form.payment_method = ''

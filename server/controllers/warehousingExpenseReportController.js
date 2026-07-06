@@ -102,11 +102,11 @@ export const getWarehousingExpenseReport = async (req, res) => {
       }
 
       // 入库费用
-      const expressDeliveryFee = parseFloat(warehousingExpenses.expressDeliveryFee) || 0
+      const whTariff = parseFloat(warehousingExpenses.tariff) || 0
       const whTransportationFee = parseFloat(warehousingExpenses.transportationFee) || 0
       const customsFee = parseFloat(warehousingExpenses.customsFee) || 0
       const whOtherFee = parseFloat(warehousingExpenses.otherFee) || 0
-      const warehousingExpenseSubtotal = expressDeliveryFee + whTransportationFee + customsFee + whOtherFee
+      const warehousingExpenseSubtotal = whTariff + whTransportationFee + customsFee + whOtherFee
 
       // 采购费用
       const poTransportationFee = parseFloat(purchaseExpenses.transportationFee) || 0
@@ -138,7 +138,7 @@ export const getWarehousingExpenseReport = async (req, res) => {
           tax_included_price: taxIncludedPrice,
           total_price: Math.round(totalPrice * 100) / 100,
           // 入库费用
-          express_delivery_fee: expressDeliveryFee,
+          tariff: whTariff,
           transportation_fee: whTransportationFee,
           customs_fee: customsFee,
           warehousing_other_fee: whOtherFee,

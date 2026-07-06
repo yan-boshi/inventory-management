@@ -86,8 +86,8 @@
           <template v-else-if="column.key === 'total_price'">
             {{ formatMoney(record.total_price) }}
           </template>
-          <template v-else-if="column.key === 'express_delivery_fee'">
-            {{ formatMoney(record.express_delivery_fee) }}
+          <template v-else-if="column.key === 'tariff'">
+            {{ formatMoney(record.tariff) }}
           </template>
           <template v-else-if="column.key === 'transportation_fee'">
             {{ formatMoney(record.transportation_fee) }}
@@ -136,7 +136,7 @@
                 <strong>{{ formatMoney(totals.total_price) }}</strong>
               </a-table-summary-cell>
               <a-table-summary-cell :index="12" :align="'right'">
-                {{ formatMoney(totals.express_delivery_fee) }}
+                {{ formatMoney(totals.tariff) }}
               </a-table-summary-cell>
               <a-table-summary-cell :index="13" :align="'right'">
                 {{ formatMoney(totals.transportation_fee) }}
@@ -296,9 +296,9 @@ const columns = [
     title: '入库费用',
     children: [
       {
-        title: '快递费',
-        dataIndex: 'express_delivery_fee',
-        key: 'express_delivery_fee',
+        title: '关税',
+        dataIndex: 'tariff',
+        key: 'tariff',
         width: 90,
         align: 'right' as const,
         customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
@@ -467,7 +467,7 @@ const totals = computed(() => {
   return reportData.value.reduce(
     (acc, item) => {
       acc.total_price += item.total_price || 0
-      acc.express_delivery_fee += item.express_delivery_fee || 0
+      acc.tariff += item.tariff || 0
       acc.transportation_fee += item.transportation_fee || 0
       acc.customs_fee += item.customs_fee || 0
       acc.warehousing_other_fee += item.warehousing_other_fee || 0
@@ -483,7 +483,7 @@ const totals = computed(() => {
     },
     {
       total_price: 0,
-      express_delivery_fee: 0,
+      tariff: 0,
       transportation_fee: 0,
       customs_fee: 0,
       warehousing_other_fee: 0,

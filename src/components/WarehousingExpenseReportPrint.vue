@@ -43,7 +43,7 @@
               <th v-if="isVisible('remarks')" rowspan="2">备注</th>
             </tr>
             <tr>
-              <th v-if="isVisible('express_delivery_fee')">快递费</th>
+              <th v-if="isVisible('tariff')">关税</th>
               <th v-if="isVisible('transportation_fee')">运杂费</th>
               <th v-if="isVisible('customs_fee')">报关费</th>
               <th v-if="isVisible('warehousing_other_fee')">其他</th>
@@ -74,8 +74,8 @@
               <td v-if="isVisible('total_price')" class="text-right">
                 {{ formatMoney(item.total_price) }}
               </td>
-              <td v-if="isVisible('express_delivery_fee')" class="text-right">
-                {{ formatMoney(item.express_delivery_fee) }}
+              <td v-if="isVisible('tariff')" class="text-right">
+                {{ formatMoney(item.tariff) }}
               </td>
               <td v-if="isVisible('transportation_fee')" class="text-right">
                 {{ formatMoney(item.transportation_fee) }}
@@ -124,8 +124,8 @@
               <td v-if="isVisible('total_price')" class="text-right">
                 <strong>{{ formatMoney(totals.total_price) }}</strong>
               </td>
-              <td v-if="isVisible('express_delivery_fee')" class="text-right">
-                {{ formatMoney(totals.express_delivery_fee) }}
+              <td v-if="isVisible('tariff')" class="text-right">
+                {{ formatMoney(totals.tariff) }}
               </td>
               <td v-if="isVisible('transportation_fee')" class="text-right">
                 {{ formatMoney(totals.transportation_fee) }}
@@ -191,7 +191,7 @@ const defaultVisibleColumns = [
   'quantity',
   'tax_included_price',
   'total_price',
-  'express_delivery_fee',
+  'tariff',
   'transportation_fee',
   'customs_fee',
   'warehousing_other_fee',
@@ -241,7 +241,7 @@ const hasFilters = computed(() => {
 
 // 入库费用列
 const expenseKeys = [
-  'express_delivery_fee',
+  'tariff',
   'transportation_fee',
   'customs_fee',
   'warehousing_other_fee',
@@ -282,7 +282,7 @@ const totals = computed(() => {
   return props.data.reduce(
     (acc, item) => {
       acc.total_price += item.total_price || 0
-      acc.express_delivery_fee += item.express_delivery_fee || 0
+      acc.tariff += item.tariff || 0
       acc.transportation_fee += item.transportation_fee || 0
       acc.customs_fee += item.customs_fee || 0
       acc.warehousing_other_fee += item.warehousing_other_fee || 0
@@ -298,7 +298,7 @@ const totals = computed(() => {
     },
     {
       total_price: 0,
-      express_delivery_fee: 0,
+      tariff: 0,
       transportation_fee: 0,
       customs_fee: 0,
       warehousing_other_fee: 0,

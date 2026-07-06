@@ -77,6 +77,9 @@
             <BarChartOutlined />
           </template>
           <template #title>报表中心</template>
+          <a-menu-item key="ProfitReport" @click="navigateTo('/profit-report')">
+            毛利表
+          </a-menu-item>
         </a-sub-menu>
         <a-menu-item key="Products" @click="navigateTo('/products')" v-if="userStore.isAdvanced">
           <template #icon>

@@ -441,16 +441,6 @@
                 />
               </div>
               <div class="expense-item">
-                <label>关税</label>
-                <a-input-number
-                  v-model:value="form.expenses.tariff"
-                  :min="0"
-                  :precision="2"
-                  style="width: 100%"
-                  class="expense-input"
-                />
-              </div>
-              <div class="expense-item">
                 <label>增值税</label>
                 <a-input-number
                   v-model:value="form.expenses.valueAddedTax"
@@ -464,6 +454,16 @@
                 <label>手续费</label>
                 <a-input-number
                   v-model:value="form.expenses.handlingFee"
+                  :min="0"
+                  :precision="2"
+                  style="width: 100%"
+                  class="expense-input"
+                />
+              </div>
+              <div class="expense-item">
+                <label>运营费</label>
+                <a-input-number
+                  v-model:value="form.expenses.operatingExpenses"
                   :min="0"
                   :precision="2"
                   style="width: 100%"
@@ -568,9 +568,9 @@ const form = reactive<
   related_sales_order_id: undefined,
   expenses: {
     transportationFee: 0,
-    tariff: 0,
     valueAddedTax: 0,
     handlingFee: 0,
+    operatingExpenses: 0,
     otherFee: 0,
   },
 })
@@ -764,7 +764,7 @@ const calculateRowTotal = (index: number) => {
 
   item.tax_excluded_amount = parseFloat((item.quantity * item.tax_excluded_price).toFixed(2))
 
-  item.tax_amount = parseFloat((item.tax_included_amount * taxRateDecimal).toFixed(2))
+  item.tax_amount = parseFloat(((item.tax_included_amount / (1 + taxRateDecimal)) * taxRateDecimal).toFixed(2))
 
   item.total_price = item.tax_included_amount
 }
@@ -929,13 +929,13 @@ watch(
         try {
           form.expenses = props.purchaseOrderData.expenses
             ? JSON.parse(props.purchaseOrderData.expenses)
-            : { transportationFee: 0, tariff: 0, valueAddedTax: 0, handlingFee: 0, otherFee: 0 }
+            : { transportationFee: 0, valueAddedTax: 0, handlingFee: 0, operatingExpenses: 0, otherFee: 0 }
         } catch {
           form.expenses = {
             transportationFee: 0,
-            tariff: 0,
             valueAddedTax: 0,
             handlingFee: 0,
+            operatingExpenses: 0,
             otherFee: 0,
           }
         }
@@ -982,7 +982,7 @@ const resetForm = () => {
   form.remarks = ''
   form.purchase_person = ''
   form.related_sales_order_id = undefined
-  form.expenses = { transportationFee: 0, tariff: 0, valueAddedTax: 0, handlingFee: 0, otherFee: 0 }
+  form.expenses = { transportationFee: 0, valueAddedTax: 0, handlingFee: 0, operatingExpenses: 0, otherFee: 0 }
   orderNumber.value = ''
 }
 
@@ -1033,9 +1033,9 @@ const restoreDraft = () => {
   form.related_sales_order_id = draft.data.related_sales_order_id || undefined
   form.expenses = draft.data.expenses || {
     transportationFee: 0,
-    tariff: 0,
     valueAddedTax: 0,
     handlingFee: 0,
+    operatingExpenses: 0,
     otherFee: 0,
   }
 }

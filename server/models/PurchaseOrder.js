@@ -52,7 +52,7 @@ class PurchaseOrder extends BaseModel {
 
   calculateTaxAmount(taxIncludedAmount, taxRate) {
     if (!taxIncludedAmount || !taxRate) return 0
-    return parseFloat((taxIncludedAmount * taxRate).toFixed(2))
+    return parseFloat(((taxIncludedAmount / (1 + taxRate)) * taxRate).toFixed(2))
   }
 
   async updateStatus(id, status) {

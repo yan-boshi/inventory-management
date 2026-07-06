@@ -10,8 +10,8 @@ const EXPENSE_LABELS: Record<string, string> = {
   tariff: '关税',
   valueAddedTax: '增值税',
   handlingFee: '手续费',
+  operatingExpenses: '运营费',
   // 入库/出库费用
-  expressDeliveryFee: '快递费',
   customsFee: '报关费',
   // 通用
   otherFee: '其他',

@@ -1,8 +1,8 @@
 export interface Expenses {
   transportationFee?: number
-  tariff?: number
   valueAddedTax?: number
   handlingFee?: number
+  operatingExpenses?: number
   otherFee?: number
 }
 
@@ -187,7 +187,7 @@ export interface WarehousingExpenseReportItem {
   quantity: number
   tax_included_price: number
   total_price: number
-  express_delivery_fee: number
+  tariff: number
   transportation_fee: number
   customs_fee: number
   warehousing_other_fee: number
@@ -662,7 +662,7 @@ export interface WarehousingItem {
 }
 
 export interface WarehousingExpenses {
-  expressDeliveryFee?: number
+  tariff?: number
   transportationFee?: number
   customsFee?: number
   otherFee?: number

@@ -256,9 +256,9 @@
           <label class="note-label">入库费用：</label>
           <div class="expenses-container">
             <div class="expense-item">
-              <label class="expense-label">快递费：</label>
+              <label class="expense-label">关税：</label>
               <a-input-number
-                v-model:value="form.expenses.expressDeliveryFee"
+                v-model:value="form.expenses.tariff"
                 :min="0"
                 :precision="2"
                 style="width: 120px"
@@ -389,7 +389,7 @@ const form = reactive<CreateWarehousingOrderRequest & { warehousing_items: Wareh
   contact_phone: '',
   remarks: '',
   expenses: {
-    expressDeliveryFee: 0,
+    tariff: 0,
     transportationFee: 0,
     customsFee: 0,
     otherFee: 0,
@@ -660,7 +660,7 @@ watch(
           form.warehousing_items = JSON.parse(props.warehousingOrderData.warehousing_items || '[]')
           // Initialize expenses if not present
           form.expenses = {
-            expressDeliveryFee: 0,
+            tariff: 0,
             transportationFee: 0,
             customsFee: 0,
             otherFee: 0,
@@ -674,7 +674,7 @@ watch(
         } catch {
           form.warehousing_items = []
           form.expenses = {
-            expressDeliveryFee: 0,
+            tariff: 0,
             transportationFee: 0,
             customsFee: 0,
             otherFee: 0,
@@ -702,7 +702,7 @@ const resetForm = () => {
   form.contact_phone = currentUser.value?.phone || ''
   form.remarks = ''
   form.expenses = {
-    expressDeliveryFee: 0,
+    tariff: 0,
     transportationFee: 0,
     customsFee: 0,
     otherFee: 0,
@@ -750,7 +750,7 @@ const restoreDraft = () => {
   form.warehousing_person = draft.data.warehousing_person || currentUser.value?.username || ''
   form.contact_phone = draft.data.contact_phone || currentUser.value?.phone || ''
   form.remarks = draft.data.remarks || ''
-  form.expenses = draft.data.expenses || { expressDeliveryFee: 0, transportationFee: 0, customsFee: 0, otherFee: 0 }
+  form.expenses = draft.data.expenses || { tariff: 0, transportationFee: 0, customsFee: 0, otherFee: 0 }
 }
 
 const checkDraft = () => {

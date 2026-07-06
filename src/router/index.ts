@@ -104,6 +104,12 @@ const router = createRouter({
           name: 'DeliveryExpenseReport',
           component: () => import('@/views/reports/DeliveryExpenseReport.vue'),
           meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'profit-report',
+          name: 'ProfitReport',
+          component: () => import('@/views/reports/ProfitReport.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
         }
       ]
     },
