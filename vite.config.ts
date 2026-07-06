@@ -9,6 +9,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src')
     }
   },
+  build: {
+    reportCompressedSize: false,
+  },
   server: {
     port: 5173,
     proxy: {
