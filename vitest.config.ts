@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
   plugins: [vue()],
+  build: {
+    reportCompressedSize: false,  // ← 加这行
+  },
   test: {
     globals: true,
     environment: 'jsdom',
