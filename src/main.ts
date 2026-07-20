@@ -1,6 +1,5 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import Antd from 'ant-design-vue'
 import App from './App.vue'
 import router from './router'
 import { scrollTopbar } from './directives/scrollTopbar'
@@ -13,7 +12,6 @@ const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
-app.use(Antd)
 
 // 注册全局指令
 app.directive('scroll-topbar', scrollTopbar)
