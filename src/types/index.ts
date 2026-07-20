@@ -579,10 +579,11 @@ export type UserRole = 'admin' | 'advanced' | 'normal'
 export interface QuotationItem {
   no: number
   product_name: string
+  product_code?: string
   model?: string
   description?: string
   unit?: string
-  quantity: number
+  quantity: string
   unit_price: number
   total_amount: number
   status: 1 | 2

@@ -3,21 +3,25 @@
     <div ref="printContent" class="print-content">
       <!-- 页面头 -->
       <div class="page-header">
-        <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
-        <h2 class="quotation-title">报价单</h2>
+        <h1 class="company-name">{{ t.quotation.companyName }}</h1>
+        <div class="company-info">
+          <span class="info-line">{{ t.quotation.address }}{{ t.quotation.addressValue }}</span>
+          <span class="info-line">{{ t.quotation.tel }}{{ t.quotation.telValue }}</span>
+        </div>
+        <h2 class="quotation-title">{{ t.quotation.title }}</h2>
       </div>
 
       <!-- 页面上面部分 -->
       <div class="top-section">
         <div class="info-row">
           <div class="info-item">
-            <span class="label">报价编号：</span>
+            <span class="label">{{ t.quotation.quotationNo }}</span>
             <span class="value">{{
               printData?.quotation_number || quotationData?.quotation_number || '-'
             }}</span>
           </div>
           <div class="info-item">
-            <span class="label">客户名称：</span>
+            <span class="label">{{ t.quotation.customer }}</span>
             <span class="value">{{
               customerData?.customer_name || printData?.customer_name || '-'
             }}</span>
@@ -29,16 +33,14 @@
       <table class="product-table">
         <thead>
           <tr>
-            <th>编号</th>
-            <th>产品名称</th>
-            <th>规格型号</th>
-            <th>规格描述</th>
-            <th>单位</th>
-            <th>数量</th>
-            <th>单价</th>
-            <th>合计</th>
-            <th>状态</th>
-            <th>备注</th>
+            <th>{{ t.quotation.no }}</th>
+            <th>{{ t.quotation.productName }}</th>
+            <th>{{ t.quotation.model }}</th>
+            <th>{{ t.quotation.description }}</th>
+            <th>{{ t.quotation.unit }}</th>
+            <th>{{ t.quotation.quantity }}</th>
+            <th>{{ t.quotation.unitPrice }}</th>
+            <th>{{ t.common.remarks }}</th>
           </tr>
         </thead>
         <tbody>
@@ -50,17 +52,7 @@
             <td>{{ item.unit || '-' }}</td>
             <td>{{ item.quantity || '-' }}</td>
             <td>{{ item.unit_price }}</td>
-            <td>{{ item.total_amount }}</td>
-            <td>{{ getStatusText(item.status) }}</td>
             <td>{{ item.remarks || '-' }}</td>
-          </tr>
-          <!-- 金额总计行 -->
-          <tr class="total-row">
-            <td colspan="9" class="total-label">含税总价：</td>
-            <td colspan="2">
-              <div>{{ totalAmount }}</div>
-              <!-- <div class="total-in-words">大写：{{ amountInWords }}</div> -->
-            </td>
           </tr>
         </tbody>
       </table>
@@ -68,28 +60,32 @@
       <!-- 报价说明 -->
       <div class="note-section">
         <div class="note-item">
-          <span class="note-label">币种：</span>
+          <span class="note-label">{{ t.quotation.currency }}</span>
           <span class="note-value">{{
             printData?.currency || quotationData?.currency || 'CNY'
           }}</span>
         </div>
         <div class="note-item">
-          <span class="note-label">报价有效期：</span>
+          <span class="note-label">{{ t.quotation.validity }}</span>
           <span class="note-value">{{
-            printData?.validity_period || quotationData?.validity_period || '自报价之日起10个工作日'
+            printData?.validity_period || quotationData?.validity_period || t.quotation.validityPlaceholder
           }}</span>
         </div>
         <div class="note-item">
-          <span class="note-label">送货方式：</span>
+          <span class="note-label">{{ t.quotation.delivery }}</span>
           <span class="note-value">{{
-            printData?.delivery_method || quotationData?.delivery_method || '送货上门'
+            getDeliveryText(printData?.delivery_method || quotationData?.delivery_method)
           }}</span>
         </div>
         <div class="note-item">
-          <span class="note-label">报价单税率：</span>
+          <span class="note-label">{{ t.quotation.taxRate }}</span>
           <span class="note-value"
             >{{ printData?.tax_rate || quotationData?.tax_rate || 13 }}%</span
           >
+        </div>
+        <div class="note-item" v-if="printData?.remarks || quotationData?.remarks">
+          <span class="note-label">{{ t.quotation.remarks }}</span>
+          <span class="note-value">{{ printData?.remarks || quotationData?.remarks }}</span>
         </div>
       </div>
 
@@ -144,8 +140,8 @@
 
     <div class="modal-footer">
       <a-space>
-        <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" @click="handlePrint">打印</a-button>
+        <a-button @click="handleCancel">{{ t.common.cancel }}</a-button>
+        <a-button type="primary" @click="handlePrint">{{ t.quotation.print }}</a-button>
       </a-space>
     </div>
   </a-modal>
@@ -156,6 +152,7 @@ import { ref, reactive, watch, computed, onMounted } from 'vue'
 import dayjs from 'dayjs'
 import type { Quotation, QuotationItem } from '@/types'
 import { customersApi } from '@/api/customers'
+import { getLocale, type Lang } from '@/locales'
 
 interface Props {
   visible: boolean
@@ -177,6 +174,14 @@ const visible = computed({
 
 const quotationData = computed(() => props.quotation)
 const customerData = ref()
+
+// 获取语言设置，优先从 printData 获取，其次从 quotation 获取，默认中文
+const lang = computed<Lang>(() => {
+  return props.printData?.lang || props.quotation?.lang || 'zh'
+})
+
+// 获取当前语言的翻译
+const t = computed(() => getLocale(lang.value))
 
 onMounted(async () => {
   const customerCode = props.quotation?.customer_code || props.printData?.customer_code
@@ -266,11 +271,18 @@ const formatPrice = (price: number | undefined) => {
 }
 
 const getStatusText = (status: number) => {
-  const textMap: Record<number, string> = {
-    1: '报价中',
-    2: '已销售',
-  }
-  return textMap[status] || '-'
+  if (status === 1) return t.value.quotation.quoting
+  if (status === 2) return t.value.quotation.sold
+  return '-'
+}
+
+const getDeliveryText = (delivery: string | undefined) => {
+  if (!delivery) return t.value.quotation.deliveryOptions.doorToDoor
+  if (delivery === '送货上门') return t.value.quotation.deliveryOptions.doorToDoor
+  if (delivery === '自提') return t.value.quotation.deliveryOptions.selfPickup
+  if (delivery === '物流快递') return t.value.quotation.deliveryOptions.express
+  if (delivery === '其他') return t.value.quotation.deliveryOptions.other
+  return delivery
 }
 
 const handleCancel = () => {
@@ -296,8 +308,19 @@ const handlePrint = () => {
   .company-name {
     font-size: 22px;
     font-weight: bold;
-    margin: 0 0 12px 0;
+    margin: 0 0 8px 0;
     color: #000;
+  }
+
+  .company-info {
+    margin-bottom: 12px;
+
+    .info-line {
+      display: block;
+      font-size: 13px;
+      color: #595959;
+      margin-bottom: 4px;
+    }
   }
 
   .quotation-title {

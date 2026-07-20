@@ -1,33 +1,40 @@
 <template>
   <a-modal
-    :title="isEdit ? '编辑报价单' : '新增报价单'"
+    :title="isEdit ? t.quotation.editTitle : t.quotation.newTitle"
     :width="1300"
     :visible="visible"
     @ok="handleSubmit"
     @cancel="handleCancel"
-    :okText="'保存'"
+    :okText="t.common.save"
     :confirmLoading="submitting"
     :footer="null"
   >
     <div v-if="visible" class="quotation-form">
       <!-- 报价单头部 -->
       <div class="quotation-header">
-        <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
-        <h2 class="quotation-title">报价单</h2>
+        <div class="header-top">
+          <div></div>
+          <h1 class="company-name">{{ t.quotation.companyName }}</h1>
+          <a-radio-group v-model:value="lang" size="small" class="lang-switch">
+            <a-radio-button value="zh">中文</a-radio-button>
+            <a-radio-button value="en">English</a-radio-button>
+          </a-radio-group>
+        </div>
+        <h2 class="quotation-title">{{ t.quotation.title }}</h2>
       </div>
 
       <!-- 报价内容 -->
       <div class="quotation-content">
         <div class="form-row">
           <div class="form-item">
-            <label class="form-label">报价编号：</label>
+            <label class="form-label">{{ t.quotation.quotationNo }}</label>
             <a-input v-model:value="quotationNumber" class="invisible-input" />
           </div>
           <div class="form-item">
-            <label class="form-label">客户名称：</label>
+            <label class="form-label">{{ t.quotation.customer }}</label>
             <a-select
               v-model:value="form.customer_name"
-              placeholder="请选择客户"
+              :placeholder="t.quotation.selectCustomer"
               :loading="loading.customers"
               show-search
               :filter-option="false"
@@ -48,7 +55,7 @@
 
         <div class="form-row">
           <div class="form-item">
-            <label class="form-label"><span class="required">*</span>录入日期：</label>
+            <label class="form-label"><span class="required">*</span>{{ t.quotation.entryDate }}</label>
             <a-date-picker
               v-model:value="form.entry_date"
               style="width: 100%"
@@ -76,7 +83,7 @@
               <template v-else-if="column.key === 'product_code'">
                 <a-select
                   v-model:value="record.product_code"
-                  placeholder="请选择产品"
+                  :placeholder="t.common.pleaseSelect"
                   :loading="loading.products"
                   show-search
                   :filter-option="false"
@@ -116,12 +123,10 @@
               </template>
 
               <template v-else-if="column.key === 'quantity'">
-                <a-input-number
+                <a-input
                   v-model:value="record.quantity"
-                  :min="1"
-                  :precision="0"
+                  :placeholder="t.quotation.quantityPlaceholder"
                   style="width: 100%"
-                  @change="() => calculateRowTotal(index)"
                   class="invisible-input"
                 />
               </template>
@@ -137,18 +142,14 @@
                 />
               </template>
 
-              <template v-else-if="column.key === 'total_amount'">
-                <span>{{ record.total_amount }}</span>
-              </template>
-
               <template v-else-if="column.key === 'status'">
                 <a-select
                   v-model:value="record.status"
                   style="width: 100%"
                   class="invisible-select"
                 >
-                  <a-select-option :value="1">报价中</a-select-option>
-                  <a-select-option :value="2">已销售</a-select-option>
+                  <a-select-option :value="1">{{ t.quotation.quoting }}</a-select-option>
+                  <a-select-option :value="2">{{ t.quotation.sold }}</a-select-option>
                 </a-select>
               </template>
 
@@ -163,10 +164,10 @@
               <template v-else-if="column.key === 'actions'">
                 <a-space>
                   <a-button type="link" size="small" @click="handleConvertRow(index)">
-                    销售
+                    {{ t.quotation.sale }}
                   </a-button>
                   <a-button type="link" size="small" danger @click="deleteItem(index)">
-                    删除
+                    {{ t.common.delete }}
                   </a-button>
                 </a-space>
               </template>
@@ -174,23 +175,12 @@
 
             <template #footer>
               <div class="table-footer">
-                <div class="total-row">
-                  <span class="total-label">总价：</span>
-                  <a-input-number
-                    v-model:value="totalAmount"
-                    :min="0"
-                    :precision="2"
-                    style="width: 150px"
-                    class="invisible-input"
-                  />
-                  <!-- <span class="total-in-words">大写：{{ amountInWords }}</span> -->
-                </div>
                 <div class="add-row">
                   <a-button type="dashed" size="small" @click="addNewItem">
                     <template #icon>
                       <PlusOutlined />
                     </template>
-                    追加行
+                    {{ t.quotation.addRow }}
                   </a-button>
                 </div>
               </div>
@@ -201,32 +191,33 @@
         <!-- 报价说明 -->
         <div class="quotation-note">
           <div class="note-row">
-            <label class="note-label">币种：</label>
+            <label class="note-label">{{ t.quotation.currency }}</label>
             <a-select v-model:value="form.currency" class="invisible-select note-input">
-              <a-select-option value="CNY">人民币 (CNY)</a-select-option>
-              <a-select-option value="USD">美元 (USD)</a-select-option>
-              <a-select-option value="EUR">欧元 (EUR)</a-select-option>
-              <a-select-option value="HKD">港币 (HKD)</a-select-option>
+              <a-select-option value="CNY">CNY</a-select-option>
+              <a-select-option value="USD">USD</a-select-option>
+              <a-select-option value="EUR">EUR</a-select-option>
+              <a-select-option value="HKD">HKD</a-select-option>
             </a-select>
           </div>
           <div class="note-row">
-            <label class="note-label">报价有效期：</label>
+            <label class="note-label">{{ t.quotation.validity }}</label>
             <a-input
               v-model:value="form.validity_period"
-              placeholder="自报价之日起10个工作日"
+              :placeholder="t.quotation.validityPlaceholder"
               class="invisible-input note-input"
             />
           </div>
           <div class="note-row">
-            <label class="note-label">送货方式：</label>
+            <label class="note-label">{{ t.quotation.delivery }}</label>
             <a-select v-model:value="form.delivery_method" class="invisible-select note-input">
-              <a-select-option value="送货上门">送货上门</a-select-option>
-              <a-select-option value="自提">自提</a-select-option>
-              <a-select-option value="物流快递">物流快递</a-select-option>
+              <a-select-option value="送货上门">{{ t.quotation.deliveryOptions.doorToDoor }}</a-select-option>
+              <a-select-option value="自提">{{ t.quotation.deliveryOptions.selfPickup }}</a-select-option>
+              <a-select-option value="物流快递">{{ t.quotation.deliveryOptions.express }}</a-select-option>
+              <a-select-option value="其他">{{ t.quotation.deliveryOptions.other }}</a-select-option>
             </a-select>
           </div>
           <div class="note-row">
-            <label class="note-label">报价单税率：</label>
+            <label class="note-label">{{ t.quotation.taxRate }}</label>
             <a-input-number
               v-model:value="form.tax_rate"
               :min="0"
@@ -241,16 +232,27 @@
             </a-input-number>
           </div>
         </div>
+
+        <!-- 备注 -->
+        <div class="quotation-remarks">
+          <label class="remarks-label">{{ t.common.remarks }}：</label>
+          <a-textarea
+            v-model:value="form.remarks"
+            :rows="3"
+            :placeholder="t.common.pleaseInput"
+            class="invisible-input"
+          />
+        </div>
       </div>
 
       <!-- 底部按钮 -->
       <div class="form-footer">
         <a-space>
-          <a-button @click="handleCancel">取消</a-button>
-          <a-button @click="handlePrint">打印</a-button>
-          <a-button type="primary" @click="handleSaveAndPrint">保存并打印</a-button>
-          <a-button type="primary" @click="handleSubmit">保存</a-button>
-          <a-button type="primary" @click="handleConvertAll">销售</a-button>
+          <a-button @click="handleCancel">{{ t.common.cancel }}</a-button>
+          <a-button @click="handlePrint">{{ t.quotation.print }}</a-button>
+          <a-button type="primary" @click="handleSaveAndPrint">{{ t.quotation.saveAndPrint }}</a-button>
+          <a-button type="primary" @click="handleSubmit">{{ t.common.save }}</a-button>
+          <a-button type="primary" @click="handleConvertAll">{{ t.quotation.sale }}</a-button>
         </a-space>
       </div>
     </div>
@@ -267,6 +269,7 @@ import { customersApi } from '@/api/customers'
 import { productsApi } from '@/api/products'
 import type { CreateQuotationRequest, QuotationItem, CustomerOption, ProductOption } from '@/types'
 import type { Quotation } from '@/types'
+import { getLocale, type Lang } from '@/locales'
 
 const props = defineProps<{
   visible: boolean
@@ -283,6 +286,7 @@ const emit = defineEmits<{
 
 const quotationNumber = ref('')
 const submitting = ref(false)
+const lang = ref<Lang>('zh')
 const loading = reactive({
   customers: false,
   products: false,
@@ -291,100 +295,35 @@ const loading = reactive({
 const customerOptions = ref<CustomerOption[]>([])
 const productOptions = ref<ProductOption[]>([])
 
+// 获取当前语言的翻译
+const t = computed(() => getLocale(lang.value))
+
 const form = reactive<CreateQuotationRequest & { quotation_items: QuotationItem[] }>({
   customer_name: '',
   customer_code: '',
   quotation_items: [],
-  validity_period: '自报价之日起10个工作日',
-  delivery_method: '送货上门',
+  validity_period: '',
+  delivery_method: '',
   tax_rate: 13,
   currency: 'CNY',
   remarks: '',
   entry_date: dayjs(),
 })
 
-const itemColumns = [
-  { title: '编号', key: 'no', width: 60, align: 'center' },
-  { title: '产品代码', key: 'product_code', width: 120 },
-  { title: '产品名称', key: 'product_name', width: 150 },
-  { title: '规格型号', key: 'model', width: 120 },
-  { title: '规格描述', key: 'description', width: 120 },
-  { title: '单位', key: 'unit', width: 80 },
-  { title: '数量', key: 'quantity', width: 100 },
-  { title: '单价', key: 'unit_price', width: 100, align: 'right' },
-  { title: '合计', key: 'total_amount', width: 100, align: 'right' },
-  { title: '状态', key: 'status', width: 100 },
-  { title: '备注', key: 'remarks', width: 150 },
-  { title: '操作', key: 'actions', width: 80, fixed: 'right' },
-]
-
-const totalAmount = computed({
-  get: () => form.quotation_items.reduce((sum, item) => sum + (item.total_amount || 0), 0),
-  set: value => {
-    if (form.quotation_items.length > 0) {
-      const currentTotal = form.quotation_items.reduce(
-        (sum, item) => sum + (item.total_amount || 0),
-        0
-      )
-      if (currentTotal > 0) {
-        const ratio = value / currentTotal
-        form.quotation_items.forEach(item => {
-          item.total_amount = parseFloat((item.total_amount || 0 * ratio).toFixed(2))
-          if (item.quantity > 0) {
-            item.unit_price = parseFloat((item.total_amount / item.quantity).toFixed(2))
-          }
-        })
-      }
-    }
-  },
-})
-
-const amountInWords = computed(() => {
-  return numberToChinese(totalAmount.value)
-})
-
-const numberToChinese = (num: number): string => {
-  const digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖']
-  const units = ['', '拾', '佰', '仟', '万', '亿']
-  let str = ''
-  let unitIndex = 0
-  // @ts-expect-error - zeroFlag is used in logic
-  let zeroFlag = false
-
-  if (num === 0) {
-    return '零元整'
-  }
-
-  const numStr = Math.floor(num).toString()
-
-  for (let i = 0; i < numStr.length; i++) {
-    const digit = parseInt(numStr[i])
-    if (digit === 0) {
-      zeroFlag = true
-    } else {
-      zeroFlag = false
-      const currentDigit = digits[digit] || ''
-      if (unitIndex > 0) {
-        str += units[unitIndex]
-      }
-      str += currentDigit
-      unitIndex++
-    }
-  }
-
-  str += '元'
-  if (numStr.includes('.')) {
-    const decimal = numStr.split('.')[1]
-    if (decimal) {
-      str += digits[parseInt(decimal[0])] + '角'
-      if (decimal.length > 1) {
-        str += digits[parseInt(decimal[1])] + '分'
-      }
-    }
-  }
-
-  return str + '整'
-}
+// 根据语言动态生成列定义
+const itemColumns = computed(() => [
+  { title: t.value.quotation.no, key: 'no', width: 60, align: 'center' as const },
+  { title: t.value.quotation.productCode, key: 'product_code', width: 120 },
+  { title: t.value.quotation.productName, key: 'product_name', width: 150 },
+  { title: t.value.quotation.model, key: 'model', width: 120 },
+  { title: t.value.quotation.description, key: 'description', width: 120 },
+  { title: t.value.quotation.unit, key: 'unit', width: 80 },
+  { title: t.value.quotation.quantity, key: 'quantity', width: 100 },
+  { title: t.value.quotation.unitPrice, key: 'unit_price', width: 100, align: 'right' as const },
+  { title: t.value.common.status, key: 'status', width: 100 },
+  { title: t.value.common.remarks, key: 'remarks', width: 150 },
+  { title: t.value.common.action, key: 'actions', width: 80, fixed: 'right' as const },
+])
 
 // 获取新的报价编号
 const getNewQuotationNumber = async () => {
@@ -463,8 +402,9 @@ const handleProductChange = (value: string, index: number) => {
 // 计算行合计
 const calculateRowTotal = (index: number) => {
   const item = form.quotation_items[index]
-  if (item.quantity && item.unit_price) {
-    item.total_amount = parseFloat((item.quantity * item.unit_price).toFixed(2))
+  // 如果数量是纯数字，则自动计算合计
+  if (item.quantity && item.unit_price && !isNaN(Number(item.quantity))) {
+    item.total_amount = parseFloat((Number(item.quantity) * item.unit_price).toFixed(2))
   } else {
     item.total_amount = 0
   }
@@ -484,17 +424,12 @@ const addNewItem = () => {
     description: '',
     product_code: '',
     unit: '',
-    quantity: 1,
+    quantity: '',
     unit_price: 0,
     total_amount: 0,
     status: 1,
     remarks: '',
   })
-}
-
-// 格式化金额
-const formatMoney = (amount: number) => {
-  return `${(amount || 0).toFixed(2)}`
 }
 
 // 提交表单
@@ -534,7 +469,7 @@ const handleSubmit = async () => {
       delivery_method: form.delivery_method,
       tax_rate: form.tax_rate,
       currency: form.currency,
-      tax_include_amount: totalAmount.value,
+      tax_include_amount: 0,
       remarks: form.remarks,
       entry_date: formatDate(form.entry_date),
     }
@@ -568,7 +503,9 @@ const handlePrint = () => {
     delivery_method: form.delivery_method,
     tax_rate: form.tax_rate,
     currency: form.currency,
-    total_amount: totalAmount.value,
+    remarks: form.remarks,
+    total_amount: 0,
+    lang: lang.value,
   })
 }
 
@@ -594,7 +531,7 @@ watch(
       } else if (props.quotationData) {
         form.customer_name = props.quotationData.customer_name
         form.customer_code = props.quotationData.customer_code
-        form.validity_period = props.quotationData.validity_period || '自报价之日起10个工作日'
+        form.validity_period = props.quotationData.validity_period || t.value.quotation.validityPlaceholder
         form.delivery_method = props.quotationData.delivery_method || '送货上门'
         form.tax_rate = props.quotationData.tax_rate || 13
         form.currency = props.quotationData.currency || 'CNY'
@@ -636,7 +573,7 @@ const resetForm = () => {
   form.customer_name = ''
   form.customer_code = ''
   form.quotation_items = []
-  form.validity_period = '自报价之日起10个工作日'
+  form.validity_period = t.value.quotation.validityPlaceholder
   form.delivery_method = '送货上门'
   form.tax_rate = 13
   form.currency = 'CNY'
@@ -683,6 +620,18 @@ const handleConvertAll = () => {
   })
 }
 
+// 监听语言变化，更新有效期默认内容
+watch(lang, (newLang, oldLang) => {
+  if (newLang !== oldLang) {
+    const oldLocale = getLocale(oldLang)
+    const newLocale = getLocale(newLang)
+    // 如果当前有效期等于旧语言的默认值，则更新为新语言的默认值
+    if (form.validity_period === oldLocale.quotation.validityPlaceholder) {
+      form.validity_period = newLocale.quotation.validityPlaceholder
+    }
+  }
+})
+
 // 初始化时添加一行
 watch(
   () => props.visible,
@@ -704,12 +653,27 @@ watch(
 .quotation-header {
   text-align: center;
   margin-bottom: 30px;
+  position: relative;
+
+  .header-top {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+    position: relative;
+
+    .lang-switch {
+      position: absolute;
+      right: 0;
+    }
+  }
 
   .company-name {
     font-size: 22px;
     font-weight: bold;
     margin: 0 0 12px 0;
     color: #000;
+    text-align: center;
   }
 
   .quotation-title {
@@ -812,6 +776,21 @@ watch(
     .note-input {
       flex: 1;
     }
+  }
+}
+
+.quotation-remarks {
+  margin-top: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+
+  .remarks-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
   }
 }
 
