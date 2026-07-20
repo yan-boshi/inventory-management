@@ -9,3 +9,47 @@ body {
     'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
     'Noto Color Emoji';
 }
+
+// 顶部滚动条样式（全局方案使用）
+.top-scrollbar-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 10px;
+  margin-bottom: 8px;
+  background: #f0f0f0;
+  border-radius: 5px;
+  cursor: pointer;
+
+  // 自定义滚动条样式
+  &::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 5px;
+    border: 2px solid #f0f0f0;
+
+    &:hover {
+      background: #bfbfbf;
+    }
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 5px;
+  }
+}
+
+// 隐藏原始的底部滚动条（通过JavaScript设置）
+.ant-table-content,
+.ant-table-body {
+  // 当添加了顶部滚动条时，隐藏底部滚动条
+  &[style*="overflow-x: hidden"] {
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}

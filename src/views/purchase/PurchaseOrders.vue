@@ -59,12 +59,13 @@
       </div>
 
       <a-table
+        v-scroll-topbar
         :columns="visibleColumns"
         :data-source="expandedOrders"
         :loading="loading"
         :pagination="false"
         rowKey="row_key"
-        :scroll="{ x: 1800 }"
+        :scroll="{ x: 2200, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
@@ -156,6 +157,7 @@ import PurchaseOrderDetail from '@/components/PurchaseOrderDetail.vue'
 import PurchaseOrderPrint from '@/components/PurchaseOrderPrint.vue'
 import PurchaseOrderPrintEn from '@/components/PurchaseOrderPrintEn.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
+import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
 
 const orders = ref<PurchaseOrder[]>([])
@@ -184,6 +186,9 @@ const expandedOrders = computed(() => {
         quantity: '-',
         unit: '-',
         amount: 0,
+        tax_rate: 0,
+        tax_excluded_amount: 0,
+        tax_excluded_price: 0,
         item_status: order.status,
         _isFirstRow: true,
         _rowCount: 1,
@@ -201,6 +206,9 @@ const expandedOrders = computed(() => {
           quantity: item.quantity || '-',
           unit: item.unit || '-',
           amount: item.tax_included_amount || 0,
+          tax_rate: item.tax_rate || 0,
+          tax_excluded_amount: item.tax_excluded_amount || 0,
+          tax_excluded_price: item.tax_excluded_price || 0,
           item_status: item.status || 1,
           _isFirstRow: index === 0,
           _rowCount: items.length,
@@ -228,7 +236,25 @@ const pagination = reactive({
   total: 0,
 })
 
-const allColumns = ref([
+// 动态生成筛选选项的辅助函数
+const generateFilters = (dataKey: string) => {
+  return computed(() => {
+    const values = [...new Set(expandedOrders.value.map((item: any) => item[dataKey]).filter(Boolean))]
+    return values.map(value => ({ text: String(value), value: String(value) }))
+  })
+}
+
+// 产品代码筛选选项
+const productCodeFilters = generateFilters('product_code')
+// 产品名称筛选选项
+const productNameFilters = generateFilters('product_name')
+// 产品型号筛选选项
+const modelFilters = generateFilters('model')
+// 产品描述筛选选项
+const descriptionFilters = generateFilters('description')
+
+// 使用 computed 使列定义响应式
+const allColumns = computed(() => [
   {
     title: '序号',
     key: 'index',
@@ -281,24 +307,36 @@ const allColumns = ref([
     dataIndex: 'product_code',
     key: 'product_code',
     width: 120,
+    filters: productCodeFilters.value,
+    onFilter: (value: string, record: any) => record.product_code === value,
+    filterMultiple: true,
   },
   {
     title: '产品名称',
     dataIndex: 'product_name',
     key: 'product_name',
     width: 150,
+    filters: productNameFilters.value,
+    onFilter: (value: string, record: any) => record.product_name === value,
+    filterMultiple: true,
   },
   {
     title: '产品型号',
     dataIndex: 'model',
     key: 'model',
     width: 120,
+    filters: modelFilters.value,
+    onFilter: (value: string, record: any) => record.model === value,
+    filterMultiple: true,
   },
   {
     title: '产品描述',
     dataIndex: 'description',
     key: 'description',
     width: 150,
+    filters: descriptionFilters.value,
+    onFilter: (value: string, record: any) => record.description === value,
+    filterMultiple: true,
   },
   {
     title: '数量',
@@ -320,6 +358,30 @@ const allColumns = ref([
     key: 'amount',
     width: 100,
     align: 'right',
+    customRender: ({ text }: { text: number }) => formatMoney(text),
+  },
+  {
+    title: '税率(%)',
+    dataIndex: 'tax_rate',
+    key: 'tax_rate',
+    width: 80,
+    align: 'right',
+  },
+  {
+    title: '未税金额',
+    dataIndex: 'tax_excluded_amount',
+    key: 'tax_excluded_amount',
+    width: 100,
+    align: 'right',
+    customRender: ({ text }: { text: number }) => formatMoney(text),
+  },
+  {
+    title: '未税单价',
+    dataIndex: 'tax_excluded_price',
+    key: 'tax_excluded_price',
+    width: 100,
+    align: 'right',
+    customRender: ({ text }: { text: number }) => formatMoney(text),
   },
   {
     title: '含税总价',
@@ -348,6 +410,7 @@ const allColumns = ref([
     dataIndex: 'entry_date',
     key: 'entry_date',
     width: 120,
+    customRender: ({ text }: { text: string }) => formatDate(text),
   },
   {
     title: '采购人',
@@ -383,7 +446,7 @@ const allColumns = ref([
 ])
 
 const visibleColumns = computed(() => {
-  return allColumns.value.filter(col => col.visible !== false)
+  return allColumns.value.filter((col: any) => col.visible !== false)
 })
 
 const loadOrders = async () => {
@@ -524,11 +587,6 @@ const handlePrint = (order: PurchaseOrder, lang: 'zh' | 'en' = 'zh') => {
 const formatMoney = (amount: number | string) => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
   return `${(numAmount || 0).toFixed(2)}`
-}
-
-const formatDate = (dateString: string) => {
-  if (!dateString) return '-'
-  return dayjs(dateString).format('YYYY-MM-DD')
 }
 
 const getStatusColor = (status: number) => {

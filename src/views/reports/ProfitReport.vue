@@ -59,6 +59,7 @@
       </div>
 
       <a-table
+        v-scroll-topbar
         :columns="columns"
         :data-source="reportData"
         :loading="loading"
@@ -66,7 +67,7 @@
         rowKey="index"
         bordered
         size="small"
-        :scroll="{ x: 5800 }"
+        :scroll="{ x: 5800, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'delivery_date'">
@@ -207,6 +208,7 @@ import { message } from 'ant-design-vue'
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import { profitReportApi } from '@/api/profitReport'
 import type { ProfitReportItem, ProfitReportParams } from '@/api/profitReport'
+import { formatDate } from '@/utils/date'
 import type { Dayjs } from 'dayjs'
 
 const loading = ref(false)
@@ -227,18 +229,113 @@ const pagination = reactive({
   total: 0,
 })
 
-const columns = [
+// 结算状态筛选选项
+const settlementStatusFilters = [
+  { text: '全部结算', value: '全部结算' },
+  { text: '部分结算', value: '部分结算' },
+  { text: '未结算', value: '未结算' },
+]
+
+// 动态生成筛选选项的辅助函数
+const generateFilters = (dataKey: keyof ProfitReportItem) => {
+  return computed(() => {
+    const values = [...new Set(reportData.value.map(item => item[dataKey]).filter(Boolean))]
+    return values.map(value => ({ text: String(value), value: String(value) }))
+  })
+}
+
+// 销售员筛选选项
+const salesPersonFilters = generateFilters('sales_person')
+// 公司名称筛选选项
+const customerNameFilters = generateFilters('customer_name')
+// 结算方式筛选选项
+const paymentMethodFilters = generateFilters('payment_method')
+// 分类筛选选项
+const classificationFilters = generateFilters('classification')
+// 产品名称筛选选项
+const productNameFilters = generateFilters('product_name')
+// 产品代码筛选选项
+const productCodeFilters = generateFilters('product_code')
+// 规格型号筛选选项
+const modelFilters = generateFilters('model')
+
+const columns = computed(() => [
   { title: '出货日期', dataIndex: 'delivery_date', key: 'delivery_date', width: 100, fixed: 'left' as const },
-  { title: '结算状态', dataIndex: 'settlement_status', key: 'settlement_status', width: 90, fixed: 'left' as const },
+  {
+    title: '结算状态',
+    dataIndex: 'settlement_status',
+    key: 'settlement_status',
+    width: 90,
+    fixed: 'left' as const,
+    filters: settlementStatusFilters,
+    onFilter: (value: string, record: ProfitReportItem) => (record.settlement_status || '未结算') === value,
+    filterMultiple: true,
+  },
   { title: '结算日期', dataIndex: 'settlement_date', key: 'settlement_date', width: 100 },
   { title: '销售合同编号', dataIndex: 'sales_contract_number', key: 'sales_contract_number', width: 130 },
-  { title: '销售员', dataIndex: 'sales_person', key: 'sales_person', width: 80 },
-  { title: '公司名称', dataIndex: 'customer_name', key: 'customer_name', width: 150 },
-  { title: '结算方式', dataIndex: 'payment_method', key: 'payment_method', width: 100 },
-  { title: '分类', dataIndex: 'classification', key: 'classification', width: 100 },
-  { title: '产品名称', dataIndex: 'product_name', key: 'product_name', width: 150 },
-  { title: '产品代码', dataIndex: 'product_code', key: 'product_code', width: 120 },
-  { title: '规格型号', dataIndex: 'model', key: 'model', width: 100 },
+  {
+    title: '销售员',
+    dataIndex: 'sales_person',
+    key: 'sales_person',
+    width: 80,
+    filters: salesPersonFilters.value,
+    onFilter: (value: string, record: ProfitReportItem) => record.sales_person === value,
+    filterMultiple: true,
+  },
+  {
+    title: '公司名称',
+    dataIndex: 'customer_name',
+    key: 'customer_name',
+    width: 150,
+    filters: customerNameFilters.value,
+    onFilter: (value: string, record: ProfitReportItem) => record.customer_name === value,
+    filterMultiple: true,
+  },
+  {
+    title: '结算方式',
+    dataIndex: 'payment_method',
+    key: 'payment_method',
+    width: 100,
+    filters: paymentMethodFilters.value,
+    onFilter: (value: string, record: ProfitReportItem) => record.payment_method === value,
+    filterMultiple: true,
+  },
+  {
+    title: '分类',
+    dataIndex: 'classification',
+    key: 'classification',
+    width: 100,
+    filters: classificationFilters.value,
+    onFilter: (value: string, record: ProfitReportItem) => record.classification === value,
+    filterMultiple: true,
+  },
+  {
+    title: '产品名称',
+    dataIndex: 'product_name',
+    key: 'product_name',
+    width: 150,
+    filters: productNameFilters.value,
+    onFilter: (value: string, record: ProfitReportItem) => record.product_name === value,
+    filterMultiple: true,
+  },
+  {
+    title: '产品代码',
+    dataIndex: 'product_code',
+    key: 'product_code',
+    width: 120,
+    filters: productCodeFilters.value,
+    onFilter: (value: string, record: ProfitReportItem) => record.product_code === value,
+    filterMultiple: true,
+  },
+  {
+    title: '规格型号',
+    dataIndex: 'model',
+    key: 'model',
+    width: 100,
+    filters: modelFilters.value,
+    onFilter: (value: string, record: ProfitReportItem) => record.model === value,
+    filterMultiple: true,
+  },
   { title: '规格描述', dataIndex: 'description', key: 'description', width: 120 },
   { title: '单位', dataIndex: 'unit', key: 'unit', width: 60 },
   { title: '出货数量', dataIndex: 'delivery_quantity', key: 'delivery_quantity', width: 80, align: 'right' as const },
@@ -276,7 +373,7 @@ const columns = [
   { title: '提成比例', dataIndex: 'commission_rate', key: 'commission_rate', width: 80, align: 'right' as const },
   { title: '应发提成', dataIndex: 'commission_amount', key: 'commission_amount', width: 100, align: 'right' as const },
   { title: '备注', dataIndex: 'remarks', key: 'remarks', width: 150 },
-]
+])
 
 const moneyKeys = new Set([
   'unit_price', 'sales_amount_included', 'unit_price_excluded', 'sales_amount_excluded',
@@ -289,11 +386,6 @@ const moneyKeys = new Set([
 ])
 
 const isMoneyColumn = (key: string) => moneyKeys.has(key)
-
-const formatDate = (date: string | null | undefined) => {
-  if (!date) return ''
-  return String(date).slice(0, 10)
-}
 
 const formatMoney = (value: number | null | undefined) => {
   if (value === null || value === undefined) return ''

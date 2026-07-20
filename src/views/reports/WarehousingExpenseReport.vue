@@ -64,6 +64,7 @@
       </div>
 
       <a-table
+        v-scroll-topbar
         :columns="filteredColumns"
         :data-source="reportData"
         :loading="loading"
@@ -71,7 +72,7 @@
         rowKey="warehousing_order_id"
         bordered
         size="small"
-        :scroll="{ x: 2600 }"
+        :scroll="{ x: 2600, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'warehousing_time'">
@@ -209,6 +210,7 @@ import { warehousingExpenseReportApi } from '@/api/warehousingExpenseReport'
 import WarehousingExpenseReportPrint from '@/components/WarehousingExpenseReportPrint.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import type { WarehousingExpenseReportItem, WarehousingExpenseReportParams } from '@/types'
+import { formatDate } from '@/utils/date'
 import type { Dayjs } from 'dayjs'
 
 const loading = ref(false)
@@ -498,11 +500,6 @@ const totals = computed(() => {
     }
   )
 })
-
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return ''
-  return dateStr.substring(0, 10)
-}
 
 const formatNumber = (value: number) => {
   return value != null ? value.toLocaleString('zh-CN', { maximumFractionDigits: 4 }) : '0'

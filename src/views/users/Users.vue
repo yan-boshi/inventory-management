@@ -19,6 +19,7 @@
       :loading="loading"
       :pagination="false"
       row-key="user_id"
+      :scroll="{ y: 'calc(100vh - 250px)' }"
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'role'">

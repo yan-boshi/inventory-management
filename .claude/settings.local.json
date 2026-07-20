@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(node -e ' *)",
-      "Bash(npx vue-tsc *)"
+      "Bash(npx vue-tsc *)",
+      "Bash(node *)"
     ]
   }
 }

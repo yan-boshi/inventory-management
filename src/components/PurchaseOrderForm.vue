@@ -90,12 +90,13 @@
 
         <div class="table-container">
           <a-table
+            v-scroll-topbar
             :columns="itemColumns"
             :data-source="form.purchase_items"
             :pagination="false"
             bordered
             size="small"
-            :scroll="{ x: 2380 }"
+            :scroll="{ x: 2380, y: 400 }"
           >
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'no'">
@@ -431,7 +432,7 @@
             <div class="expenses-label">采购费用登记</div>
             <div class="expenses-row">
               <div class="expense-item">
-                <label>运输费</label>
+                <label>报关运输费</label>
                 <a-input-number
                   v-model:value="form.expenses.transportationFee"
                   :min="0"
@@ -747,7 +748,11 @@ const handleSalesOrderChange = (value: string | undefined) => {
     // 重新计算每行金额
     form.purchase_items.forEach((_, index) => calculateRowTotal(index))
 
-    message.success(`已加载销售订单 ${salesOrder.contract_number || salesOrder.order_number} 的 ${salesItems.length} 个商品`)
+    message.success(
+      `已加载销售订单 ${salesOrder.contract_number || salesOrder.order_number} 的 ${
+        salesItems.length
+      } 个商品`
+    )
   } catch (error) {
     console.error('解析销售订单商品失败', error)
     message.error('解析销售订单商品失败')
@@ -764,7 +769,9 @@ const calculateRowTotal = (index: number) => {
 
   item.tax_excluded_amount = parseFloat((item.quantity * item.tax_excluded_price).toFixed(2))
 
-  item.tax_amount = parseFloat(((item.tax_included_amount / (1 + taxRateDecimal)) * taxRateDecimal).toFixed(2))
+  item.tax_amount = parseFloat(
+    ((item.tax_included_amount / (1 + taxRateDecimal)) * taxRateDecimal).toFixed(2)
+  )
 
   item.total_price = item.tax_included_amount
 }
@@ -929,7 +936,13 @@ watch(
         try {
           form.expenses = props.purchaseOrderData.expenses
             ? JSON.parse(props.purchaseOrderData.expenses)
-            : { transportationFee: 0, valueAddedTax: 0, handlingFee: 0, operatingExpenses: 0, otherFee: 0 }
+            : {
+                transportationFee: 0,
+                valueAddedTax: 0,
+                handlingFee: 0,
+                operatingExpenses: 0,
+                otherFee: 0,
+              }
         } catch {
           form.expenses = {
             transportationFee: 0,
@@ -982,7 +995,13 @@ const resetForm = () => {
   form.remarks = ''
   form.purchase_person = ''
   form.related_sales_order_id = undefined
-  form.expenses = { transportationFee: 0, valueAddedTax: 0, handlingFee: 0, operatingExpenses: 0, otherFee: 0 }
+  form.expenses = {
+    transportationFee: 0,
+    valueAddedTax: 0,
+    handlingFee: 0,
+    operatingExpenses: 0,
+    otherFee: 0,
+  }
   orderNumber.value = ''
 }
 

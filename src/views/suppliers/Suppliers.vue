@@ -46,6 +46,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="supplier_id"
+        :scroll="{ y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'supplier_name'">
@@ -96,6 +97,7 @@ import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-
 import { suppliersApi } from '@/api/suppliers'
 import type { Supplier, SupplierQueryParams } from '@/types'
 import SupplierForm from '@/components/SupplierForm.vue'
+import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
 
 const suppliers = ref<Supplier[]>([])
@@ -159,6 +161,7 @@ const columns = [
     dataIndex: 'created_at',
     key: 'created_at',
     width: 120,
+    customRender: ({ text }: { text: string }) => formatDate(text),
   },
   {
     title: '操作',
@@ -241,10 +244,6 @@ const handleDelete = (supplier: Supplier) => {
 
 const handleSuccess = () => {
   loadSuppliers()
-}
-
-const formatDate = (dateString: string) => {
-  return dayjs(dateString).format('YYYY-MM-DD')
 }
 
 onMounted(() => {

@@ -1,5 +1,6 @@
 import DeliveryOrder from '../models/DeliveryOrder.js'
 import SalesOrder from '../models/SalesOrder.js'
+import Receivable from '../models/Receivable.js'
 import pool from '../config/database.js'
 
 export const getAllDeliveryOrders = async (req, res) => {
@@ -257,6 +258,44 @@ export const createDeliveryOrder = async (req, res) => {
           sales_items: JSON.stringify(salesItems),
           status: orderStatus
         })
+
+        // 创建应收账款记录
+        try {
+          const paymentMethod = salesOrder.payment_method || ''
+          const totalAmount = parseFloat(order.total_amount) || 0
+          // TT和预付100%都已全部结算
+          const receivedAmount = totalAmount
+          const balanceAmount = 0
+          let dueDate = null
+
+          // 根据结算方式设置结算日期
+          if (paymentMethod.includes('预付100%') || paymentMethod.includes('预付')) {
+            // 预付100%：生成销售订单时就已结算，结算日期为销售订单录入时间
+            dueDate = salesOrder.entry_date || salesOrder.created_at
+          } else {
+            // TT或其他：生成出库单时结算，结算日期为出库时间
+            dueDate = delivery_time || new Date().toISOString().slice(0, 10)
+          }
+
+          // 获取客户名称
+          const customerName = customer_name || salesOrder.customer_name
+
+          await Receivable.create({
+            customer_id: salesOrder.customer_code,
+            customer_name: customerName,
+            source_bill_type: 1, // 出库单
+            source_bill_id: order.order_number,
+            amount: totalAmount,
+            received_amount: receivedAmount,
+            balance_amount: balanceAmount,
+            due_date: dueDate,
+            status: 2, // 已核销
+            delivery_time: delivery_time || null
+          })
+        } catch (receivableError) {
+          // 应收账款创建失败，不影响出库单创建
+          console.error('创建应收账款记录失败:', receivableError)
+        }
       }
     }
 
@@ -437,6 +476,17 @@ export const deleteDeliveryOrder = async (req, res) => {
       }
     } catch (stockError) {
       // 库存恢复失败，继续执行
+    }
+
+    // 删除对应的应收账款记录
+    try {
+      const receivable = await Receivable.findOne('source_bill_id = ?', [existing.order_number])
+      if (receivable) {
+        await Receivable.delete(receivable.receivable_id)
+      }
+    } catch (receivableError) {
+      // 应收账款删除失败，不影响出库单删除
+      console.error('删除应收账款记录失败:', receivableError)
     }
 
     await DeliveryOrder.delete(id)

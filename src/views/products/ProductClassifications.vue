@@ -37,6 +37,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="product_classification_id"
+        :scroll="{ y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'classification_data'">
@@ -135,6 +136,7 @@ import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-
 import { productClassificationApi } from '@/api/productClassification'
 import type { ProductClassification, ProductClassificationQueryParams, ClassificationTree } from '@/types'
 import ProductClassificationDetail from '@/components/ProductClassificationDetail.vue'
+import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
 
 const classifications = ref<ProductClassification[]>([])
@@ -201,6 +203,7 @@ const columns = [
     dataIndex: 'created_at',
     key: 'created_at',
     width: 120,
+    customRender: ({ text }: { text: string }) => formatDate(text),
   },
   {
     title: '操作',
@@ -350,10 +353,6 @@ const handleDelete = (record: ProductClassification) => {
       }
     },
   })
-}
-
-const formatDate = (dateString: string) => {
-  return dayjs(dateString).format('YYYY-MM-DD')
 }
 
 onMounted(() => {

@@ -88,6 +88,54 @@ const router = createRouter({
           meta: { roles: ['admin'] as UserRole[] }
         },
         {
+          path: 'receivables',
+          name: 'Receivables',
+          component: () => import('@/views/receivables/Receivables.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'payables',
+          name: 'Payables',
+          component: () => import('@/views/payables/Payables.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'settlement-statement',
+          name: 'SettlementStatement',
+          component: () => import('@/views/settlement/SettlementStatement.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'settlement-statement/create',
+          name: 'SettlementCreate',
+          component: () => import('@/views/settlement/SettlementForm.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'settlement-statement/create-receivable',
+          name: 'SettlementCreateReceivable',
+          component: () => import('@/views/settlement/SettlementForm.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'settlement-statement/create-payable',
+          name: 'SettlementCreatePayable',
+          component: () => import('@/views/settlement/SettlementForm.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'settlement-statement/:id',
+          name: 'SettlementDetail',
+          component: () => import('@/views/settlement/SettlementDetail.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'settlement-statement/:id/edit',
+          name: 'SettlementEdit',
+          component: () => import('@/views/settlement/SettlementForm.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
           path: 'inventory-report',
           name: 'InventoryReport',
           component: () => import('@/views/reports/InventoryReport.vue'),

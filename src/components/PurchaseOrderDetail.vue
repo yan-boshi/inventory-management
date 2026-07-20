@@ -53,6 +53,7 @@
             bordered
             size="small"
             rowKey="no"
+            :scroll="{ y: 400 }"
           >
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'tax_included_price'">

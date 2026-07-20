@@ -805,3 +805,130 @@ export interface UndeliveredSalesOrder {
   tax_included_amount: number
   remarks?: string
 }
+
+// 应收账款
+export interface Receivable {
+  receivable_id: string
+  customer_id: string
+  customer_name?: string
+  source_bill_type: 1 | 2  // 1=出库单, 2=销售退货单
+  source_bill_id: string
+  amount: number
+  received_amount: number
+  balance_amount: number
+  due_date: string
+  status: 0 | 1 | 2  // 0=未结算, 1=部分结算, 2=已结算
+  billing_status: 0 | 1 | 2  // 0=未开票, 1=已开票, 2=部分开票
+  handling_fee: number
+  delivery_time?: string  // 出库时间
+  create_time: string
+  update_time: string
+}
+
+export interface ReceivableQueryParams {
+  page?: number
+  pageSize?: number
+  customer_name?: string
+  status?: 0 | 1 | 2
+  billing_status?: 0 | 1 | 2
+  start_date?: string
+  end_date?: string
+}
+
+// 应付账款
+export interface Payable {
+  payable_id: string
+  supplier_id: string
+  supplier_name?: string
+  source_bill_type: 1 | 2  // 1=入库单, 2=采购退货单
+  source_bill_id: string
+  amount: number
+  received_amount: number
+  balance_amount: number
+  due_date: string
+  status: 0 | 1 | 2  // 0=未结算, 1=部分结算, 2=已结算
+  billing_status: 0 | 1 | 2  // 0=未开票, 1=已开票, 2=部分开票
+  handling_fee: number
+  warehousing_time?: string  // 入库时间
+  create_time: string
+  update_time: string
+}
+
+export interface PayableQueryParams {
+  page?: number
+  pageSize?: number
+  supplier_name?: string
+  status?: 0 | 1 | 2
+  billing_status?: 0 | 1 | 2
+  start_date?: string
+  end_date?: string
+}
+
+// 对账单
+export interface SettlementStatement {
+  statement_id: string
+  statement_number: string
+  type: 1 | 2  // 1=应收, 2=应付
+  entity_id: string
+  entity_name: string
+  settlement_date: string  // 结算日期 YYYY-MM-DD
+  payment_method: string
+  sales_amount: number
+  is_invoiced: 0 | 1  // 0=未开票, 1=已开票
+  invoice_date: string
+  invoice_number: string
+  document_date: string
+  total_amount: number
+  invoiced_amount: number
+  uninvoiced_amount: number
+  billing_status: 0 | 1 | 2  // 0=未开票, 1=已开票, 2=部分开票
+  handling_fee: number  // 手续费
+  remarks: string
+  create_time: string
+  update_time: string
+}
+
+export interface SettlementStatementItem {
+  item_id: string
+  statement_id: string
+  source_type: 1 | 2  // 1=应收, 2=应付
+  source_id: string
+  amount: number
+  delivery_date: string
+  delivery_number: string
+  product_code: string
+  product_name: string
+  product_model: string
+  product_description: string
+  quantity: number
+  currency: string
+  unit: string
+  unit_price: number
+  amount_with_tax: number
+  remarks: string
+  create_time: string
+}
+
+export interface SettlementDetail extends SettlementStatement {
+  items: SettlementStatementItem[]
+}
+
+export interface SettlementSummary {
+  total_receivable: number
+  total_payable: number
+  net_amount: number
+  invoiced_receivable: number
+  invoiced_payable: number
+  uninvoiced_receivable: number
+  uninvoiced_payable: number
+}
+
+export interface SettlementQueryParams {
+  page?: number
+  pageSize?: number
+  type?: 1 | 2
+  billing_status?: 0 | 1 | 2
+  settlement_date_start?: string
+  settlement_date_end?: string
+  entity_name?: string
+}

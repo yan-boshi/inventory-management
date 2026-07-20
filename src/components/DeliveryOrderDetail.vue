@@ -42,6 +42,7 @@
           bordered
           size="small"
           row-key="no"
+          :scroll="{ y: 400 }"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'amount'">

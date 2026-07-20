@@ -72,6 +72,21 @@
             进销存明细表
           </a-menu-item>
         </a-sub-menu>
+        <a-sub-menu key="ReceivablePayable">
+          <template #icon>
+            <AccountBookOutlined />
+          </template>
+          <template #title>应收应付</template>
+          <a-menu-item key="Receivables" @click="navigateTo('/receivables')">
+            <span>应收账款</span>
+          </a-menu-item>
+          <a-menu-item key="Payables" @click="navigateTo('/payables')">
+            <span>应付账款</span>
+          </a-menu-item>
+          <a-menu-item key="SettlementStatement" @click="navigateTo('/settlement-statement')">
+            <span>对账单</span>
+          </a-menu-item>
+        </a-sub-menu>
         <a-sub-menu key="Reports">
           <template #icon>
             <BarChartOutlined />
@@ -182,6 +197,7 @@ import {
   SettingOutlined,
   FileTextOutlined,
   BarChartOutlined,
+  AccountBookOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,
   UserOutlined,

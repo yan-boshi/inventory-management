@@ -82,6 +82,7 @@
           :pagination="false"
           bordered
           size="small"
+          :scroll="{ y: 400 }"
         >
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.key === 'no'">
@@ -239,8 +240,7 @@
           <label class="note-label">入库时间：</label>
           <a-date-picker
             v-model:value="form.warehousing_time"
-            show-time
-            format="YYYY-MM-DD HH:mm"
+            format="YYYY-MM-DD"
             style="width: 100%"
           />
         </div>
@@ -543,7 +543,7 @@ const handleSubmit = async () => {
     if (!date) return undefined
     if (typeof date === 'string') return date
     try {
-      return dayjs(date).format('YYYY-MM-DD HH:mm')
+      return dayjs(date).format('YYYY-MM-DD')
     } catch {
       return undefined
     }
@@ -721,7 +721,7 @@ const handleSaveDraft = () => {
     total_amount: form.total_amount,
     currency: form.currency,
     exchange_rate: form.exchange_rate,
-    warehousing_time: form.warehousing_time ? (typeof form.warehousing_time === 'string' ? form.warehousing_time : dayjs(form.warehousing_time).format('YYYY-MM-DD HH:mm')) : '',
+    warehousing_time: form.warehousing_time ? (typeof form.warehousing_time === 'string' ? form.warehousing_time : dayjs(form.warehousing_time).format('YYYY-MM-DD')) : '',
     entry_date: form.entry_date ? (typeof form.entry_date === 'string' ? form.entry_date : dayjs(form.entry_date).format('YYYY-MM-DD')) : '',
     tracking_number: form.tracking_number,
     warehousing_person: form.warehousing_person,

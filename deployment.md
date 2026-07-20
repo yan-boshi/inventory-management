@@ -108,7 +108,7 @@ sudo mysql -u root -p
 
 ```sql
 -- 创建数据库
-CREATE DATABASE inventory_management
+CREATE DATABASE official_website
   DEFAULT CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
@@ -116,7 +116,7 @@ CREATE DATABASE inventory_management
 CREATE USER 'admin'@'localhost' IDENTIFIED BY 'abc1234!';
 
 -- 授权
-GRANT ALL PRIVILEGES ON inventory_management.* TO 'admin'@'localhost';
+GRANT ALL PRIVILEGES ON official_website.* TO 'official_admin'@'localhost';
 FLUSH PRIVILEGES;
 
 -- 退出
@@ -130,13 +130,13 @@ EXIT;
 cd /var/www/inventory-management
 
 # 导入数据库结构
-mysql -u admin -p inventory_management < server/init.sql
+mysql -u official_admin -p official_website < server/init.sql
 ```
 
 ### 3.3 验证数据库
 
 ```bash
-mysql -u admin -p inventory_management -e "SHOW TABLES;"
+mysql -u official_admin -p official_website -e "SHOW TABLES;"
 ```
 
 应该看到以下表：

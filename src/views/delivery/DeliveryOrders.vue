@@ -83,12 +83,13 @@
       </div>
 
       <a-table
+        v-scroll-topbar
         :columns="visibleColumns"
         :data-source="expandedOrders"
         :loading="loading"
         :pagination="false"
         rowKey="row_key"
-        :scroll="{ x: 1800 }"
+        :scroll="{ x: 1800, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
@@ -176,6 +177,7 @@ import DeliveryOrderForm from '@/components/DeliveryOrderForm.vue'
 import DeliveryOrderPrint from '@/components/DeliveryOrderPrint.vue'
 import DeliveryOrderDetail from '@/components/DeliveryOrderDetail.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
+import { formatDate, formatDateTime } from '@/utils/date'
 import dayjs from 'dayjs'
 
 const orders = ref<DeliveryOrder[]>([])
@@ -246,7 +248,25 @@ const pagination = reactive({
   total: 0,
 })
 
-const allColumns = ref([
+// 动态生成筛选选项的辅助函数
+const generateFilters = (dataKey: string) => {
+  return computed(() => {
+    const values = [...new Set(expandedOrders.value.map((item: any) => item[dataKey]).filter(Boolean))]
+    return values.map(value => ({ text: String(value), value: String(value) }))
+  })
+}
+
+// 产品代码筛选选项
+const productCodeFilters = generateFilters('product_code')
+// 产品名称筛选选项
+const productNameFilters = generateFilters('product_name')
+// 产品型号筛选选项
+const modelFilters = generateFilters('model')
+// 产品描述筛选选项（出库单使用 specification 字段）
+const specificationFilters = generateFilters('specification')
+
+// 使用 computed 使列定义响应式
+const allColumns = computed(() => [
   {
     title: '序号',
     key: 'index',
@@ -287,24 +307,36 @@ const allColumns = ref([
     dataIndex: 'product_code',
     key: 'product_code',
     width: 120,
+    filters: productCodeFilters.value,
+    onFilter: (value: string, record: any) => record.product_code === value,
+    filterMultiple: true,
   },
   {
     title: '产品名称',
     dataIndex: 'product_name',
     key: 'product_name',
     width: 150,
+    filters: productNameFilters.value,
+    onFilter: (value: string, record: any) => record.product_name === value,
+    filterMultiple: true,
   },
   {
     title: '产品型号',
     dataIndex: 'model',
     key: 'model',
     width: 120,
+    filters: modelFilters.value,
+    onFilter: (value: string, record: any) => record.model === value,
+    filterMultiple: true,
   },
   {
     title: '产品描述',
     dataIndex: 'specification',
     key: 'specification',
     width: 150,
+    filters: specificationFilters.value,
+    onFilter: (value: string, record: any) => record.specification === value,
+    filterMultiple: true,
   },
   {
     title: '数量',
@@ -337,6 +369,7 @@ const allColumns = ref([
     dataIndex: 'entry_date',
     key: 'entry_date',
     width: 120,
+    customRender: ({ text }: { text: string }) => formatDate(text),
   },
   {
     title: '制单人',
@@ -377,7 +410,7 @@ const allColumns = ref([
 ])
 
 const visibleColumns = computed(() => {
-  return allColumns.value.filter(col => col.visible !== false)
+  return allColumns.value.filter((col: any) => col.visible !== false)
 })
 
 const loadOrders = async () => {
@@ -492,16 +525,6 @@ const getDeliveryItems = (order: DeliveryOrder) => {
   } catch {
     return []
   }
-}
-
-const formatDateTime = (dateString: string) => {
-  if (!dateString) return '-'
-  return dayjs(dateString).format('YYYY-MM-DD HH:mm')
-}
-
-const formatDate = (dateString: string) => {
-  if (!dateString) return '-'
-  return dayjs(dateString).format('YYYY-MM-DD')
 }
 
 onMounted(() => {

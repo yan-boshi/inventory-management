@@ -28,7 +28,7 @@
             <a-input v-model:value="form.contract_number" class="invisible-input note-input" />
           </div>
           <!-- <div class="form-item">
-            <label class="form-label">销售人：</label>
+            <label class="form-label">员：</label>
             <a-input v-model:value="form.sales_person" class="invisible-input note-input" disabled />
           </div> -->
         </div>
@@ -98,12 +98,13 @@
           <!-- 报价内容表格 -->
           <div class="table-container">
             <a-table
+              v-scroll-topbar
               :columns="itemColumns"
               :data-source="form.sales_items"
               :pagination="false"
               bordered
               size="small"
-              :scroll="{ x: 2250 }"
+              :scroll="{ x: 2250, y: 400 }"
             >
               <template #bodyCell="{ column, record, index }">
                 <template v-if="column.key === 'no'">
@@ -224,7 +225,7 @@
                     class="invisible-input"
                   />
                 </template>
-                <template v-else-if="column.key === 'tax_encluded_price'">
+                <template v-else-if="column.key === 'tax_excluded_price'">
                   <a-input
                     v-model:value="record.tax_excluded_price"
                     :disabled="true"
@@ -597,7 +598,7 @@ const itemColumns = [
   { title: '数量', key: 'quantity', width: 80 },
   { title: '税率（%）', key: 'tax_rate', width: 90 },
   { title: '含税单价', key: 'tax_included_price', width: 100, align: 'right' as const },
-  { title: '未税单价', key: 'tax_encluded_price', width: 100, align: 'right' as const },
+  { title: '未税单价', key: 'tax_excluded_price', width: 100, align: 'right' as const },
   { title: '含税金额', key: 'tax_included_amount', width: 110, align: 'right' as const },
   { title: '未税金额', key: 'tax_excluded_amount', width: 110, align: 'right' as const },
   { title: '税额', key: 'tax_amount', width: 100, align: 'right' as const },
@@ -847,8 +848,8 @@ const addNewItem = () => {
     outbound_quantity: 0,
     tax_rate: 13,
     tax_included_price: 0,
-    tax_encluded_price: 0,
-    tatax_included_amountx_rate: 0,
+    tax_excluded_price: 0,
+    tax_included_amount: 0,
     tax_excluded_amount: 0,
     tax_amount: 0,
     status: 1,

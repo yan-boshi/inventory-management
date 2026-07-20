@@ -75,6 +75,7 @@
           :pagination="false"
           bordered
           size="small"
+          :scroll="{ y: 400 }"
         />
       </div>
 

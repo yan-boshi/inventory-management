@@ -64,6 +64,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="quotation_id"
+        :scroll="{ y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'quotation_number'">
@@ -172,6 +173,7 @@ import QuotationPrint from '@/components/QuotationPrint.vue'
 import QuotationPrintEn from '@/components/QuotationPrintEn.vue'
 import SalesOrderForm from '@/components/SalesOrderForm.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
+import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
 
 const quotations = ref<Quotation[]>([])
@@ -242,6 +244,7 @@ const allColumns = ref([
     dataIndex: 'entry_date',
     key: 'entry_date',
     width: 80,
+    customRender: ({ text }: { text: string }) => formatDate(text),
   },
   {
     title: '含税总价',
@@ -524,11 +527,6 @@ const getStatusText = (status: number) => {
     4: '已取消',
   }
   return textMap[status] || '-'
-}
-
-const formatDate = (dateString: string) => {
-  if (!dateString) return '-'
-  return dayjs(dateString).format('YYYY-MM-DD')
 }
 
 onMounted(() => {

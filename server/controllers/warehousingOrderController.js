@@ -1,5 +1,7 @@
 import WarehousingOrder from '../models/WarehousingOrder.js'
 import PurchaseOrder from '../models/PurchaseOrder.js'
+import SalesOrder from '../models/SalesOrder.js'
+import Payable from '../models/Payable.js'
 import pool from '../config/database.js'
 
 export const getAllWarehousingOrders = async (req, res) => {
@@ -237,6 +239,52 @@ export const createWarehousingOrder = async (req, res) => {
           purchase_items: JSON.stringify(purchaseItems),
           status: orderStatus
         })
+
+        // 创建应付账款记录
+        try {
+          let paymentMethod = ''
+          // 通过关联的销售订单获取结算方式
+          if (purchaseOrder.related_sales_order_id) {
+            const salesOrder = await SalesOrder.findById(purchaseOrder.related_sales_order_id)
+            if (salesOrder) {
+              paymentMethod = salesOrder.payment_method || ''
+            }
+          }
+
+          const totalAmount = parseFloat(order.total_amount) || 0
+          // 预付100%和TT都已全部结算
+          const receivedAmount = totalAmount
+          const balanceAmount = 0
+          let dueDate = null
+
+          // 根据结算方式设置结算日期
+          if (paymentMethod.includes('预付100%') || paymentMethod.includes('预付')) {
+            // 预付100%：生成销售订单时就已结算，结算日期为采购订单录入时间
+            dueDate = purchaseOrder.entry_date || purchaseOrder.created_at
+          } else {
+            // TT或其他：生成入库单时结算，结算日期为入库时间
+            dueDate = warehousing_time || new Date().toISOString().slice(0, 10)
+          }
+
+          // 获取供应商名称
+          const supplierName = purchaseOrder.supplier_name
+
+          await Payable.create({
+            supplier_id: purchaseOrder.supplier_code,
+            supplier_name: supplierName,
+            source_bill_type: 1, // 入库单
+            source_bill_id: order.order_number,
+            amount: totalAmount,
+            received_amount: receivedAmount,
+            balance_amount: balanceAmount,
+            due_date: dueDate,
+            status: 2, // 已核销
+            warehousing_time: warehousing_time || null
+          })
+        } catch (payableError) {
+          // 应付账款创建失败，不影响入库单创建
+          console.error('创建应付账款记录失败:', payableError)
+        }
       }
     }
 
@@ -431,6 +479,17 @@ export const deleteWarehousingOrder = async (req, res) => {
       } catch (stockError) {
         // 库存扣减失败，继续执行
       }
+    }
+
+    // 删除对应的应付账款记录
+    try {
+      const payable = await Payable.findOne('source_bill_id = ?', [existing.order_number])
+      if (payable) {
+        await Payable.delete(payable.payable_id)
+      }
+    } catch (payableError) {
+      // 应付账款删除失败，不影响入库单删除
+      console.error('删除应付账款记录失败:', payableError)
     }
 
     await WarehousingOrder.delete(id)

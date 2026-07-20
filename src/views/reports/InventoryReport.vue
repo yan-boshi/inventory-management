@@ -102,6 +102,7 @@
       </div>
 
       <a-table
+        v-scroll-topbar
         :columns="filteredColumns"
         :data-source="reportData"
         :loading="loading"
@@ -109,7 +110,7 @@
         rowKey="product_id"
         bordered
         size="small"
-        :scroll="{ x: 2800 }"
+        :scroll="{ x: 2800, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <!-- 数量列 -->
@@ -165,6 +166,7 @@ import { SearchOutlined, ReloadOutlined, PrinterOutlined, SettingOutlined } from
 import { inventoryReportApi } from '@/api/inventoryReport'
 import InventoryReportPrint from '@/components/InventoryReportPrint.vue'
 import type { InventoryReportItem } from '@/types'
+import { formatDate } from '@/utils/date'
 
 const loading = ref(false)
 const reportData = ref<InventoryReportItem[]>([])

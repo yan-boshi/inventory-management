@@ -37,6 +37,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="business_category_id"
+        :scroll="{ y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'created_at'">
@@ -83,6 +84,7 @@ import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-
 import { businessCategoriesApi } from '@/api/businessCategories'
 import type { BusinessCategory, BusinessCategoryQueryParams } from '@/types'
 import BusinessCategoryForm from '@/components/BusinessCategoryForm.vue'
+import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
 
 const businessCategories = ref<BusinessCategory[]>([])
@@ -122,6 +124,7 @@ const columns = [
     dataIndex: 'created_at',
     key: 'created_at',
     width: 120,
+    customRender: ({ text }: { text: string }) => formatDate(text),
   },
   {
     title: '操作',
@@ -197,10 +200,6 @@ const handleDelete = (businessCategory: BusinessCategory) => {
 
 const handleSuccess = () => {
   loadBusinessCategories()
-}
-
-const formatDate = (dateString: string) => {
-  return dayjs(dateString).format('YYYY-MM-DD')
 }
 
 onMounted(() => {
