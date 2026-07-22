@@ -2,7 +2,6 @@
   "name": "inventory-management",
   "version": "0.0.1",
   "description": "Inventory Management System",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -44,5 +43,6 @@
     "vite": "^5.2.8",
     "vitest": "^1.5.0",
     "vue-tsc": "^2.0.16"
-  }
+  },
+  "type": "module"
 }
