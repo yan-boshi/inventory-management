@@ -1,28 +1,35 @@
 <template>
   <a-modal
-    :title="isEdit ? '编辑采购订单' : '新增采购订单'"
+    :title="isEdit ? t.purchaseOrder.editTitle : t.purchaseOrder.newTitle"
     width="85%"
     :visible="visible"
     @ok="handleSubmit"
     @cancel="handleCancel"
-    :okText="'保存'"
+    :okText="t.common.save"
     :confirmLoading="submitting"
     :footer="null"
   >
     <div v-if="visible" class="purchase-order-form">
       <div class="purchase-order-header">
-        <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
-        <h2 class="purchase-order-title">采购订单</h2>
+        <div class="header-top">
+          <div></div>
+          <h1 class="company-name">{{ t.purchaseOrder.companyName }}</h1>
+          <a-radio-group v-model:value="lang" size="small" class="lang-switch">
+            <a-radio-button value="zh">中文</a-radio-button>
+            <a-radio-button value="en">English</a-radio-button>
+          </a-radio-group>
+        </div>
+        <h2 class="purchase-order-title">{{ t.purchaseOrder.title }}</h2>
       </div>
 
       <div class="purchase-order-content">
         <div class="form-row">
           <div class="form-item">
-            <label class="form-label">默认单据编号：</label>
+            <label class="form-label">{{ t.purchaseOrder.defaultOrderNo }}</label>
             <a-input v-model:value="orderNumber" class="invisible-input" />
           </div>
           <div class="form-item">
-            <label class="form-label"><span class="required">*</span>采购合同编号：</label>
+            <label class="form-label"><span class="required">*</span>{{ t.purchaseOrder.contractNumber }}</label>
             <a-input v-model:value="form.contract_number" class="invisible-input note-input" />
           </div>
           <!-- <div class="form-item">
@@ -33,10 +40,10 @@
 
         <div class="form-row">
           <div class="form-item">
-            <label class="form-label">供应商名称:</label>
+            <label class="form-label">{{ t.purchaseOrder.supplier }}</label>
             <a-select
               v-model:value="form.supplier_name"
-              placeholder="请选择供应商"
+              :placeholder="t.purchaseOrder.selectSupplier"
               :loading="loading.suppliers"
               show-search
               :filter-option="false"
@@ -54,7 +61,7 @@
             </a-select>
           </div>
           <div class="form-item">
-            <label class="form-label"><span class="required">*</span>录入日期：</label>
+            <label class="form-label"><span class="required">*</span>{{ t.purchaseOrder.entryDate }}</label>
             <a-date-picker
               v-model:value="form.entry_date"
               style="width: 100%"
@@ -65,10 +72,10 @@
 
         <div class="form-row">
           <div class="form-item">
-            <label class="form-label">关联销售订单：</label>
+            <label class="form-label">{{ t.purchaseOrder.relatedSalesOrder }}</label>
             <a-select
               v-model:value="form.related_sales_order_id"
-              placeholder="请选择关联销售订单"
+              :placeholder="t.purchaseOrder.selectRelatedSalesOrder"
               :loading="loading.salesOrders"
               show-search
               :filter-option="filterSalesOrderOption"
@@ -105,7 +112,7 @@
               <template v-else-if="column.key === 'business_category'">
                 <a-select
                   v-model:value="record.business_category"
-                  placeholder="请选择业务分类"
+                  :placeholder="t.purchaseOrder.selectCategory"
                   :loading="loading.businessCategories"
                   style="width: 100%"
                   class="invisible-select"
@@ -122,7 +129,7 @@
               <template v-else-if="column.key === 'product_code'">
                 <a-select
                   v-model:value="record.product_code"
-                  placeholder="请选择产品"
+                  :placeholder="t.purchaseOrder.selectProduct"
                   :loading="loading.products"
                   show-search
                   :filter-option="false"
@@ -288,12 +295,12 @@
               <template v-else-if="column.key === 'invoice_received'">
                 <a-select
                   v-model:value="record.invoice_received"
-                  placeholder="请选择"
+                  :placeholder="t.common.pleaseSelect"
                   style="width: 100%"
                   class="invisible-select"
                 >
-                  <a-select-option value="是">是</a-select-option>
-                  <a-select-option value="否">否</a-select-option>
+                  <a-select-option value="是">{{ t.purchaseOrder.yes }}</a-select-option>
+                  <a-select-option value="否">{{ t.purchaseOrder.noOption }}</a-select-option>
                 </a-select>
               </template>
 
@@ -355,7 +362,7 @@
                       : 'red'
                   "
                 >
-                  {{ record.settlement_status || '未结算' }}
+                  {{ getSettlementStatusText(record.settlement_status) }}
                 </a-tag>
               </template>
 
@@ -378,7 +385,7 @@
 
               <template v-else-if="column.key === 'actions'">
                 <a-button type="link" size="small" danger @click="deleteItem(index)">
-                  删除
+                  {{ t.common.delete }}
                 </a-button>
               </template>
             </template>
@@ -386,7 +393,7 @@
             <template #footer>
               <div class="table-footer">
                 <div class="total-row">
-                  <span class="total-label">含税总价：</span>
+                  <span class="total-label">{{ t.purchaseOrder.totalWithTax }}</span>
                   <a-input
                     :value="totalAmount.toFixed(2)"
                     disabled
@@ -399,7 +406,7 @@
                     <template #icon>
                       <PlusOutlined />
                     </template>
-                    追加行
+                    {{ t.purchaseOrder.addRow }}
                   </a-button>
                 </div>
               </div>
@@ -409,11 +416,11 @@
 
         <div class="purchase-order-note">
           <div class="note-row">
-            <label class="note-label">币种：</label>
+            <label class="note-label">{{ t.purchaseOrder.currency }}</label>
             <a-select v-model:value="form.currency" style="width: 100%">
-              <a-select-option value="CNY">人民币</a-select-option>
-              <a-select-option value="USD">美元</a-select-option>
-              <a-select-option value="EUR">欧元</a-select-option>
+              <a-select-option value="CNY">{{ t.purchaseOrder.cny }}</a-select-option>
+              <a-select-option value="USD">{{ t.purchaseOrder.usd }}</a-select-option>
+              <a-select-option value="EUR">{{ t.purchaseOrder.eur }}</a-select-option>
             </a-select>
           </div>
           <!-- <div class="note-row">
@@ -429,10 +436,10 @@
 
           <!-- 采购费用登记 -->
           <div class="expenses-section" style="grid-column: span 2">
-            <div class="expenses-label">采购费用登记</div>
+            <div class="expenses-label">{{ t.purchaseOrder.purchaseExpense }}</div>
             <div class="expenses-row">
               <div class="expense-item">
-                <label>报关运输费</label>
+                <label>{{ t.purchaseOrder.transportFee }}</label>
                 <a-input-number
                   v-model:value="form.expenses.transportationFee"
                   :min="0"
@@ -442,7 +449,7 @@
                 />
               </div>
               <div class="expense-item">
-                <label>增值税</label>
+                <label>{{ t.purchaseOrder.vat }}</label>
                 <a-input-number
                   v-model:value="form.expenses.valueAddedTax"
                   :min="0"
@@ -452,7 +459,7 @@
                 />
               </div>
               <div class="expense-item">
-                <label>手续费</label>
+                <label>{{ t.purchaseOrder.handlingFee }}</label>
                 <a-input-number
                   v-model:value="form.expenses.handlingFee"
                   :min="0"
@@ -462,7 +469,7 @@
                 />
               </div>
               <div class="expense-item">
-                <label>运营费</label>
+                <label>{{ t.purchaseOrder.operatingExpenses }}</label>
                 <a-input-number
                   v-model:value="form.expenses.operatingExpenses"
                   :min="0"
@@ -472,7 +479,7 @@
                 />
               </div>
               <div class="expense-item">
-                <label>其他</label>
+                <label>{{ t.purchaseOrder.otherFee }}</label>
                 <a-input-number
                   v-model:value="form.expenses.otherFee"
                   :min="0"
@@ -485,16 +492,16 @@
           </div>
 
           <div class="note-row">
-            <label class="note-label">备注：</label>
+            <label class="note-label">{{ t.common.remarks }}：</label>
             <a-textarea v-model:value="form.remarks" :rows="3" />
           </div>
         </div>
 
         <div class="form-footer">
           <a-space>
-            <a-button @click="handleCancel">取消</a-button>
-            <a-button v-if="!isEdit" @click="handleSaveDraft">暂存</a-button>
-            <a-button type="primary" @click="handleSubmit">保存</a-button>
+            <a-button @click="handleCancel">{{ t.common.cancel }}</a-button>
+            <a-button v-if="!isEdit" @click="handleSaveDraft">{{ t.purchaseOrder.draft }}</a-button>
+            <a-button type="primary" @click="handleSubmit">{{ t.common.save }}</a-button>
           </a-space>
         </div>
       </div>
@@ -516,6 +523,7 @@ import { businessCategoriesApi } from '@/api/businessCategories'
 import { useUserStore } from '@/stores/user'
 import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
 import { Modal } from 'ant-design-vue'
+import { getLocale, type Lang } from '@/locales'
 import type {
   CreatePurchaseOrderRequest,
   PurchaseItem,
@@ -526,6 +534,9 @@ import type {
 } from '@/types'
 
 const userStore = useUserStore()
+
+const lang = ref<Lang>('zh')
+const t = computed(() => getLocale(lang.value))
 
 const props = defineProps<{
   visible: boolean
@@ -576,35 +587,35 @@ const form = reactive<
   },
 })
 
-const itemColumns = [
-  { title: '编号', key: 'no', width: 60, align: 'center', fixed: 'left' as const },
-  { title: '业务分类', key: 'business_category', width: 120, fixed: 'left' as const },
-  { title: '产品代码', key: 'product_code', width: 120, fixed: 'left' as const },
-  { title: '产品名称', key: 'product_name', width: 150, fixed: 'left' as const },
-  { title: '规格型号', key: 'model', width: 100, fixed: 'left' as const },
-  { title: '规格描述', key: 'description', width: 120, fixed: 'left' as const },
-  { title: '单位', key: 'unit', width: 70 },
-  { title: '数量', key: 'quantity', width: 80 },
+const itemColumns = computed(() => [
+  { title: t.value.purchaseOrder.no, key: 'no', width: 60, align: 'center' as const, fixed: 'left' as const },
+  { title: t.value.purchaseOrder.businessCategory, key: 'business_category', width: 120, fixed: 'left' as const },
+  { title: t.value.purchaseOrder.productCode, key: 'product_code', width: 120, fixed: 'left' as const },
+  { title: t.value.purchaseOrder.productName, key: 'product_name', width: 150, fixed: 'left' as const },
+  { title: t.value.purchaseOrder.model, key: 'model', width: 100, fixed: 'left' as const },
+  { title: t.value.purchaseOrder.description, key: 'description', width: 120, fixed: 'left' as const },
+  { title: t.value.purchaseOrder.unit, key: 'unit', width: 70 },
+  { title: t.value.purchaseOrder.quantity, key: 'quantity', width: 80 },
   // { title: '入库数', key: 'inbound_quantity', width: 80 },
-  { title: '税率（%）', key: 'tax_rate', width: 90 },
-  { title: '含税单价', key: 'tax_included_price', width: 100, align: 'right' as const },
-  { title: '未税单价', key: 'tax_excluded_price', width: 100, align: 'right' as const },
-  { title: '含税金额', key: 'tax_included_amount', width: 110, align: 'right' as const },
-  { title: '未税金额', key: 'tax_excluded_amount', width: 110, align: 'right' as const },
-  { title: '税额', key: 'tax_amount', width: 100, align: 'right' as const },
-  { title: '状态', key: 'status', width: 100 },
-  { title: '发货日期', key: 'delivery_date', width: 120 },
-  { title: '开票日期', key: 'invoice_date', width: 130 },
-  { title: '发票号', key: 'invoice_number', width: 120 },
-  { title: '是否到票', key: 'invoice_received', width: 90 },
-  { title: '结算日期', key: 'settlement_date', width: 130 },
-  { title: '结算金额', key: 'settlement_amount', width: 100, align: 'right' as const },
-  { title: '未结算金额', key: 'unsettled_amount', width: 100, align: 'right' as const },
-  { title: '结算状态', key: 'settlement_status', width: 100 },
-  { title: '备注', key: 'remarks', width: 150 },
-  { title: '总价', key: 'total_price', width: 110, align: 'right' as const },
-  { title: '操作', key: 'actions', width: 70, fixed: 'right' as const },
-]
+  { title: t.value.purchaseOrder.taxRate, key: 'tax_rate', width: 90 },
+  { title: t.value.purchaseOrder.taxIncludedPrice, key: 'tax_included_price', width: 100, align: 'right' as const },
+  { title: t.value.purchaseOrder.taxExcludedPrice, key: 'tax_excluded_price', width: 100, align: 'right' as const },
+  { title: t.value.purchaseOrder.taxIncludedAmount, key: 'tax_included_amount', width: 110, align: 'right' as const },
+  { title: t.value.purchaseOrder.taxExcludedAmount, key: 'tax_excluded_amount', width: 110, align: 'right' as const },
+  { title: t.value.purchaseOrder.taxAmount, key: 'tax_amount', width: 100, align: 'right' as const },
+  { title: t.value.purchaseOrder.status, key: 'status', width: 100 },
+  { title: t.value.purchaseOrder.deliveryDate, key: 'delivery_date', width: 120 },
+  { title: t.value.purchaseOrder.invoiceDate, key: 'invoice_date', width: 130 },
+  { title: t.value.purchaseOrder.invoiceNumber, key: 'invoice_number', width: 120 },
+  { title: t.value.purchaseOrder.invoiceReceived, key: 'invoice_received', width: 90 },
+  { title: t.value.purchaseOrder.settlementDate, key: 'settlement_date', width: 130 },
+  { title: t.value.purchaseOrder.settlementAmount, key: 'settlement_amount', width: 100, align: 'right' as const },
+  { title: t.value.purchaseOrder.unsettledAmount, key: 'unsettled_amount', width: 100, align: 'right' as const },
+  { title: t.value.purchaseOrder.settlementStatus, key: 'settlement_status', width: 100 },
+  { title: t.value.common.remarks, key: 'remarks', width: 150 },
+  { title: t.value.purchaseOrder.totalPrice, key: 'total_price', width: 110, align: 'right' as const },
+  { title: t.value.common.action, key: 'actions', width: 70, fixed: 'right' as const },
+])
 
 const totalAmount = computed(() => {
   return form.purchase_items.reduce((sum, item) => sum + (item.total_price || 0), 0)
@@ -615,7 +626,7 @@ const getNewOrderNumber = async () => {
     const { order_number } = await purchaseOrdersApi.getNewOrderNumber()
     orderNumber.value = order_number
   } catch (error) {
-    message.error('获取采购订单编号失败')
+    message.error(t.value.purchaseOrder.getOrderNumberFail)
   }
 }
 
@@ -634,7 +645,7 @@ const handleSupplierSearch = async (value: string) => {
       supplier_code: s.supplier_code || s.code,
     }))
   } catch (error) {
-    message.error('获取供应商列表失败')
+    message.error(t.value.purchaseOrder.getSuppliersFail)
   }
   loading.suppliers = false
 }
@@ -683,7 +694,7 @@ const handleProductSearch = async (value: string, index: number) => {
       unit: p.unit,
     }))
   } catch (error) {
-    message.error('获取产品列表失败')
+    message.error(t.value.purchaseOrder.getProductsFail)
   }
   loading.products = false
 }
@@ -711,7 +722,7 @@ const handleSalesOrderChange = (value: string | undefined) => {
   try {
     const salesItems = JSON.parse(salesOrder.sales_items || '[]')
     if (salesItems.length === 0) {
-      message.warning('该销售订单没有商品')
+      message.warning(t.value.purchaseOrder.noProductsInSalesOrder)
       return
     }
 
@@ -749,13 +760,13 @@ const handleSalesOrderChange = (value: string | undefined) => {
     form.purchase_items.forEach((_, index) => calculateRowTotal(index))
 
     message.success(
-      `已加载销售订单 ${salesOrder.contract_number || salesOrder.order_number} 的 ${
-        salesItems.length
-      } 个商品`
+      t.value.purchaseOrder.salesOrderLoaded
+        .replace('{orderNumber}', salesOrder.contract_number || salesOrder.order_number)
+        .replace('{count}', String(salesItems.length))
     )
   } catch (error) {
     console.error('解析销售订单商品失败', error)
-    message.error('解析销售订单商品失败')
+    message.error(t.value.purchaseOrder.salesOrderParseFail)
   }
 }
 
@@ -813,24 +824,24 @@ const addNewItem = () => {
 
 const handleSubmit = async () => {
   if (!form.contract_number) {
-    message.error('请输入采购合同编号')
+    message.error(t.value.purchaseOrder.inputContractNumber)
     return
   }
   if (!form.supplier_name) {
-    message.error('请选择供应商')
+    message.error(t.value.purchaseOrder.selectSupplierMsg)
     return
   }
   if (!form.entry_date) {
-    message.error('请选择录入日期')
+    message.error(t.value.purchaseOrder.selectEntryDate)
     return
   }
   if (form.purchase_items.length === 0) {
-    message.error('请添加采购商品')
+    message.error(t.value.purchaseOrder.addPurchaseItems)
     return
   }
   const hasMissingCategory = form.purchase_items.some((item: any) => !item.business_category)
   if (hasMissingCategory) {
-    message.error('请填写所有商品的业务分类')
+    message.error(t.value.purchaseOrder.fillAllCategories)
     return
   }
 
@@ -876,17 +887,17 @@ const handleSubmit = async () => {
 
     if (props.isEdit && props.purchaseOrderData?.purchase_order_id) {
       await purchaseOrdersApi.update(props.purchaseOrderData.purchase_order_id, submitData)
-      message.success('采购订单更新成功')
+      message.success(t.value.purchaseOrder.orderUpdateSuccess)
     } else {
       await purchaseOrdersApi.create(submitData)
-      message.success('采购订单创建成功')
+      message.success(t.value.purchaseOrder.orderCreateSuccess)
       clearDraft(DRAFT_KEY)
     }
 
     emit('success')
     emit('update:visible', false)
   } catch (error: any) {
-    message.error(error?.message || '操作失败')
+    message.error(error?.message || t.value.common.error)
   } finally {
     submitting.value = false
   }
@@ -979,7 +990,7 @@ const loadBasicData = async () => {
     productOptions.value = products.data || []
     businessCategoryOptions.value = businessCategories.data || []
   } catch (error) {
-    message.error('加载基础数据失败')
+    message.error(t.value.purchaseOrder.loadBasicDataFail)
   }
   await loadSalesOrders()
 }
@@ -1029,7 +1040,7 @@ const handleSaveDraft = () => {
     ? `${form.supplier_name} - ${form.purchase_items.length}个商品`
     : `${form.purchase_items.length}个商品`
   saveDraft(DRAFT_KEY, draftData, summary)
-  message.success('暂存成功')
+  message.success(t.value.purchaseOrder.draftSuccess)
 }
 
 const restoreDraft = () => {
@@ -1065,14 +1076,14 @@ const checkDraft = () => {
     if (draft) {
       const timeText = formatDraftTime(draft.timestamp)
       Modal.confirm({
-        title: '恢复暂存内容',
-        content: `检测到上次暂存的内容（${draft.summary}，暂存于${timeText}），是否恢复？`,
-        okText: '恢复',
-        cancelText: '放弃',
+        title: t.value.purchaseOrder.restoreDraftTitle,
+        content: t.value.purchaseOrder.restoreDraftContent.replace('{summary}', draft.summary).replace('{time}', timeText),
+        okText: t.value.purchaseOrder.restore,
+        cancelText: t.value.purchaseOrder.discard,
         zIndex: 1050,
         onOk: () => {
           restoreDraft()
-          message.success('已恢复暂存内容')
+          message.success(t.value.purchaseOrder.draftRestored)
         },
         onCancel: () => {
           clearDraft(DRAFT_KEY)
@@ -1093,12 +1104,21 @@ const getStatusColor = (status: number) => {
 }
 const getStatusText = (status: number) => {
   const textMap: Record<number, string> = {
-    1: '未入库',
-    2: '已全部入库',
-    3: '已部分入库',
-    4: '退货',
+    1: t.value.purchaseOrder.notInStock,
+    2: t.value.purchaseOrder.fullyInStock,
+    3: t.value.purchaseOrder.partiallyInStock,
+    4: t.value.purchaseOrder.returned,
   }
-  return textMap[status] || '未知'
+  return textMap[status] || t.value.purchaseOrder.unknown
+}
+
+const getSettlementStatusText = (status: string) => {
+  const textMap: Record<string, string> = {
+    '全部结算': t.value.purchaseOrder.fullySettled,
+    '部分结算': t.value.purchaseOrder.partiallySettled,
+    '未结算': t.value.purchaseOrder.unsettled,
+  }
+  return textMap[status] || t.value.purchaseOrder.unsettled
 }
 </script>
 
@@ -1111,10 +1131,21 @@ const getStatusText = (status: number) => {
   text-align: center;
   margin-bottom: 30px;
 
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+
+    .lang-switch {
+      flex-shrink: 0;
+    }
+  }
+
   .company-name {
     font-size: 22px;
     font-weight: bold;
-    margin: 0 0 12px 0;
+    margin: 0;
     color: #000;
   }
 

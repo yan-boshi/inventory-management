@@ -111,12 +111,14 @@ export const getInventoryReport = async (req, res) => {
 
     // 生成报表数据
     const report = products.map(product => {
-      const currentStock = parseFloat(product.stock) || 0
-      // 期初库存 = 当前库存 - 期间入库 + 期间出库
       const inbound = inboundMap[product.product_code] || 0
       const outbound = outboundMap[product.product_code] || 0
-      const openingStock = currentStock - inbound + outbound
-      const closingStock = currentStock
+      // 期初库存 = 查询日期之前的所有入库 - 查询日期之前的所有出库
+      const inboundBefore = inboundBeforeMap[product.product_code] || 0
+      const outboundBefore = outboundBeforeMap[product.product_code] || 0
+      const openingStock = inboundBefore - outboundBefore
+      // 期末库存 = 期初 + 期间入库 - 期间出库（确保公式平衡）
+      const closingStock = openingStock + inbound - outbound
       const taxIncludedPrice = parseFloat(product.tax_included_price) || 0
       // 如果未税单价为空，则根据含税单价和默认税率(13%)计算
       const taxExcludedPrice = parseFloat(product.tax_excluded_price) || (taxIncludedPrice > 0 ? Math.round(taxIncludedPrice / 1.13 * 100) / 100 : 0)

@@ -1,44 +1,47 @@
 <template>
   <a-modal
-    :title="isEdit ? '编辑销售订单' : '新增销售订单'"
+    :title="isEdit ? t.salesOrder.editTitle : t.salesOrder.newTitle"
     width="85%"
     :visible="visible"
     @ok="handleSubmit"
     @cancel="handleCancel"
-    :okText="'保存'"
+    :okText="t.common.save"
     :confirmLoading="submitting"
     :footer="null"
   >
     <div v-if="visible" class="sales-order-form">
       <!-- 销售订单头部 -->
       <div class="sales-order-header">
-        <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
-        <h2 class="sales-order-title">销售订单</h2>
+        <div class="header-top">
+          <div></div>
+          <h1 class="company-name">{{ t.salesOrder.companyName }}</h1>
+          <a-radio-group v-model:value="lang" size="small" class="lang-switch">
+            <a-radio-button value="zh">中文</a-radio-button>
+            <a-radio-button value="en">English</a-radio-button>
+          </a-radio-group>
+        </div>
+        <h2 class="sales-order-title">{{ t.salesOrder.title }}</h2>
       </div>
 
       <!-- 销售订单内容 -->
       <div class="sales-order-content">
         <div class="form-row">
           <div class="form-item">
-            <label class="form-label">默认单据编号：</label>
+            <label class="form-label">{{ t.salesOrder.defaultOrderNo }}</label>
             <a-input v-model:value="orderNumber" class="invisible-input" />
           </div>
           <div class="form-item">
-            <label class="form-label"><span class="required">*</span>销售合同编号：</label>
+            <label class="form-label"><span class="required">*</span>{{ t.salesOrder.contractNumber }}</label>
             <a-input v-model:value="form.contract_number" class="invisible-input note-input" />
           </div>
-          <!-- <div class="form-item">
-            <label class="form-label">员：</label>
-            <a-input v-model:value="form.sales_person" class="invisible-input note-input" disabled />
-          </div> -->
         </div>
         <div class="sales-order-content">
           <div class="form-row">
             <div class="form-item">
-              <label class="form-label">客户名称:</label>
+              <label class="form-label">{{ t.salesOrder.customer }}</label>
               <a-select
                 v-model:value="form.customer_name"
-                placeholder="请选择客户"
+                :placeholder="t.salesOrder.selectCustomer"
                 :loading="loading.customers"
                 show-search
                 :filter-option="false"
@@ -56,10 +59,10 @@
               </a-select>
             </div>
             <div class="form-item">
-              <label class="form-label">结算方式：</label>
+              <label class="form-label">{{ t.salesOrder.paymentMethod }}</label>
               <a-select
                 v-model:value="form.payment_method"
-                placeholder="请选择结算方式"
+                :placeholder="t.salesOrder.selectPaymentMethod"
                 :loading="loading.paymentMethods"
                 show-search
                 :filter-option="false"
@@ -78,15 +81,15 @@
           </div>
           <div class="form-row">
             <div class="form-item">
-              <label class="form-label">币种：</label>
+              <label class="form-label">{{ t.salesOrder.currency }}</label>
               <a-select v-model:value="form.currency" class="invisible-select customer-name-input">
-                <a-select-option value="CNY">人民币</a-select-option>
-                <a-select-option value="USD">美元</a-select-option>
-                <a-select-option value="EUR">欧元</a-select-option>
+                <a-select-option value="CNY">{{ t.salesOrder.cny }}</a-select-option>
+                <a-select-option value="USD">{{ t.salesOrder.usd }}</a-select-option>
+                <a-select-option value="EUR">{{ t.salesOrder.eur }}</a-select-option>
               </a-select>
             </div>
             <div class="form-item">
-              <label class="form-label"><span class="required">*</span>录入日期：</label>
+              <label class="form-label"><span class="required">*</span>{{ t.salesOrder.entryDate }}</label>
               <a-date-picker
                 v-model:value="form.entry_date"
                 class="invisible-select customer-name-input"
@@ -113,7 +116,7 @@
                 <template v-else-if="column.key === 'business_category'">
                   <a-select
                     v-model:value="record.business_category"
-                    placeholder="请选择业务分类"
+                    :placeholder="t.salesOrder.selectCategory"
                     :loading="loading.businessCategories"
                     style="width: 100%"
                     class="invisible-select"
@@ -130,7 +133,7 @@
                 <template v-else-if="column.key === 'product_code'">
                   <a-select
                     v-model:value="record.product_code"
-                    placeholder="请选择产品"
+                    :placeholder="t.salesOrder.selectProduct"
                     :loading="loading.products"
                     show-search
                     :filter-option="false"
@@ -268,14 +271,14 @@
                 <template v-else-if="column.key === 'purchase_status'">
                   <a-select
                     v-model:value="record.purchase_status"
-                    placeholder="请选择"
+                    :placeholder="t.common.pleaseSelect"
                     style="width: 100%"
                     class="invisible-select"
                   >
-                    <a-select-option :value="1">未采购</a-select-option>
-                    <a-select-option :value="2">部分采购</a-select-option>
-                    <a-select-option :value="3">已采购</a-select-option>
-                    <a-select-option :value="4">无需采购</a-select-option>
+                    <a-select-option :value="1">{{ t.salesOrder.notPurchased }}</a-select-option>
+                    <a-select-option :value="2">{{ t.salesOrder.partiallyPurchased }}</a-select-option>
+                    <a-select-option :value="3">{{ t.salesOrder.purchased }}</a-select-option>
+                    <a-select-option :value="4">{{ t.salesOrder.noNeedToPurchase }}</a-select-option>
                   </a-select>
                 </template>
 
@@ -308,12 +311,12 @@
                 <template v-else-if="column.key === 'invoice_received'">
                   <a-select
                     v-model:value="record.invoice_received"
-                    placeholder="请选择"
+                    :placeholder="t.common.pleaseSelect"
                     style="width: 100%"
                     class="invisible-select"
                   >
-                    <a-select-option value="是">是</a-select-option>
-                    <a-select-option value="否">否</a-select-option>
+                    <a-select-option value="是">{{ t.salesOrder.yes }}</a-select-option>
+                    <a-select-option value="否">{{ t.salesOrder.noOption }}</a-select-option>
                   </a-select>
                 </template>
 
@@ -389,7 +392,7 @@
 
                 <template v-else-if="column.key === 'actions'">
                   <a-button type="link" size="small" danger @click="deleteItem(index)">
-                    删除
+                    {{ t.common.delete }}
                   </a-button>
                 </template>
               </template>
@@ -397,7 +400,7 @@
               <template #footer>
                 <div class="table-footer">
                   <div class="total-row">
-                    <span class="total-label">含税总价：</span>
+                    <span class="total-label">{{ t.salesOrder.totalWithTax }}</span>
                     <a-input-number
                       v-model:value="totalAmount"
                       :min="0"
@@ -412,7 +415,7 @@
                       <template #icon>
                         <PlusOutlined />
                       </template>
-                      追加行
+                      {{ t.salesOrder.addRow }}
                     </a-button>
                   </div>
                 </div>
@@ -424,10 +427,10 @@
           <div class="sales-order-note">
             <!-- 销售费用登记 -->
             <div class="expenses-section">
-              <div class="expenses-label">销售费用登记</div>
+              <div class="expenses-label">{{ t.salesOrder.salesExpense }}</div>
               <div class="expenses-row">
                 <div class="expense-item">
-                  <label>运输费</label>
+                  <label>{{ t.salesOrder.transportFee }}</label>
                   <a-input-number
                     v-model:value="form.expenses.transportationFee"
                     :min="0"
@@ -437,7 +440,7 @@
                   />
                 </div>
                 <div class="expense-item">
-                  <label>手续费</label>
+                  <label>{{ t.salesOrder.handlingFee }}</label>
                   <a-input-number
                     v-model:value="form.expenses.handlingFee"
                     :min="0"
@@ -447,7 +450,7 @@
                   />
                 </div>
                 <div class="expense-item">
-                  <label>其他</label>
+                  <label>{{ t.salesOrder.otherFee }}</label>
                   <a-input-number
                     v-model:value="form.expenses.otherFee"
                     :min="0"
@@ -460,7 +463,7 @@
             </div>
 
             <div class="note-row">
-              <label class="note-label">备注：</label>
+              <label class="note-label">{{ t.common.remarks }}：</label>
               <a-textarea v-model:value="form.remarks" :rows="3" />
             </div>
           </div>
@@ -469,11 +472,11 @@
         <!-- 底部按钮 -->
         <div class="form-footer">
           <a-space>
-            <a-button @click="handleCancel">取消</a-button>
-            <a-button v-if="!isEdit" @click="handleSaveDraft">暂存</a-button>
-            <!-- <a-button @click="handlePrint">打印</a-button> -->
-            <!-- <a-button type="primary" @click="handleSaveAndPrint">保存并打印</a-button> -->
-            <a-button type="primary" @click="handleSubmit">保存</a-button>
+            <a-button @click="handleCancel">{{ t.common.cancel }}</a-button>
+            <a-button v-if="!isEdit" @click="handleSaveDraft">{{ t.salesOrder.draft }}</a-button>
+            <!-- <a-button @click="handlePrint">{{ t.common.print }}</a-button> -->
+            <!-- <a-button type="primary" @click="handleSaveAndPrint">{{ t.salesOrder.saveAndPrint }}</a-button> -->
+            <a-button type="primary" @click="handleSubmit">{{ t.common.save }}</a-button>
           </a-space>
         </div>
       </div>
@@ -495,6 +498,7 @@ import { businessCategoriesApi } from '@/api/businessCategories'
 import { useUserStore } from '@/stores/user'
 import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
 import { Modal } from 'ant-design-vue'
+import { getLocale, type Lang } from '@/locales'
 import type {
   CreateSalesOrderRequest,
   SalesOrderItem,
@@ -505,6 +509,9 @@ import type {
 } from '@/types'
 
 const userStore = useUserStore()
+
+const lang = ref<Lang>('zh')
+const t = computed(() => getLocale(lang.value))
 
 const props = defineProps<{
   visible: boolean
@@ -538,12 +545,12 @@ const getStatusColor = (status: number) => {
 
 const getStatusText = (status: number) => {
   const textMap: Record<number, string> = {
-    1: '未出库',
-    2: '已全部出库',
-    3: '已部分出库',
-    4: '退货',
+    1: t.value.salesOrder.notShipped,
+    2: t.value.salesOrder.fullyShipped,
+    3: t.value.salesOrder.partiallyShipped,
+    4: t.value.salesOrder.returned,
   }
-  return textMap[status] || '未知'
+  return textMap[status] || t.value.salesOrder.unknown
 }
 
 const getPurchaseStatusColor = (status: number) => {
@@ -558,12 +565,12 @@ const getPurchaseStatusColor = (status: number) => {
 
 const getPurchaseStatusText = (status: number) => {
   const textMap: Record<number, string> = {
-    1: '未采购',
-    2: '部分采购',
-    3: '已采购',
-    4: '无需采购',
+    1: t.value.salesOrder.notPurchased,
+    2: t.value.salesOrder.partiallyPurchased,
+    3: t.value.salesOrder.purchased,
+    4: t.value.salesOrder.noNeedToPurchase,
   }
-  return textMap[status] || '未采购'
+  return textMap[status] || t.value.salesOrder.notPurchased
 }
 
 const customerOptions = ref<CustomerOption[]>([])
@@ -587,34 +594,34 @@ const form = reactive<CreateSalesOrderRequest & { sales_items: SalesOrderItem[];
   },
 })
 
-const itemColumns = [
-  { title: '编号', key: 'no', width: 60, align: 'center', fixed: 'left' as const },
-  { title: '业务分类', key: 'business_category', width: 120, fixed: 'left' as const },
-  { title: '产品代码', key: 'product_code', width: 120, fixed: 'left' as const },
-  { title: '产品名称', key: 'product_name', width: 150, fixed: 'left' as const },
-  { title: '规格型号', key: 'model', width: 100, fixed: 'left' as const },
-  { title: '规格描述', key: 'description', width: 120, fixed: 'left' as const },
-  { title: '单位', key: 'unit', width: 70 },
-  { title: '数量', key: 'quantity', width: 80 },
-  { title: '税率（%）', key: 'tax_rate', width: 90 },
-  { title: '含税单价', key: 'tax_included_price', width: 100, align: 'right' as const },
-  { title: '未税单价', key: 'tax_excluded_price', width: 100, align: 'right' as const },
-  { title: '含税金额', key: 'tax_included_amount', width: 110, align: 'right' as const },
-  { title: '未税金额', key: 'tax_excluded_amount', width: 110, align: 'right' as const },
-  { title: '税额', key: 'tax_amount', width: 100, align: 'right' as const },
-  { title: '出库状态', key: 'status', width: 80 },
-  { title: '采购状态', key: 'purchase_status', width: 100 },
-  { title: '发货日期', key: 'delivery_date', width: 130 },
-  { title: '开票日期', key: 'invoice_date', width: 130 },
-  { title: '发票号', key: 'invoice_number', width: 120 },
-  { title: '是否到票', key: 'invoice_received', width: 90 },
-  { title: '结算日期', key: 'settlement_date', width: 130 },
-  { title: '结算金额', key: 'settlement_amount', width: 100, align: 'right' as const },
-  { title: '未结算金额', key: 'unsettled_amount', width: 100, align: 'right' as const },
-  { title: '结算状态', key: 'settlement_status', width: 100 },
-  { title: '备注', key: 'remarks', width: 150 },
-  { title: '操作', key: 'actions', width: 70, fixed: 'right' as const },
-]
+const itemColumns = computed(() => [
+  { title: t.value.salesOrder.no, key: 'no', width: 60, align: 'center' as const, fixed: 'left' as const },
+  { title: t.value.salesOrder.businessCategory, key: 'business_category', width: 120, fixed: 'left' as const },
+  { title: t.value.salesOrder.productCode, key: 'product_code', width: 120, fixed: 'left' as const },
+  { title: t.value.salesOrder.productName, key: 'product_name', width: 150, fixed: 'left' as const },
+  { title: t.value.salesOrder.model, key: 'model', width: 100, fixed: 'left' as const },
+  { title: t.value.salesOrder.description, key: 'description', width: 120, fixed: 'left' as const },
+  { title: t.value.salesOrder.unit, key: 'unit', width: 70 },
+  { title: t.value.salesOrder.quantity, key: 'quantity', width: 80 },
+  { title: t.value.salesOrder.taxRate, key: 'tax_rate', width: 90 },
+  { title: t.value.salesOrder.taxIncludedPrice, key: 'tax_included_price', width: 100, align: 'right' as const },
+  { title: t.value.salesOrder.taxExcludedPrice, key: 'tax_excluded_price', width: 100, align: 'right' as const },
+  { title: t.value.salesOrder.taxIncludedAmount, key: 'tax_included_amount', width: 110, align: 'right' as const },
+  { title: t.value.salesOrder.taxExcludedAmount, key: 'tax_excluded_amount', width: 110, align: 'right' as const },
+  { title: t.value.salesOrder.taxAmount, key: 'tax_amount', width: 100, align: 'right' as const },
+  { title: t.value.salesOrder.outboundStatus, key: 'status', width: 80 },
+  { title: t.value.salesOrder.purchaseStatus, key: 'purchase_status', width: 100 },
+  { title: t.value.salesOrder.deliveryDate, key: 'delivery_date', width: 130 },
+  { title: t.value.salesOrder.invoiceDate, key: 'invoice_date', width: 130 },
+  { title: t.value.salesOrder.invoiceNumber, key: 'invoice_number', width: 120 },
+  { title: t.value.salesOrder.invoiceReceived, key: 'invoice_received', width: 90 },
+  { title: t.value.salesOrder.settlementDate, key: 'settlement_date', width: 130 },
+  { title: t.value.salesOrder.settlementAmount, key: 'settlement_amount', width: 100, align: 'right' as const },
+  { title: t.value.salesOrder.unsettledAmount, key: 'unsettled_amount', width: 100, align: 'right' as const },
+  { title: t.value.salesOrder.settlementStatus, key: 'settlement_status', width: 100 },
+  { title: t.value.common.remarks, key: 'remarks', width: 150 },
+  { title: t.value.common.action, key: 'actions', width: 70, fixed: 'right' as const },
+])
 
 const totalAmount = computed({
   get: () => form.sales_items.reduce((sum, item) => sum + (item.tax_included_amount || 0), 0),
@@ -692,7 +699,7 @@ const getNewSalesOrderNumber = async () => {
     const { order_number } = await salesOrdersApi.getNewOrderNumber()
     orderNumber.value = order_number
   } catch (error) {
-    message.error('获取销售订单编号失败')
+    message.error(t.value.salesOrder.getContractNumberFail)
   }
 }
 // 搜索结算方式
@@ -710,7 +717,7 @@ const handlePaymentMethodSearch = async (value: string) => {
       payment_method_name: m.payment_method_name || m.name,
     }))
   } catch (error) {
-    message.error('获取结算方式失败')
+    message.error(t.value.salesOrder.getPaymentMethodsFail)
   }
   loading.paymentMethods = false
 }
@@ -730,7 +737,7 @@ const handleBusinessCategorySearch = async (value: string) => {
       business_category_name: b.business_category_name || b.name,
     }))
   } catch (error) {
-    message.error('获取业务分类失败')
+    message.error(t.value.salesOrder.getCategoriesFail)
   }
   loading.businessCategories = false
 }
@@ -751,7 +758,7 @@ const handleCustomerSearch = async (value: string) => {
       customer_code: c.customer_code || c.code,
     }))
   } catch (error) {
-    message.error('获取客户列表失败')
+    message.error(t.value.salesOrder.getCustomersFail)
   }
   loading.customers = false
 }
@@ -783,7 +790,7 @@ const handleProductSearch = async (value: string, index: number) => {
       unit: p.unit,
     }))
   } catch (error) {
-    message.error('获取产品列表失败')
+    message.error(t.value.salesOrder.getProductsFail)
   }
   loading.products = false
 }
@@ -874,29 +881,29 @@ const addNewItem = () => {
 // 提交表单
 const handleSubmit = async () => {
   if (!form.contract_number) {
-    message.error('请输入销售合同编号')
+    message.error(t.value.salesOrder.inputContractNumber)
     return
   }
   if (!form.customer_name) {
-    message.error('请选择客户')
+    message.error(t.value.salesOrder.selectCustomerMsg)
     return
   }
   if (!form.payment_method) {
-    message.error('请选择结算方式')
+    message.error(t.value.salesOrder.selectPaymentMethodMsg)
     return
   }
   if (!form.entry_date) {
-    message.error('请选择录入日期')
+    message.error(t.value.salesOrder.selectEntryDate)
     return
   }
   // 检查所有商品是否填写了业务分类
   const hasMissingCategory = form.sales_items.some((item: any) => !item.business_category)
   if (hasMissingCategory) {
-    message.error('请填写所有商品的业务分类')
+    message.error(t.value.salesOrder.fillAllCategories)
     return
   }
   if (form.sales_items.length === 0) {
-    message.error('请添加销售内容')
+    message.error(t.value.salesOrder.addSaleContent)
     return
   }
   // 确保日期是字符串格式
@@ -938,18 +945,18 @@ const handleSubmit = async () => {
 
     if (props.isEdit && props.salesOrderData?.sales_order_id) {
       await salesOrdersApi.update(props.salesOrderData.sales_order_id, submitData)
-      message.success('销售订单更新成功')
+      message.success(t.value.salesOrder.orderUpdateSuccess)
       emit('success')
     } else {
       await salesOrdersApi.create(submitData)
-      message.success('销售订单创建成功')
+      message.success(t.value.salesOrder.orderCreateSuccess)
       clearDraft(DRAFT_KEY)
       emit('success')
     }
 
     emit('update:visible', false)
   } catch (error) {
-    message.error(error?.message || '操作失败')
+    message.error(error?.message || t.value.common.error)
   } finally {
     submitting.value = false
   }
@@ -1060,7 +1067,7 @@ const loadBasicData = async () => {
     paymentMethodOptions.value = paymentMethods.data || []
     businessCategoryOptions.value = businessCategories.data || []
   } catch (error) {
-    message.error('加载基础数据失败')
+    message.error(t.value.salesOrder.loadBasicDataFail)
   }
 }
 
@@ -1103,7 +1110,7 @@ const handleSaveDraft = () => {
     ? `${form.customer_name} - ${form.sales_items.length}个商品`
     : `${form.sales_items.length}个商品`
   saveDraft(DRAFT_KEY, draftData, summary)
-  message.success('暂存成功')
+  message.success(t.value.salesOrder.draftSuccess)
 }
 
 // 恢复暂存
@@ -1135,14 +1142,14 @@ const checkDraft = () => {
     if (draft) {
       const timeText = formatDraftTime(draft.timestamp)
       Modal.confirm({
-        title: '恢复暂存内容',
-        content: `检测到上次暂存的内容（${draft.summary}，暂存于${timeText}），是否恢复？`,
-        okText: '恢复',
-        cancelText: '放弃',
+        title: t.value.salesOrder.restoreDraftTitle,
+        content: t.value.salesOrder.restoreDraftContent.replace('{summary}', draft.summary).replace('{time}', timeText),
+        okText: t.value.salesOrder.restore,
+        cancelText: t.value.salesOrder.discard,
         zIndex: 1050,
         onOk: () => {
           restoreDraft()
-          message.success('已恢复暂存内容')
+          message.success(t.value.salesOrder.draftRestored)
         },
         onCancel: () => {
           clearDraft(DRAFT_KEY)
@@ -1174,10 +1181,21 @@ watch(
   text-align: center;
   margin-bottom: 30px;
 
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+
+    .lang-switch {
+      flex-shrink: 0;
+    }
+  }
+
   .company-name {
     font-size: 22px;
     font-weight: bold;
-    margin: 0 0 12px 0;
+    margin: 0;
     color: #000;
   }
 

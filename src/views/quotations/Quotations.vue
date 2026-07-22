@@ -190,7 +190,7 @@ const salesOrderData = ref<any>(undefined)
 
 const searchParams = reactive<QuotationQueryParams>({
   page: 1,
-  pageSize: 10,
+  pageSize: 100,
   customerName: '',
   customerCode: '',
   quotationNumber: '',
@@ -200,7 +200,7 @@ const searchParams = reactive<QuotationQueryParams>({
 
 const pagination = reactive({
   current: 1,
-  pageSize: 10,
+  pageSize: 100,
   total: 0,
 })
 
@@ -275,9 +275,9 @@ const loadQuotations = async () => {
   try {
     const response = await quotationsApi.getAll(searchParams)
     quotations.value = response.data || []
-    pagination.total = response.data?.pagination?.total || 0
-    pagination.current = response.data?.pagination?.page || 1
-    pagination.pageSize = response.data?.pagination?.pageSize || 10
+    pagination.total = response.pagination?.total || 0
+    pagination.current = response.pagination?.page || 1
+    pagination.pageSize = response.pagination?.pageSize || 10
   } catch (error) {
     console.error('加载报价单失败:', error)
     message.error('加载报价单失败')

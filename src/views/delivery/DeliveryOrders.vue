@@ -40,6 +40,15 @@
             />
           </a-form-item>
 
+          <a-form-item label="产品代码">
+            <a-input
+              v-model:value="searchParams.productCode"
+              placeholder="请输入产品代码"
+              allow-clear
+              style="width: 160px"
+            />
+          </a-form-item>
+
           <a-form-item label="产品名称">
             <a-input
               v-model:value="searchParams.productName"
@@ -232,7 +241,7 @@ const expandedOrders = computed(() => {
 
 const searchParams = reactive<DeliveryOrderQueryParams>({
   page: 1,
-  pageSize: 10,
+  pageSize: 100,
   orderNumber: '',
   contractNumber: '',
   customerName: '',
@@ -244,7 +253,7 @@ const searchParams = reactive<DeliveryOrderQueryParams>({
 
 const pagination = reactive({
   current: 1,
-  pageSize: 10,
+  pageSize: 100,
   total: 0,
 })
 

@@ -95,13 +95,13 @@ const currentPaymentMethod = ref<PaymentMethod | undefined>(undefined)
 
 const searchParams = reactive<PaymentMethodQueryParams>({
   page: 1,
-  pageSize: 10,
+  pageSize: 100,
   name: '',
 })
 
 const pagination = reactive({
   current: 1,
-  pageSize: 10,
+  pageSize: 100,
   total: 0,
 })
 
@@ -139,9 +139,9 @@ const loadPaymentMethods = async () => {
   try {
     const response = await paymentMethodsApi.getAll(searchParams)
     paymentMethods.value = response.data || []
-    pagination.total = response.data?.pagination?.total || 0
-    pagination.current = response.data?.pagination?.page || 1
-    pagination.pageSize = response.data?.pagination?.pageSize || 10
+    pagination.total = response.pagination?.total || 0
+    pagination.current = response.pagination?.page || 1
+    pagination.pageSize = response.pagination?.pageSize || 10
   } catch (error) {
     console.error('加载结算方式列表失败:', error)
     message.error('加载结算方式列表失败')

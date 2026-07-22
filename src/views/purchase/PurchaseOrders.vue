@@ -40,6 +40,33 @@
             />
           </a-form-item>
 
+          <a-form-item label="产品代码">
+            <a-input
+              v-model:value="searchParams.productCode"
+              placeholder="请输入产品代码"
+              allow-clear
+              style="width: 200px"
+            />
+          </a-form-item>
+
+          <a-form-item label="产品名称">
+            <a-input
+              v-model:value="searchParams.productName"
+              placeholder="请输入产品名称"
+              allow-clear
+              style="width: 200px"
+            />
+          </a-form-item>
+
+          <a-form-item label="产品型号">
+            <a-input
+              v-model:value="searchParams.productModel"
+              placeholder="请输入产品型号"
+              allow-clear
+              style="width: 200px"
+            />
+          </a-form-item>
+
           <a-form-item label="采购日期">
             <a-range-picker
               v-model:value="dateRange"
@@ -110,8 +137,8 @@
               <a-button type="link" size="small" danger @click="handleDelete(record)">
                 删除
               </a-button>
-              <a-button type="link" size="small" @click="({ key }) => handlePrint(record, key)">
-                打印 <DownOutlined />
+              <a-button type="link" size="small" @click="handlePrint(record)">
+                打印
               </a-button>
             </a-space>
           </template>
@@ -141,21 +168,19 @@
     <PurchaseOrderDetail v-model:visible="detailVisible" :order="currentOrder" />
 
     <PurchaseOrderPrint v-model:visible="printVisible" :order="currentOrder" />
-    <PurchaseOrderPrintEn v-model:visible="printEnVisible" :order="currentOrder" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { PlusOutlined, SearchOutlined, ReloadOutlined, DownOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import { purchaseOrdersApi } from '@/api/purchaseOrders'
 import { suppliersApi } from '@/api/suppliers'
 import type { PurchaseOrder, PurchaseOrderQueryParams } from '@/types'
 import PurchaseOrderForm from '@/components/PurchaseOrderForm.vue'
 import PurchaseOrderDetail from '@/components/PurchaseOrderDetail.vue'
 import PurchaseOrderPrint from '@/components/PurchaseOrderPrint.vue'
-import PurchaseOrderPrintEn from '@/components/PurchaseOrderPrintEn.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
@@ -165,7 +190,6 @@ const loading = ref(false)
 const formVisible = ref(false)
 const detailVisible = ref(false)
 const printVisible = ref(false)
-const printEnVisible = ref(false)
 const isEdit = ref(false)
 const currentOrder = ref<PurchaseOrder | undefined>(undefined)
 const dateRange = ref<[any, any] | undefined>(undefined)
@@ -222,7 +246,7 @@ const expandedOrders = computed(() => {
 
 const searchParams = reactive<PurchaseOrderQueryParams>({
   page: 1,
-  pageSize: 10,
+  pageSize: 100,
   orderNumber: '',
   supplierName: '',
   supplierCode: '',
@@ -232,7 +256,7 @@ const searchParams = reactive<PurchaseOrderQueryParams>({
 
 const pagination = reactive({
   current: 1,
-  pageSize: 10,
+  pageSize: 100,
   total: 0,
 })
 
@@ -252,6 +276,15 @@ const productNameFilters = generateFilters('product_name')
 const modelFilters = generateFilters('model')
 // 产品描述筛选选项
 const descriptionFilters = generateFilters('description')
+// 采购人筛选选项
+const purchasePersonFilters = generateFilters('purchase_person')
+// 状态筛选选项
+const statusFilters = computed(() => [
+  { text: '未入库', value: '1' },
+  { text: '已全部入库', value: '2' },
+  { text: '已部分入库', value: '3' },
+  { text: '退货', value: '4' },
+])
 
 // 使用 computed 使列定义响应式
 const allColumns = computed(() => [
@@ -404,6 +437,9 @@ const allColumns = computed(() => [
     key: 'status',
     width: 100,
     align: 'center',
+    filters: statusFilters.value,
+    onFilter: (value: string, record: any) => String(record.item_status) === value,
+    filterMultiple: true,
   },
   {
     title: '录入日期',
@@ -418,6 +454,9 @@ const allColumns = computed(() => [
     key: 'purchase_person',
     width: 80,
     align: 'center',
+    filters: purchasePersonFilters.value,
+    onFilter: (value: string, record: any) => String(record.purchase_person) === value,
+    filterMultiple: true,
     customCell: (record: any) => {
       if (record._isFirstRow && record._rowCount > 1) {
         return { rowSpan: record._rowCount }
@@ -476,6 +515,9 @@ const handleReset = () => {
   searchParams.orderNumber = ''
   searchParams.supplierName = ''
   searchParams.supplierCode = ''
+  searchParams.productCode = ''
+  searchParams.productName = ''
+  searchParams.productModel = ''
   searchParams.startDate = ''
   searchParams.endDate = ''
   dateRange.value = undefined
@@ -573,15 +615,9 @@ const handleSuccess = () => {
   loadOrders()
 }
 
-const handlePrint = (order: PurchaseOrder, lang: 'zh' | 'en' = 'zh') => {
-  console.log('打印采购订单:', order, 'language:', lang)
-
+const handlePrint = (order: PurchaseOrder) => {
   currentOrder.value = order
-  if (lang === 'en') {
-    printEnVisible.value = true
-  } else {
-    printVisible.value = true
-  }
+  printVisible.value = true
 }
 
 const formatMoney = (amount: number | string) => {

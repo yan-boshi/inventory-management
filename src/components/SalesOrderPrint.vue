@@ -1,47 +1,53 @@
 <template>
   <a-modal v-model:open="visible" title="" width="900px" :footer="null" :closable="false" @cancel="handleCancel">
+    <div class="lang-switch-bar no-print">
+      <a-radio-group v-model:value="lang" size="small">
+        <a-radio-button value="zh">中文</a-radio-button>
+        <a-radio-button value="en">English</a-radio-button>
+      </a-radio-group>
+    </div>
     <div ref="printContent" class="print-content">
       <!-- 页面头 -->
       <div class="page-header">
-        <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
-        <h2 class="contract-title">销售合同</h2>
+        <h1 class="company-name">{{ t.salesOrderPrint.companyName }}</h1>
+        <h2 class="contract-title">{{ t.salesOrderPrint.contractTitle }}</h2>
       </div>
 
       <!-- 页面上面部分 -->
       <div class="top-section">
         <div class="contract-number-row">
-          <span class="label">合同编号：</span>
+          <span class="label">{{ t.salesOrderPrint.contractNumber }}</span>
           <span class="value">{{ orderData?.contract_number || '-' }}</span>
         </div>
         <div class="parties-row">
           <!-- 甲方（需方） -->
           <div class="party-info">
             <div class="info-item">
-              <span class="label">甲方：</span>
+              <span class="label">{{ t.salesOrderPrint.partyA }}</span>
               <span class="value">{{ customerData?.customer_name || '-' }}</span>
             </div>
             <div class="info-item">
-              <span class="label">信用代码：</span>
+              <span class="label">{{ t.salesOrderPrint.creditCode }}</span>
               <span class="value">{{ customerData?.customer_tax_number || '-' }}</span>
             </div>
             <div class="info-item">
-              <span class="label">注册地址：</span>
-              <span class="value">{{ customerData?.register_address || '-' }}</span> 
+              <span class="label">{{ t.salesOrderPrint.registeredAddress }}</span>
+              <span class="value">{{ customerData?.register_address || '-' }}</span>
             </div>
           </div>
           <!-- 乙方（供方） -->
           <div class="party-info">
             <div class="info-item">
-              <span class="label">乙方：</span>
-              <span class="value">深圳市旭思达光电科技有限公司</span>
+              <span class="label">{{ t.salesOrderPrint.partyB }}</span>
+              <span class="value">{{ t.salesOrderPrint.companyName }}</span>
             </div>
             <div class="info-item">
-              <span class="label">信用代码：</span>
+              <span class="label">{{ t.salesOrderPrint.creditCode }}</span>
               <span class="value" @click="handleEdit('sellerCreditCode')">91440300MAKBFMJ49M</span>
             </div>
             <div class="info-item">
-              <span class="label">注册地址：</span>
-              <span class="value">深圳市龙岗区坂田街道五和大道（南）景丰大厦602室</span>
+              <span class="label">{{ t.salesOrderPrint.registeredAddress }}</span>
+              <span class="value">{{ lang === 'zh' ? '深圳市龙岗区坂田街道五和大道（南）景丰大厦602室' : 'Room 602, Jingfeng Building, No.42 Wuhedadao (South), Bantian, Longgang, Shenzhen' }}</span>
             </div>
           </div>
         </div>
@@ -49,22 +55,22 @@
 
       <!-- 页面中间部分：表格 -->
       <div class="middle-section">
-        <div class="intro-text">一、经甲（需方）、乙（供方）双方友好协商，乙方出售以下货物给甲方：</div>
+        <div class="intro-text">{{ t.salesOrderPrint.introText }}</div>
         <table class="product-table">
           <thead>
             <tr>
-              <th>序号</th>
-              <th>产品名称</th>
-              <th>产品代码</th>
-              <th>规格型号</th>
-              <th>规格描述</th>
-              <th>数量</th>
-              <th>单位</th>
-              <th>含税单价</th>
-              <th>税额</th>
-              <th>含税金额</th>
-              <th>发货日期</th>
-              <th style="width: 100px">备注</th>
+              <th>{{ t.salesOrderPrint.no }}</th>
+              <th>{{ t.salesOrderPrint.productName }}</th>
+              <th>{{ t.salesOrderPrint.productCode }}</th>
+              <th>{{ t.salesOrderPrint.model }}</th>
+              <th>{{ t.salesOrderPrint.description }}</th>
+              <th>{{ t.salesOrderPrint.quantity }}</th>
+              <th>{{ t.salesOrderPrint.unit }}</th>
+              <th>{{ t.salesOrderPrint.taxIncludedPrice }}</th>
+              <th>{{ t.salesOrderPrint.taxAmount }}</th>
+              <th>{{ t.salesOrderPrint.taxIncludedAmount }}</th>
+              <th>{{ t.salesOrderPrint.deliveryDate }}</th>
+              <th style="width: 100px">{{ t.salesOrderPrint.remarks }}</th>
             </tr>
           </thead>
           <tbody>
@@ -85,20 +91,20 @@
               </td>
             </tr>
             <!-- 金额总计行 -->
-            <tr class="total-row">
-              <td colspan="10" class="total-label">税额（大写）：</td>
-              <td colspan="2">{{ formData.taxAmountInWords }}</td>
+            <tr v-if="lang === 'zh'" class="total-row">
+              <td colspan="10" class="total-label">{{ t.salesOrderPrint.taxAmountInWords }}</td>
+              <td colspan="2">{{ taxAmountInWords }}</td>
             </tr>
             <tr class="total-row">
-              <td colspan="10" class="total-label">税额：</td>
+              <td colspan="10" class="total-label">{{ t.salesOrderPrint.taxAmountLabel }}</td>
               <td colspan="2">{{ formatPrice(formData.taxTotal) }}</td>
             </tr>
-            <tr class="total-row">
-              <td colspan="10" class="total-label">含税金额总计（大写）：</td>
-              <td colspan="2">{{ formData.amountInWords }}</td>
+            <tr v-if="lang === 'zh'" class="total-row">
+              <td colspan="10" class="total-label">{{ t.salesOrderPrint.totalWithTaxInWords }}</td>
+              <td colspan="2">{{ amountInWords }}</td>
             </tr>
             <tr class="total-row">
-              <td colspan="10" class="total-label">含税金额总计：</td>
+              <td colspan="10" class="total-label">{{ t.salesOrderPrint.totalWithTax }}</td>
               <td colspan="2">{{ formatPrice(formData.total) }}</td>
             </tr>
           </tbody>
@@ -107,66 +113,66 @@
 
       <!-- 合同条款 -->
       <div class="terms-section">
-        <div class="term-item">二、付款方式：验收合格后</div>
-        <div class="term-item">三、发票：验收合格后，乙方提供合法正规发票，甲方收到发票后3个工作日内支付货款。</div>
-        <div class="term-item indent">交货方式：乙方负责将货物运送至甲方指定地址，货物在交货运输前造成的损失和意外均由乙方负责。</div>
-        <div class="term-item">四、交货周期：合同生效后30日</div>
-        <div class="term-item">五、验收标准：甲方收到货物3个工作日内（节假日顺延）以书面方式或者邮件的形式告知乙方开箱验收情况，超过3个工作日，则默认为甲方验收合格。乙方提供的产品必须符合国家标准，以及双方确认的图纸要求的标准（附件一），乙方产品经甲方入库后，如果在生产中发现不良品情况，乙方必须无条件退货或者返修，并按照甲方要求将合格产品送达甲方指定的收货地址。</div>
-        <div class="term-item">六、保修和售后服务：乙方保证所提供的货物为原厂出品，符合附件一所要求的标准，从甲方收到货物后开始计算，免费保修期为壹年（不含人为因素，消耗品易损件除外），如果产品故障是由于需方选型不当、意外事故、错误使用或没有按技术要求正常使用所引起，供方不承担质保责任。</div>
-        <div class="term-item">七、有限责任：任何情况下，供方在本合同任何条款下所承担的全部责任，以需方产品实际已支付的价款为限。</div>
-        <div class="term-item">八、违约情况：本合同如发生纠纷，供需双方应协商解决，协商不成的，向供货方所在地人民法院起诉。本合同因不可抗力而无法履行的，双方均不需承担责任。</div>
-        <div class="term-item">九、保密协议：未经双方许可，甲乙双方不得向第三方泄露本合同有关内容，更不得向第三方泄露图纸，文件，检验标准以及方案内容，如有泄露在签订和履行本合同的过程中所获得的对方任何商业机密的情况，由此产生的后果由泄露方承担。</div>
-        <div class="term-item">十、合同生效：本合同经双方签字盖章后生效，扫描件也具有同等效力；本合同一式两份，双方各执一份。</div>
+        <div class="term-item">{{ t.salesOrderPrint.paymentTerms }}{{ t.salesOrderPrint.paymentTermsContent }}</div>
+        <div class="term-item">{{ t.salesOrderPrint.invoiceTerms }}</div>
+        <div class="term-item indent">{{ t.salesOrderPrint.deliveryMethod }}</div>
+        <div class="term-item">{{ t.salesOrderPrint.deliveryPeriod }}</div>
+        <div class="term-item">{{ t.salesOrderPrint.acceptanceStandard }}</div>
+        <div class="term-item">{{ t.salesOrderPrint.warranty }}</div>
+        <div class="term-item">{{ t.salesOrderPrint.limitedLiability }}</div>
+        <div class="term-item">{{ t.salesOrderPrint.breach }}</div>
+        <div class="term-item">{{ t.salesOrderPrint.confidentiality }}</div>
+        <div class="term-item">{{ t.salesOrderPrint.effectiveness }}</div>
       </div>
 
       <!-- 页面底部部分 -->
       <div class="footer-section">
         <div class="footer-left">
-          <div class="footer-title">甲方</div>
+          <div class="footer-title">{{ t.salesOrderPrint.partyA.replace('：', '') }}</div>
           <div class="footer-content">
             <div class="footer-item">
-              <span class="footer-label">联系人：</span>
+              <span class="footer-label">{{ t.salesOrderPrint.contactPerson }}</span>
               <span :class="['footer-value', { editable: !formData.buyerContact }]" @click="handleEdit('buyerContact')">{{ formData.buyerContact || '-' }}</span>
             </div>
             <div class="footer-item">
-              <span class="footer-label">联系电话：</span>
+              <span class="footer-label">{{ t.salesOrderPrint.phone }}</span>
               <span :class="['footer-value', { editable: !formData.buyerPhone }]" @click="handleEdit('buyerPhone')">{{ formData.buyerPhone || '-' }}</span>
             </div>
             <div class="footer-item">
-              <span class="footer-label">邮箱：</span>
+              <span class="footer-label">{{ t.salesOrderPrint.email }}</span>
               <span :class="['footer-value', { editable: !formData.buyerEmail }]" @click="handleEdit('buyerEmail')">{{ formData.buyerEmail || '-' }}</span>
             </div>
             <div class="footer-item">
-              <span class="footer-label">日期：</span>
+              <span class="footer-label">{{ t.salesOrderPrint.date }}</span>
               <span class="footer-value">{{ formatDate(orderData?.entry_date) }}</span>
             </div>
           </div>
           <div class="sign-box">
-            <span class="sign-label">签字盖章：</span>
+            <span class="sign-label">{{ t.salesOrderPrint.signatureAndSeal }}</span>
           </div>
         </div>
         <div class="footer-right">
-          <div class="footer-title">乙方</div>
+          <div class="footer-title">{{ t.salesOrderPrint.partyB.replace('：', '') }}</div>
           <div class="footer-content">
             <div class="footer-item">
-              <span class="footer-label">联系人：</span>
+              <span class="footer-label">{{ t.salesOrderPrint.contactPerson }}</span>
               <span :class="['footer-value', { editable: !formData.sellerContact }]" @click="handleEdit('sellerContact')">{{ formData.sellerContact || '-' }}</span>
             </div>
             <div class="footer-item">
-              <span class="footer-label">联系电话：</span>
+              <span class="footer-label">{{ t.salesOrderPrint.phone }}</span>
               <span :class="['footer-value', { editable: !formData.sellerPhone }]" @click="handleEdit('sellerPhone')">{{ formData.sellerPhone || '-' }}</span>
             </div>
             <div class="footer-item">
-              <span class="footer-label">邮箱：</span>
+              <span class="footer-label">{{ t.salesOrderPrint.email }}</span>
               <span :class="['footer-value', { editable: !formData.sellerEmail }]" @click="handleEdit('sellerEmail')">{{ formData.sellerEmail || '-' }}</span>
             </div>
             <div class="footer-item">
-              <span class="footer-label">日期：</span>
+              <span class="footer-label">{{ t.salesOrderPrint.date }}</span>
               <span class="footer-value">{{ formatDate(orderData?.entry_date) }}</span>
             </div>
           </div>
           <div class="sign-box">
-            <span class="sign-label">签字盖章：</span>
+            <span class="sign-label">{{ t.salesOrderPrint.signatureAndSeal }}</span>
           </div>
         </div>
       </div>
@@ -174,8 +180,8 @@
 
     <div class="modal-footer">
       <a-space>
-        <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" @click="handlePrint">打印</a-button>
+        <a-button @click="handleCancel">{{ t.salesOrderPrint.cancel }}</a-button>
+        <a-button type="primary" @click="handlePrint">{{ t.salesOrderPrint.print }}</a-button>
       </a-space>
     </div>
 
@@ -197,6 +203,10 @@ import dayjs from 'dayjs'
 import type { SalesOrder } from '@/types'
 import { useUserStore } from '@/stores/user'
 import { customersApi } from '@/api/customers'
+import { getLocale, type Lang } from '@/locales'
+
+const lang = ref<Lang>('zh')
+const t = computed(() => getLocale(lang.value))
 
 interface Props {
   visible: boolean
@@ -225,9 +235,7 @@ const formData = reactive({
   taxRate: 0,
   remarks: '',
   total: 0,
-  amountInWords: '',
   taxTotal: 0,
-  taxAmountInWords: '',
   sellerContact: '',
   sellerPhone: '',
   sellerEmail: '',
@@ -237,6 +245,9 @@ const formData = reactive({
   buyerEmail: '',
 })
 
+const amountInWords = computed(() => numberToWords(formData.total))
+const taxAmountInWords = computed(() => numberToWords(formData.taxTotal))
+
 const editModalVisible = ref(false)
 const editField = ref('')
 const editValue = ref('')
@@ -244,19 +255,26 @@ const editInputRef = ref<HTMLInputElement | null>(null)
 
 const editFieldTitle = computed(() => {
   const titles: Record<string, string> = {
-    salesDate: '销售日期',
-    taxRate: '税率',
-    remarks: '备注',
-    sellerContact: '联系人',
-    sellerPhone: '联系电话',
-    sellerEmail: '邮箱',
-    sellerCreditCode: '信用代码',
-    buyerContact: '甲方联系人',
-    buyerPhone: '甲方联系电话',
-    buyerEmail: '甲方邮箱',
+    salesDate: t.value.salesOrderPrint.editSalesDate,
+    taxRate: t.value.salesOrderPrint.editTaxRate,
+    remarks: t.value.salesOrderPrint.editRemarks,
+    sellerContact: t.value.salesOrderPrint.editContact,
+    sellerPhone: t.value.salesOrderPrint.editPhone,
+    sellerEmail: t.value.salesOrderPrint.editEmail,
+    sellerCreditCode: t.value.salesOrderPrint.editCreditCode,
+    buyerContact: t.value.salesOrderPrint.editBuyerContact,
+    buyerPhone: t.value.salesOrderPrint.editBuyerPhone,
+    buyerEmail: t.value.salesOrderPrint.editBuyerEmail,
   }
-  return titles[editField.value] || '编辑'
+  return titles[editField.value] || t.value.salesOrderPrint.editDefault
 })
+
+const numberToWords = (num: number): string => {
+  if (lang.value === 'en') {
+    return numberToEnglish(num)
+  }
+  return numberToChinese(num)
+}
 
 const numberToChinese = (num: number): string => {
   const digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖']
@@ -301,6 +319,55 @@ const numberToChinese = (num: number): string => {
   return str + '整'
 }
 
+const numberToEnglish = (num: number): string => {
+  if (num === 0) return 'Zero'
+
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
+  const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+
+  const convertHundreds = (n: number): string => {
+    let result = ''
+    if (n >= 100) {
+      result += ones[Math.floor(n / 100)] + ' Hundred '
+      n %= 100
+    }
+    if (n >= 10 && n < 20) {
+      result += teens[n - 10]
+    } else {
+      if (n >= 20) {
+        result += tens[Math.floor(n / 10)] + ' '
+        n %= 10
+      }
+      if (n > 0) {
+        result += ones[n]
+      }
+    }
+    return result.trim()
+  }
+
+  const intPart = Math.floor(num)
+  const decPart = Math.round((num - intPart) * 100)
+
+  let result = ''
+  if (intPart >= 1000000) {
+    result += convertHundreds(Math.floor(intPart / 1000000)) + ' Million '
+  }
+  if (intPart >= 1000) {
+    result += convertHundreds(Math.floor((intPart % 1000000) / 1000)) + ' Thousand '
+  }
+  if (intPart % 1000 > 0 || intPart === 0) {
+    result += convertHundreds(intPart % 1000)
+  }
+
+  result = result.trim()
+  if (decPart > 0) {
+    result += ' Point ' + convertHundreds(decPart)
+  }
+
+  return result
+}
+
 const initializeFormData = () => {
   if (!orderData.value) return
   const user = userStore.user
@@ -310,7 +377,6 @@ const initializeFormData = () => {
   formData.taxRate = 0
   formData.remarks = ''
   formData.total = order.tax_included_amount || 0
-  formData.amountInWords = numberToChinese(order.tax_included_amount || 0)
 
   // 计算税额总计
   const items = orderItems.value || []
@@ -318,7 +384,6 @@ const initializeFormData = () => {
     return sum + (parseFloat(item.tax_amount) || 0)
   }, 0)
   formData.taxTotal = Math.round(taxTotal * 100) / 100
-  formData.taxAmountInWords = numberToChinese(formData.taxTotal)
 
   formData.sellerContact = user?.username || ''
   formData.sellerPhone = user?.phone || ''
@@ -694,6 +759,12 @@ const handlePrint = () => {
   border-top: 1px solid #f0f0f0;
 }
 
+.lang-switch-bar {
+  text-align: right;
+  padding: 8px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
 </style>
 
 <style lang="scss">
@@ -750,6 +821,10 @@ const handlePrint = () => {
   }
 
   .modal-footer {
+    display: none !important;
+  }
+
+  .no-print {
     display: none !important;
   }
 

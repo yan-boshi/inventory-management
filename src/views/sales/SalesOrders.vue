@@ -1,46 +1,79 @@
 <template>
   <div class="sales-orders-container">
     <div class="header">
-      <h1>销售订单</h1>
-      <a-button type="primary" @click="handleAdd">
-        <template #icon>
-          <PlusOutlined />
-        </template>
-        新增销售订单
-      </a-button>
+      <h1>{{ t.salesOrder.title }}</h1>
+      <a-space>
+        <a-radio-group v-model:value="lang" size="small" class="lang-switch">
+          <a-radio-button value="zh">中文</a-radio-button>
+          <a-radio-button value="en">English</a-radio-button>
+        </a-radio-group>
+        <a-button type="primary" @click="handleAdd">
+          <template #icon>
+            <PlusOutlined />
+          </template>
+          {{ t.salesOrder.newTitle }}
+        </a-button>
+      </a-space>
     </div>
 
     <a-card>
       <div class="search-bar">
         <a-form layout="inline">
-          <a-form-item label="订单号">
+          <a-form-item :label="t.salesOrder.orderNumber">
             <a-input
               v-model:value="searchParams.orderNumber"
-              placeholder="请输入订单号"
+              :placeholder="t.common.pleaseInput + t.salesOrder.orderNumber"
               allow-clear
               style="width: 200px"
             />
           </a-form-item>
 
-          <a-form-item label="客户名称">
+          <a-form-item :label="t.salesOrder.customerName">
             <a-input
               v-model:value="searchParams.customerName"
-              placeholder="请输入客户名称"
+              :placeholder="t.common.pleaseInput + t.salesOrder.customerName"
               allow-clear
               style="width: 200px"
             />
           </a-form-item>
 
-          <a-form-item label="客户代码">
+          <a-form-item :label="t.salesOrder.customerCode">
             <a-input
               v-model:value="searchParams.customerCode"
-              placeholder="请输入客户代码"
+              :placeholder="t.common.pleaseInput + t.salesOrder.customerCode"
               allow-clear
               style="width: 200px"
             />
           </a-form-item>
 
-          <a-form-item label="销售日期">
+          <a-form-item :label="t.salesOrder.productCode">
+            <a-input
+              v-model:value="searchParams.productCode"
+              :placeholder="t.common.pleaseInput + t.salesOrder.productCode"
+              allow-clear
+              style="width: 200px"
+            />
+          </a-form-item>
+
+          <a-form-item :label="t.salesOrder.productName">
+            <a-input
+              v-model:value="searchParams.productName"
+              :placeholder="t.common.pleaseInput + t.salesOrder.productName"
+              allow-clear
+              style="width: 200px"
+            />
+          </a-form-item>
+
+          <a-form-item :label="t.salesOrder.model">
+            <a-input
+              v-model:value="searchParams.productModel"
+              :placeholder="t.common.pleaseInput + t.salesOrder.model"
+              allow-clear
+              style="width: 200px"
+            />
+          </a-form-item>
+
+          <a-form-item :label="t.salesOrder.salesDate">
             <a-range-picker
               v-model:value="dateRange"
               @change="handleDateRangeChange"
@@ -50,8 +83,8 @@
 
           <a-form-item>
             <a-space>
-              <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
-              <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
+              <a-button type="primary" @click="handleSearch"> <SearchOutlined /> {{ t.common.search }} </a-button>
+              <a-button @click="handleReset"> <ReloadOutlined /> {{ t.common.reset }} </a-button>
               <ColumnConfig v-model:columns="allColumns" cacheKey="salesOrders" />
             </a-space>
           </a-form-item>
@@ -125,7 +158,7 @@
                 @click="handleEdit(record)"
                 :disabled="record.status === 4"
               >
-                编辑
+                {{ t.common.edit }}
               </a-button>
               <a-button
                 type="link"
@@ -134,7 +167,7 @@
                 @click="handleDelete(record)"
                 :disabled="record.status === 4"
               >
-                删除
+                {{ t.common.delete }}
               </a-button>
               <a-button
                 type="link"
@@ -142,9 +175,9 @@
                 @click="handleReturn(record)"
                 :disabled="record.status === 4"
               >
-                退货
+                {{ t.salesOrder.returned }}
               </a-button>
-              <a-button type="link" size="small" @click="handlePrint(record)"> 打印 </a-button>
+              <a-button type="link" size="small" @click="handlePrint(record)"> {{ t.common.print }} </a-button>
             </a-space>
           </template>
         </template>
@@ -153,7 +186,7 @@
         v-model:current="pagination.current"
         v-model:pageSize="pagination.pageSize"
         :total="pagination.total"
-        :show-total="(total: number) => `共 ${total} 条记录`"
+        :show-total="(total: number) => t.salesOrder.totalRecords.replace('{total}', String(total))"
         show-size-changer
         show-quick-jumper
         :page-size-options="['10', '20', '50', '100']"
@@ -190,7 +223,11 @@ import SalesOrderDetail from '@/components/SalesOrderDetail.vue'
 import SalesOrderPrint from '@/components/SalesOrderPrint.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate } from '@/utils/date'
+import { getLocale, type Lang } from '@/locales'
 import dayjs from 'dayjs'
+
+const lang = ref<Lang>('zh')
+const t = computed(() => getLocale(lang.value))
 
 const orders = ref<SalesOrder[]>([])
 const loading = ref(false)
@@ -249,7 +286,7 @@ const expandedOrders = computed(() => {
 
 const searchParams = reactive<SalesOrderQueryParams>({
   page: 1,
-  pageSize: 10,
+  pageSize: 100,
   orderNumber: '',
   customerName: '',
   customerCode: '',
@@ -259,7 +296,7 @@ const searchParams = reactive<SalesOrderQueryParams>({
 
 const pagination = reactive({
   current: 1,
-  pageSize: 10,
+  pageSize: 100,
   total: 0,
 })
 
@@ -281,11 +318,31 @@ const productNameFilters = generateFilters('product_name')
 const modelFilters = generateFilters('model')
 // 产品描述筛选选项
 const descriptionFilters = generateFilters('description')
+// 结算方式筛选选项
+const paymentMethodFilters = generateFilters('payment_method')
+// 币种筛选选项
+const currencyFilters = generateFilters('currency')
+// 销售员筛选选项
+const salesPersonFilters = generateFilters('sales_person')
+// 状态筛选选项
+const statusFilters = computed(() => [
+  { text: t.value.salesOrder.notShipped, value: '1' },
+  { text: t.value.salesOrder.fullyShipped, value: '2' },
+  { text: t.value.salesOrder.partiallyShipped, value: '3' },
+  { text: t.value.salesOrder.returned, value: '4' },
+])
+// 采购状态筛选选项
+const purchaseStatusFilters = computed(() => [
+  { text: t.value.salesOrder.notPurchased, value: '1' },
+  { text: t.value.salesOrder.partiallyPurchased, value: '2' },
+  { text: t.value.salesOrder.purchased, value: '3' },
+  { text: t.value.salesOrder.noNeedToPurchase, value: '4' },
+])
 
 // 使用 computed 使列定义响应式
 const allColumns = computed(() => [
   {
-    title: '序号',
+    title: t.value.salesOrder.sequence,
     key: 'index',
     width: 60,
     align: 'center',
@@ -307,32 +364,32 @@ const allColumns = computed(() => [
     },
   },
   {
-    title: '默认单据编号',
+    title: t.value.salesOrder.defaultDocNumber,
     dataIndex: 'order_number',
     key: 'order_number',
     width: 150,
     fixed: 'left',
   },
   {
-    title: '合同编号',
+    title: t.value.salesOrder.contractNumberLabel,
     dataIndex: 'contract_number',
     key: 'contract_number',
     width: 150,
   },
   {
-    title: '客户名称',
+    title: t.value.salesOrder.customerName,
     dataIndex: 'customer_name',
     key: 'customer_name',
     width: 250,
   },
   {
-    title: '客户代码',
+    title: t.value.salesOrder.customerCode,
     dataIndex: 'customer_code',
     key: 'customer_code',
     width: 120,
   },
   {
-    title: '产品代码',
+    title: t.value.salesOrder.productCode,
     dataIndex: 'product_code',
     key: 'product_code',
     width: 120,
@@ -341,7 +398,7 @@ const allColumns = computed(() => [
     filterMultiple: true,
   },
   {
-    title: '产品名称',
+    title: t.value.salesOrder.productName,
     dataIndex: 'product_name',
     key: 'product_name',
     width: 150,
@@ -350,7 +407,7 @@ const allColumns = computed(() => [
     filterMultiple: true,
   },
   {
-    title: '产品型号',
+    title: t.value.salesOrder.model,
     dataIndex: 'model',
     key: 'model',
     width: 120,
@@ -359,7 +416,7 @@ const allColumns = computed(() => [
     filterMultiple: true,
   },
   {
-    title: '产品描述',
+    title: t.value.salesOrder.description,
     dataIndex: 'description',
     key: 'description',
     width: 150,
@@ -368,55 +425,73 @@ const allColumns = computed(() => [
     filterMultiple: true,
   },
   {
-    title: '数量',
+    title: t.value.salesOrder.quantity,
     dataIndex: 'quantity',
     key: 'quantity',
     width: 80,
     align: 'right',
   },
   {
-    title: '单位',
+    title: t.value.salesOrder.unit,
     dataIndex: 'unit',
     key: 'unit',
     width: 60,
     align: 'center',
   },
   {
-    title: '金额',
+    title: t.value.salesOrder.amount,
     dataIndex: 'amount',
     key: 'amount',
     width: 100,
     align: 'right',
   },
   {
-    title: '结算方式',
+    title: t.value.salesOrder.paymentMethod.replace('：', '').replace(':', ''),
     key: 'payment_method',
     width: 80,
     align: 'center',
+    filters: paymentMethodFilters.value,
+    onFilter: (value: string, record: any) => String(record.payment_method) === value,
+    filterMultiple: true,
+    customCell: (record: any) => {
+      if (record._isFirstRow && record._rowCount > 1) {
+        return { rowSpan: record._rowCount }
+      }
+      if (!record._isFirstRow) {
+        return { rowSpan: 0 }
+      }
+      return {}
+    },
   },
   {
-    title: '状态',
+    title: t.value.common.status,
     dataIndex: 'item_status',
     key: 'status',
     width: 80,
     align: 'center',
+    filters: statusFilters.value,
+    onFilter: (value: string, record: any) => String(record.item_status) === value,
+    filterMultiple: true,
   },
   {
-    title: '采购状态',
+    title: t.value.salesOrder.purchaseStatus,
     dataIndex: 'purchase_status',
     key: 'purchase_status',
     width: 100,
     align: 'center',
+    filters: purchaseStatusFilters.value,
+    onFilter: (value: string, record: any) => String(record.purchase_status) === value,
+    filterMultiple: true,
   },
   {
-    title: '录入日期',
+    title: t.value.salesOrder.entryDate,
     dataIndex: 'entry_date',
     key: 'entry_date',
     width: 120,
     customRender: ({ text }: { text: string }) => formatDate(text),
   },
   {
-    title: '总价',
+    title: t.value.salesOrder.totalWithTax.replace('：', ''),
     key: 'tax_included_amount',
     width: 120,
     customCell: (record: any) => {
@@ -430,10 +505,13 @@ const allColumns = computed(() => [
     },
   },
   {
-    title: '币种',
+    title: t.value.salesOrder.currency.replace('：', ''),
     key: 'currency',
     width: 80,
     align: 'center',
+    filters: currencyFilters.value,
+    onFilter: (value: string, record: any) => String(record.currency) === value,
+    filterMultiple: true,
     customCell: (record: any) => {
       if (record._isFirstRow && record._rowCount > 1) {
         return { rowSpan: record._rowCount }
@@ -445,11 +523,14 @@ const allColumns = computed(() => [
     },
   },
   {
-    title: '销售员',
+    title: t.value.salesOrder.salesPerson,
     dataIndex: 'sales_person',
     key: 'sales_person',
     width: 80,
     align: 'center',
+    filters: salesPersonFilters.value,
+    onFilter: (value: string, record: any) => String(record.sales_person) === value,
+    filterMultiple: true,
     customCell: (record: any) => {
       if (record._isFirstRow && record._rowCount > 1) {
         return { rowSpan: record._rowCount }
@@ -461,7 +542,7 @@ const allColumns = computed(() => [
     },
   },
   {
-    title: '操作',
+    title: t.value.common.action,
     key: 'actions',
     width: 200,
     fixed: 'right',
@@ -492,6 +573,9 @@ const loadOrders = async () => {
     if (searchParams.orderNumber) params.orderNumber = searchParams.orderNumber
     if (searchParams.customerName) params.customerName = searchParams.customerName
     if (searchParams.customerCode) params.customerCode = searchParams.customerCode
+    if (searchParams.productCode) params.productCode = searchParams.productCode
+    if (searchParams.productName) params.productName = searchParams.productName
+    if (searchParams.productModel) params.productModel = searchParams.productModel
     if (searchParams.startDate) params.salesDate = searchParams.startDate
 
     const response = await salesOrdersApi.getAll(params)
@@ -502,7 +586,7 @@ const loadOrders = async () => {
     pagination.pageSize = response.pagination?.pageSize || 10
   } catch (error) {
     console.error('加载销售订单失败:', error)
-    message.error('加载销售订单失败')
+    message.error(t.value.salesOrder.loadOrdersFail)
     orders.value = []
     pagination.total = 0
   } finally {
@@ -519,6 +603,9 @@ const handleReset = () => {
   searchParams.orderNumber = ''
   searchParams.customerName = ''
   searchParams.customerCode = ''
+  searchParams.productCode = ''
+  searchParams.productName = ''
+  searchParams.productModel = ''
   searchParams.startDate = ''
   searchParams.endDate = ''
   dateRange.value = undefined
@@ -560,17 +647,17 @@ const handleViewDetail = (order: SalesOrder) => {
 
 const handleDelete = (order: SalesOrder) => {
   Modal.confirm({
-    title: '确认删除',
-    content: `确定要删除销售订单 ${order.order_number} 吗？`,
-    okText: '确认',
-    cancelText: '取消',
+    title: t.value.salesOrder.deleteConfirmTitle,
+    content: t.value.salesOrder.deleteConfirmContent.replace('{orderNumber}', order.order_number),
+    okText: t.value.common.confirm,
+    cancelText: t.value.common.cancel,
     onOk: async () => {
       try {
         await salesOrdersApi.delete(order.sales_order_id)
-        message.success('删除成功')
+        message.success(t.value.salesOrder.deleteSuccess)
         loadOrders()
       } catch (error) {
-        message.error('删除失败')
+        message.error(t.value.salesOrder.deleteFail)
       }
     },
   })
@@ -578,17 +665,17 @@ const handleDelete = (order: SalesOrder) => {
 
 const handleReturn = (order: SalesOrder) => {
   Modal.confirm({
-    title: '确认退货',
-    content: `确定要将销售订单 ${order.order_number} 标记为退货吗？`,
-    okText: '确认',
-    cancelText: '取消',
+    title: t.value.salesOrder.returnConfirmTitle,
+    content: t.value.salesOrder.returnConfirmContent.replace('{orderNumber}', order.order_number),
+    okText: t.value.common.confirm,
+    cancelText: t.value.common.cancel,
     onOk: async () => {
       try {
         await salesOrdersApi.return(order.sales_order_id)
-        message.success('退货成功')
+        message.success(t.value.salesOrder.returnSuccess)
         loadOrders()
       } catch (error) {
-        message.error('退货失败')
+        message.error(t.value.salesOrder.returnFail)
       }
     },
   })
@@ -638,12 +725,12 @@ const getStatusColor = (status: number) => {
 
 const getStatusText = (status: number) => {
   const textMap: Record<number, string> = {
-    1: '未出库',
-    2: '已全部出库',
-    3: '已部分出库',
-    4: '退货',
+    1: t.value.salesOrder.notShipped,
+    2: t.value.salesOrder.fullyShipped,
+    3: t.value.salesOrder.partiallyShipped,
+    4: t.value.salesOrder.returned,
   }
-  return textMap[status] || '未知'
+  return textMap[status] || t.value.salesOrder.unknown
 }
 
 const getPurchaseStatusColor = (status: number) => {
@@ -658,12 +745,12 @@ const getPurchaseStatusColor = (status: number) => {
 
 const getPurchaseStatusText = (status: number) => {
   const textMap: Record<number, string> = {
-    1: '未采购',
-    2: '部分采购',
-    3: '已采购',
-    4: '无需采购',
+    1: t.value.salesOrder.notPurchased,
+    2: t.value.salesOrder.partiallyPurchased,
+    3: t.value.salesOrder.purchased,
+    4: t.value.salesOrder.noNeedToPurchase,
   }
-  return textMap[status] || '未采购'
+  return textMap[status] || t.value.salesOrder.notPurchased
 }
 
 const getTotalAmount = (salesItems: string) => {
@@ -697,6 +784,10 @@ onMounted(() => {
       margin: 0;
       font-size: 24px;
       font-weight: 500;
+    }
+
+    .lang-switch {
+      flex-shrink: 0;
     }
   }
 

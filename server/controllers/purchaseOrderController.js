@@ -10,6 +10,9 @@ export const getAllPurchaseOrders = async (req, res) => {
       supplierName,
       supplierCode,
       orderNumber,
+      productName,
+      productCode,
+      productModel,
       startDate,
       endDate
     } = req.query
@@ -30,6 +33,21 @@ export const getAllPurchaseOrders = async (req, res) => {
     if (supplierCode) {
       where.push('supplier_code LIKE ?')
       params.push(`%${supplierCode}%`)
+    }
+
+    if (productName) {
+      where.push('purchase_items LIKE ?')
+      params.push(`%${productName}%`)
+    }
+
+    if (productCode) {
+      where.push('purchase_items LIKE ?')
+      params.push(`%${productCode}%`)
+    }
+
+    if (productModel) {
+      where.push('purchase_items LIKE ?')
+      params.push(`%${productModel}%`)
     }
 
     if (startDate && endDate) {

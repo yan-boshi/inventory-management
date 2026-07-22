@@ -108,14 +108,14 @@ const currentSupplier = ref<Supplier | undefined>(undefined)
 
 const searchParams = reactive<SupplierQueryParams>({
   page: 1,
-  pageSize: 10,
+  pageSize: 100,
   name: '',
   code: '',
 })
 
 const pagination = reactive({
   current: 1,
-  pageSize: 10,
+  pageSize: 100,
   total: 0,
 })
 
@@ -176,9 +176,9 @@ const loadSuppliers = async () => {
   try {
     const response = await suppliersApi.getAll(searchParams)
     suppliers.value = response.data || []
-    pagination.total = response.data?.pagination?.total || 0
-    pagination.current = response.data?.pagination?.page || 1
-    pagination.pageSize = response.data?.pagination?.pageSize || 10
+    pagination.total = response.pagination?.total || 0
+    pagination.current = response.pagination?.page || 1
+    pagination.pageSize = response.pagination?.pageSize || 10
   } catch (error) {
     console.error('加载供应商列表失败:', error)
     message.error('加载供应商列表失败')

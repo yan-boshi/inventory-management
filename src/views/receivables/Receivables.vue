@@ -169,7 +169,7 @@ const dateRange = ref<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
 
 const searchParams = reactive<ReceivableQueryParams>({
   page: 1,
-  pageSize: 10,
+  pageSize: 100,
   customer_name: '',
   status: undefined,
   billing_status: undefined,
@@ -179,7 +179,7 @@ const searchParams = reactive<ReceivableQueryParams>({
 
 const pagination = reactive({
   current: 1,
-  pageSize: 10,
+  pageSize: 100,
   total: 0,
 })
 

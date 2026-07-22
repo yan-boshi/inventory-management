@@ -274,7 +274,7 @@ const summary = reactive<SettlementSummary>({
 
 const searchParams = reactive<SettlementQueryParams>({
   page: 1,
-  pageSize: 10,
+  pageSize: 100,
   type: undefined,
   billing_status: undefined,
   settlement_date_start: undefined,
@@ -284,7 +284,7 @@ const searchParams = reactive<SettlementQueryParams>({
 
 const pagination = reactive({
   current: 1,
-  pageSize: 10,
+  pageSize: 100,
   total: 0,
 })
 

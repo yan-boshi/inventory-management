@@ -175,7 +175,7 @@ const hasAdmin = ref(false)
 
 const pagination = reactive({
   current: 1,
-  pageSize: 10,
+  pageSize: 100,
   total: 0,
 })
 

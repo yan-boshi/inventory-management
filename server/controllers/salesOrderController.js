@@ -8,6 +8,9 @@ export const getAllSalesOrders = async (req, res) => {
       customerName,
       customerCode,
       orderNumber,
+      productName,
+      productCode,
+      productModel,
       startDate,
       endDate
     } = req.query
@@ -28,6 +31,21 @@ export const getAllSalesOrders = async (req, res) => {
     if (customerCode) {
       where.push('customer_code LIKE ?')
       params.push(`%${customerCode}%`)
+    }
+
+    if (productName) {
+      where.push('sales_items LIKE ?')
+      params.push(`%${productName}%`)
+    }
+
+    if (productCode) {
+      where.push('sales_items LIKE ?')
+      params.push(`%${productCode}%`)
+    }
+
+    if (productModel) {
+      where.push('sales_items LIKE ?')
+      params.push(`%${productModel}%`)
     }
 
     if (startDate && endDate) {
