@@ -101,33 +101,33 @@
           </template>
 
           <template v-else-if="column.key === 'contract_number'">
-            <span v-if="record._isFirstRow">{{ record.contract_number || '-' }}</span>
+            <span>{{ record.contract_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'customer_name'">
-            <span v-if="record._isFirstRow">{{ record.customer_name || '-' }}</span>
+            <span>{{ record.customer_name || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'total_amount'">
-            <span v-if="record._isFirstRow" style="color: #f5222d; font-weight: 500">
-              {{ record.total_amount }}
+            <span style="color: #f5222d; font-weight: 500">
+              {{ record.amount }}
             </span>
           </template>
 
           <template v-else-if="column.key === 'warehousing_time'">
-            <span v-if="record._isFirstRow">{{ formatDateTime(record.warehousing_time) }}</span>
+            <span>{{ formatDateTime(record.warehousing_time) }}</span>
           </template>
 
           <template v-else-if="column.key === 'entry_date'">
-            <span v-if="record._isFirstRow">{{ formatDate(record.entry_date) }}</span>
+            <span>{{ formatDate(record.entry_date) }}</span>
           </template>
 
           <template v-else-if="column.key === 'tracking_number'">
-            <span v-if="record._isFirstRow">{{ record.tracking_number || '-' }}</span>
+            <span>{{ record.tracking_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'actions'">
-            <a-space v-if="record._isFirstRow">
+            <a-space>
               <a-button type="link" size="small" @click="handleEdit(record)"> 编辑 </a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record)">
                 删除
@@ -179,6 +179,7 @@ const dateRange = ref<[any, any] | undefined>(undefined)
 // 展开订单数据，每个商品一行
 const expandedOrders = computed(() => {
   const result: any[] = []
+  let rowIndex = 0
   orders.value.forEach((order, orderIndex) => {
     const items = getParsedWarehousingItems(order)
     if (items.length === 0) {
@@ -191,12 +192,16 @@ const expandedOrders = computed(() => {
         description: '-',
         quantity: '-',
         unit: '-',
+        amount: 0,
         _isFirstRow: true,
         _rowCount: 1,
         _orderIndex: orderIndex,
+        _rowIndex: rowIndex++,
       })
     } else {
       items.forEach((item: any, index: number) => {
+        const quantity = parseFloat(item.quantity) || 0
+        const taxIncludedPrice = parseFloat(item.tax_included_price) || 0
         result.push({
           ...order,
           row_key: `${order.warehousing_order_id}_${index}`,
@@ -206,9 +211,11 @@ const expandedOrders = computed(() => {
           description: item.description || '-',
           quantity: item.quantity || '-',
           unit: item.unit || '-',
+          amount: quantity * taxIncludedPrice,
           _isFirstRow: index === 0,
           _rowCount: items.length,
           _orderIndex: orderIndex,
+          _rowIndex: rowIndex++,
         })
       })
     }
@@ -264,19 +271,7 @@ const allColumns = computed(() => [
     align: 'center',
     fixed: 'left',
     customRender: ({ record }: { record: any }) => {
-      if (record._isFirstRow) {
-        return (pagination.current - 1) * pagination.pageSize + record._orderIndex + 1
-      }
-      return ''
-    },
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
+      return (pagination.current - 1) * pagination.pageSize + record._rowIndex + 1
     },
   },
   {
@@ -368,34 +363,17 @@ const allColumns = computed(() => [
     width: 150,
   },
   {
-    title: '总计',
+    title: '含税金额',
+    dataIndex: 'amount',
     key: 'total_amount',
     width: 120,
     align: 'right',
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '操作',
     key: 'actions',
     width: 200,
     fixed: 'right',
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
 ])
 

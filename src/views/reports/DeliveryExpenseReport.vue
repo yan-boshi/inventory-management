@@ -220,23 +220,6 @@ const pagination = reactive({
   total: 0,
 })
 
-// 计算同一出库单号的行合并信息
-const getMergeRowSpan = (_record: DeliveryExpenseReportItem, recordIndex: number): number => {
-  const data = reportData.value
-  if (!data.length) return 1
-  const orderNo = data[recordIndex].order_number
-  let start = recordIndex
-  while (start > 0 && data[start - 1].order_number === orderNo) {
-    start--
-  }
-  if (start !== recordIndex) return 0
-  let count = 1
-  while (start + count < data.length && data[start + count].order_number === orderNo) {
-    count++
-  }
-  return count
-}
-
 const columns = [
   {
     title: '出库单号',
@@ -244,7 +227,6 @@ const columns = [
     key: 'order_number',
     width: 160,
     fixed: 'left' as const,
-    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
   },
   {
     title: '出库时间',
@@ -252,21 +234,18 @@ const columns = [
     key: 'delivery_time',
     width: 110,
     fixed: 'left' as const,
-    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
   },
   {
     title: '销售合同编号',
     dataIndex: 'contract_number',
     key: 'contract_number',
     width: 160,
-    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
   },
   {
     title: '客户名称',
     dataIndex: 'customer_name',
     key: 'customer_name',
     width: 140,
-    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
   },
   { title: '商品编码', dataIndex: 'product_code', key: 'product_code', width: 120 },
   { title: '商品名称', dataIndex: 'product_name', key: 'product_name', width: 150 },
@@ -296,7 +275,6 @@ const columns = [
         key: 'express_delivery_fee',
         width: 90,
         align: 'right' as const,
-        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
       {
         title: '运杂费',
@@ -304,7 +282,6 @@ const columns = [
         key: 'transportation_fee',
         width: 90,
         align: 'right' as const,
-        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
       {
         title: '报关费',
@@ -312,7 +289,6 @@ const columns = [
         key: 'customs_fee',
         width: 90,
         align: 'right' as const,
-        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
       {
         title: '其他',
@@ -320,7 +296,6 @@ const columns = [
         key: 'delivery_other_fee',
         width: 80,
         align: 'right' as const,
-        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
       {
         title: '小计',
@@ -328,7 +303,6 @@ const columns = [
         key: 'delivery_expense_subtotal',
         width: 100,
         align: 'right' as const,
-        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
     ],
   },
@@ -341,7 +315,6 @@ const columns = [
         key: 'sales_transportation_fee',
         width: 100,
         align: 'right' as const,
-        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
       {
         title: '手续费',
@@ -349,7 +322,6 @@ const columns = [
         key: 'sales_handling_fee',
         width: 90,
         align: 'right' as const,
-        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
       {
         title: '其他',
@@ -357,7 +329,6 @@ const columns = [
         key: 'sales_other_fee',
         width: 80,
         align: 'right' as const,
-        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
       {
         title: '小计',
@@ -365,7 +336,6 @@ const columns = [
         key: 'sales_expense_subtotal',
         width: 100,
         align: 'right' as const,
-        customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
       },
     ],
   },
@@ -375,21 +345,18 @@ const columns = [
     key: 'total_expenses',
     width: 110,
     align: 'right' as const,
-    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
   },
   {
     title: '出库人',
     dataIndex: 'delivery_person',
     key: 'delivery_person',
     width: 80,
-    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
   },
   {
     title: '备注',
     dataIndex: 'remarks',
     key: 'remarks',
     width: 120,
-    customCell: (_: any, index: number) => ({ rowSpan: getMergeRowSpan(_, index) }),
   },
 ]
 

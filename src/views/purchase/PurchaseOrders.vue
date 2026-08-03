@@ -100,20 +100,20 @@
           </template>
 
           <template v-else-if="column.key === 'contract_number'">
-            <span v-if="record._isFirstRow">{{ record.contract_number || '-' }}</span>
+            <span>{{ record.contract_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'supplier_name'">
-            <span v-if="record._isFirstRow">{{ record.supplier_name || '-' }}</span>
+            <span>{{ record.supplier_name || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'supplier_code'">
-            <span v-if="record._isFirstRow">{{ record.supplier_code || '-' }}</span>
+            <span>{{ record.supplier_code || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'total_amount'">
-            <span v-if="record._isFirstRow" style="color: #f5222d; font-weight: 500">
-              {{ getTotalAmount(record) }}
+            <span style="color: #f5222d; font-weight: 500">
+              {{ record.amount }}
             </span>
           </template>
 
@@ -124,15 +124,15 @@
           </template>
 
           <template v-else-if="column.key === 'entry_date'">
-            <span v-if="record._isFirstRow">{{ formatDate(record.entry_date) }}</span>
+            <span>{{ formatDate(record.entry_date) }}</span>
           </template>
 
           <template v-else-if="column.key === 'purchase_person'">
-            <span v-if="record._isFirstRow">{{ record.purchase_person || '-' }}</span>
+            <span>{{ record.purchase_person || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'actions'">
-            <a-space v-if="record._isFirstRow">
+            <a-space>
               <a-button type="link" size="small" @click="handleEdit(record)"> 编辑 </a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record)">
                 删除
@@ -197,6 +197,7 @@ const dateRange = ref<[any, any] | undefined>(undefined)
 // 展开订单数据，每个商品一行
 const expandedOrders = computed(() => {
   const result: any[] = []
+  let rowIndex = 0
   orders.value.forEach((order, orderIndex) => {
     const items = getParsedPurchaseItems(order)
     if (items.length === 0) {
@@ -217,6 +218,7 @@ const expandedOrders = computed(() => {
         _isFirstRow: true,
         _rowCount: 1,
         _orderIndex: orderIndex,
+        _rowIndex: rowIndex++,
       })
     } else {
       items.forEach((item: any, index: number) => {
@@ -237,6 +239,7 @@ const expandedOrders = computed(() => {
           _isFirstRow: index === 0,
           _rowCount: items.length,
           _orderIndex: orderIndex,
+          _rowIndex: rowIndex++,
         })
       })
     }
@@ -295,19 +298,7 @@ const allColumns = computed(() => [
     align: 'center',
     fixed: 'left',
     customRender: ({ record }: { record: any }) => {
-      if (record._isFirstRow) {
-        return (pagination.current - 1) * pagination.pageSize + record._orderIndex + 1
-      }
-      return ''
-    },
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
+      return (pagination.current - 1) * pagination.pageSize + record._rowIndex + 1
     },
   },
   {
@@ -417,19 +408,11 @@ const allColumns = computed(() => [
     customRender: ({ text }: { text: number }) => formatMoney(text),
   },
   {
-    title: '含税总价',
+    title: '含税金额',
+    dataIndex: 'amount',
     key: 'total_amount',
     width: 120,
     align: 'right',
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '状态',
@@ -457,30 +440,12 @@ const allColumns = computed(() => [
     filters: purchasePersonFilters.value,
     onFilter: (value: string, record: any) => String(record.purchase_person) === value,
     filterMultiple: true,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '操作',
     key: 'actions',
     width: 220,
     fixed: 'right',
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
 ])
 

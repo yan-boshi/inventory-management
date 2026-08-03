@@ -107,7 +107,7 @@
                   :key="product.product_id"
                   :value="product.product_code"
                 >
-                  {{ product.product_name }}（{{product.product_code}}）
+                  {{ product.product_name }}（{{ product.product_code }}）
                 </a-select-option>
               </a-select>
             </template>
@@ -204,10 +204,13 @@
 
       <!-- 其他内容 -->
       <div class="warehousing-order-note">
-
         <div class="note-row">
           <label class="note-label">币种：</label>
-          <a-select v-model:value="form.currency" style="width: 100%" @change="handleCurrencyChange">
+          <a-select
+            v-model:value="form.currency"
+            style="width: 100%"
+            @change="handleCurrencyChange"
+          >
             <a-select-option value="CNY">人民币</a-select-option>
             <a-select-option value="USD">美元</a-select-option>
             <a-select-option value="EUR">欧元</a-select-option>
@@ -491,7 +494,10 @@ const handlePurchaseOrderChange = async (value: string) => {
 // 计算总计
 const calculateTotal = () => {
   console.log(form.warehousing_items)
-  form.total_amount = form.warehousing_items.reduce((sum, item) => sum + (item.quantity * (item.tax_included_price || 0)), 0)
+  form.total_amount = form.warehousing_items.reduce(
+    (sum, item) => sum + item.quantity * (item.tax_included_price || 0),
+    0
+  )
   console.log(form.total_amount)
 }
 
@@ -533,7 +539,9 @@ const handleSubmit = async () => {
   if (form.contract_number) {
     for (const item of form.warehousing_items) {
       if (item.max_quantity && item.quantity > item.max_quantity) {
-        message.error(`商品 ${item.product_name} 入库数量(${item.quantity})超过剩余可入库数量(${item.max_quantity})`)
+        message.error(
+          `商品 ${item.product_name} 入库数量(${item.quantity})超过剩余可入库数量(${item.max_quantity})`
+        )
         return
       }
     }
@@ -721,15 +729,25 @@ const handleSaveDraft = () => {
     total_amount: form.total_amount,
     currency: form.currency,
     exchange_rate: form.exchange_rate,
-    warehousing_time: form.warehousing_time ? (typeof form.warehousing_time === 'string' ? form.warehousing_time : dayjs(form.warehousing_time).format('YYYY-MM-DD')) : '',
-    entry_date: form.entry_date ? (typeof form.entry_date === 'string' ? form.entry_date : dayjs(form.entry_date).format('YYYY-MM-DD')) : '',
+    warehousing_time: form.warehousing_time
+      ? typeof form.warehousing_time === 'string'
+        ? form.warehousing_time
+        : dayjs(form.warehousing_time).format('YYYY-MM-DD')
+      : '',
+    entry_date: form.entry_date
+      ? typeof form.entry_date === 'string'
+        ? form.entry_date
+        : dayjs(form.entry_date).format('YYYY-MM-DD')
+      : '',
     tracking_number: form.tracking_number,
     warehousing_person: form.warehousing_person,
     contact_phone: form.contact_phone,
     remarks: form.remarks,
     expenses: form.expenses,
   }
-  const summary = form.customer_name ? `${form.customer_name} - ${form.warehousing_items.length}个商品` : `${form.warehousing_items.length}个商品`
+  const summary = form.customer_name
+    ? `${form.customer_name} - ${form.warehousing_items.length}个商品`
+    : `${form.warehousing_items.length}个商品`
   saveDraft(DRAFT_KEY, draftData, summary)
   message.success('暂存成功')
 }
@@ -750,7 +768,12 @@ const restoreDraft = () => {
   form.warehousing_person = draft.data.warehousing_person || currentUser.value?.username || ''
   form.contact_phone = draft.data.contact_phone || currentUser.value?.phone || ''
   form.remarks = draft.data.remarks || ''
-  form.expenses = draft.data.expenses || { tariff: 0, transportationFee: 0, customsFee: 0, otherFee: 0 }
+  form.expenses = draft.data.expenses || {
+    tariff: 0,
+    transportationFee: 0,
+    customsFee: 0,
+    otherFee: 0,
+  }
 }
 
 const checkDraft = () => {

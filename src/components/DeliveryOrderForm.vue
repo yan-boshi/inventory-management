@@ -944,7 +944,10 @@ watch(
 
         await getSalesOrdersForDelivery()
         // 如果当前合同编号不在下拉选项中（如销售订单已全部出库），则补充加载
-        if (formData.contract_number && !salesOrderOptions.value.some((o: any) => o.contract_number === formData.contract_number)) {
+        if (
+          formData.contract_number &&
+          !salesOrderOptions.value.some((o: any) => o.contract_number === formData.contract_number)
+        ) {
           try {
             const res = await salesOrdersApi.getAll({ contract_number: formData.contract_number })
             const orders = res.data?.data || res.data || []

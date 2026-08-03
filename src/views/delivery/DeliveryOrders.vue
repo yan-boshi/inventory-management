@@ -106,31 +106,31 @@
           </template>
 
           <template v-else-if="column.key === 'contract_number'">
-            <span v-if="record._isFirstRow">{{ record.contract_number || '-' }}</span>
+            <span>{{ record.contract_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'customer_name'">
-            <span v-if="record._isFirstRow">{{ record.customer_name || '-' }}</span>
+            <span>{{ record.customer_name || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'delivery_time'">
-            <span v-if="record._isFirstRow">{{ formatDateTime(record.delivery_time) }}</span>
+            <span>{{ formatDateTime(record.delivery_time) }}</span>
           </template>
 
           <template v-else-if="column.key === 'entry_date'">
-            <span v-if="record._isFirstRow">{{ formatDate(record.entry_date) }}</span>
+            <span>{{ formatDate(record.entry_date) }}</span>
           </template>
 
           <template v-else-if="column.key === 'delivery_person'">
-            <span v-if="record._isFirstRow">{{ record.delivery_person || '-' }}</span>
+            <span>{{ record.delivery_person || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'tracking_number'">
-            <span v-if="record._isFirstRow">{{ record.tracking_number || '-' }}</span>
+            <span>{{ record.tracking_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'actions'">
-            <a-space v-if="record._isFirstRow">
+            <a-space>
               <a-button type="link" size="small" @click="handleEdit(record)">
                 编辑
               </a-button>
@@ -202,6 +202,7 @@ const dateRange = ref<[any, any] | undefined>(undefined)
 // 展开订单数据，每个商品一行
 const expandedOrders = computed(() => {
   const result: any[] = []
+  let rowIndex = 0
   orders.value.forEach((order, orderIndex) => {
     const items = getDeliveryItems(order)
     if (items.length === 0) {
@@ -217,6 +218,7 @@ const expandedOrders = computed(() => {
         _isFirstRow: true,
         _rowCount: 1,
         _orderIndex: orderIndex,
+        _rowIndex: rowIndex++,
       })
     } else {
       items.forEach((item: any, index: number) => {
@@ -232,6 +234,7 @@ const expandedOrders = computed(() => {
           _isFirstRow: index === 0,
           _rowCount: items.length,
           _orderIndex: orderIndex,
+          _rowIndex: rowIndex++,
         })
       })
     }
@@ -283,19 +286,7 @@ const allColumns = computed(() => [
     align: 'center',
     fixed: 'left',
     customRender: ({ record }: { record: any }) => {
-      if (record._isFirstRow) {
-        return (pagination.current - 1) * pagination.pageSize + record._orderIndex + 1
-      }
-      return ''
-    },
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
+      return (pagination.current - 1) * pagination.pageSize + record._rowIndex + 1
     },
   },
   {
@@ -385,15 +376,6 @@ const allColumns = computed(() => [
     dataIndex: 'delivery_person',
     key: 'delivery_person',
     width: 100,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: '快递单号',
@@ -406,15 +388,6 @@ const allColumns = computed(() => [
     key: 'actions',
     width: 200,
     fixed: 'right',
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
 ])
 

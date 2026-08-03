@@ -106,15 +106,15 @@
           </template>
 
           <template v-else-if="column.key === 'contract_number'">
-            <span v-if="record._isFirstRow">{{ record.contract_number || '-' }}</span>
+            <span>{{ record.contract_number || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'customer_name'">
-            <span v-if="record._isFirstRow">{{ record.customer_name || '-' }}</span>
+            <span>{{ record.customer_name || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'customer_code'">
-            <span v-if="record._isFirstRow">{{ record.customer_code || '-' }}</span>
+            <span>{{ record.customer_code || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'status'">
@@ -130,28 +130,28 @@
           </template>
 
           <template v-else-if="column.key === 'entry_date'">
-            <span v-if="record._isFirstRow">{{ formatDate(record.entry_date) }}</span>
+            <span>{{ formatDate(record.entry_date) }}</span>
           </template>
 
           <template v-else-if="column.key === 'payment_method'">
-            <span v-if="record._isFirstRow">{{ record.payment_method }}</span>
+            <span>{{ record.payment_method }}</span>
           </template>
 
           <template v-else-if="column.key === 'tax_included_amount'">
-            <span v-if="record._isFirstRow" style="color: #f5222d; font-weight: 500">
-              {{ record.tax_included_amount }}
+            <span style="color: #f5222d; font-weight: 500">
+              {{ record.amount }}
             </span>
           </template>
           <template v-else-if="column.key === 'currency'">
-            <span v-if="record._isFirstRow">{{ record.currency }}</span>
+            <span>{{ record.currency }}</span>
           </template>
 
           <template v-else-if="column.key === 'sales_person'">
-            <span v-if="record._isFirstRow">{{ record.sales_person || '-' }}</span>
+            <span>{{ record.sales_person || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'actions'">
-            <a-space v-if="record._isFirstRow">
+            <a-space>
               <a-button
                 type="link"
                 size="small"
@@ -241,6 +241,7 @@ const dateRange = ref<[any, any] | undefined>(undefined)
 // 展开订单数据，每个商品一行
 const expandedOrders = computed(() => {
   const result: any[] = []
+  let rowIndex = 0
   orders.value.forEach((order, orderIndex) => {
     const items = parseSalesItems(order.sales_items)
     if (items.length === 0) {
@@ -259,6 +260,7 @@ const expandedOrders = computed(() => {
         _isFirstRow: true,
         _rowCount: 1,
         _orderIndex: orderIndex,
+        _rowIndex: rowIndex++,
       })
     } else {
       items.forEach((item: any, index: number) => {
@@ -277,6 +279,7 @@ const expandedOrders = computed(() => {
           _isFirstRow: index === 0,
           _rowCount: items.length,
           _orderIndex: orderIndex,
+          _rowIndex: rowIndex++,
         })
       })
     }
@@ -339,6 +342,7 @@ const purchaseStatusFilters = computed(() => [
   { text: t.value.salesOrder.noNeedToPurchase, value: '4' },
 ])
 
+
 // 使用 computed 使列定义响应式
 const allColumns = computed(() => [
   {
@@ -348,19 +352,7 @@ const allColumns = computed(() => [
     align: 'center',
     fixed: 'left',
     customRender: ({ record }: { record: any }) => {
-      if (record._isFirstRow) {
-        return (pagination.current - 1) * pagination.pageSize + record._orderIndex + 1
-      }
-      return ''
-    },
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
+      return (pagination.current - 1) * pagination.pageSize + record._rowIndex + 1
     },
   },
   {
@@ -394,7 +386,7 @@ const allColumns = computed(() => [
     key: 'product_code',
     width: 120,
     filters: productCodeFilters.value,
-    onFilter: (value: string, record: any) => record.product_code === value,
+    onFilter: (value: string, record: any) => String(record.product_code) === value,
     filterMultiple: true,
   },
   {
@@ -403,7 +395,7 @@ const allColumns = computed(() => [
     key: 'product_name',
     width: 150,
     filters: productNameFilters.value,
-    onFilter: (value: string, record: any) => record.product_name === value,
+    onFilter: (value: string, record: any) => String(record.product_name) === value,
     filterMultiple: true,
   },
   {
@@ -412,7 +404,7 @@ const allColumns = computed(() => [
     key: 'model',
     width: 120,
     filters: modelFilters.value,
-    onFilter: (value: string, record: any) => record.model === value,
+    onFilter: (value: string, record: any) => String(record.model) === value,
     filterMultiple: true,
   },
   {
@@ -421,7 +413,7 @@ const allColumns = computed(() => [
     key: 'description',
     width: 150,
     filters: descriptionFilters.value,
-    onFilter: (value: string, record: any) => record.description === value,
+    onFilter: (value: string, record: any) => String(record.description) === value,
     filterMultiple: true,
   },
   {
@@ -447,21 +439,13 @@ const allColumns = computed(() => [
   },
   {
     title: t.value.salesOrder.paymentMethod.replace('：', '').replace(':', ''),
+    dataIndex: 'payment_method',
     key: 'payment_method',
     width: 80,
     align: 'center',
     filters: paymentMethodFilters.value,
     onFilter: (value: string, record: any) => String(record.payment_method) === value,
     filterMultiple: true,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: t.value.common.status,
@@ -491,36 +475,21 @@ const allColumns = computed(() => [
     customRender: ({ text }: { text: string }) => formatDate(text),
   },
   {
-    title: t.value.salesOrder.totalWithTax.replace('：', ''),
+    title: '含税金额',
+    dataIndex: 'amount',
     key: 'tax_included_amount',
     width: 120,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
+    align: 'right',
   },
   {
     title: t.value.salesOrder.currency.replace('：', ''),
+    dataIndex: 'currency',
     key: 'currency',
     width: 80,
     align: 'center',
     filters: currencyFilters.value,
     onFilter: (value: string, record: any) => String(record.currency) === value,
     filterMultiple: true,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: t.value.salesOrder.salesPerson,
@@ -531,30 +500,12 @@ const allColumns = computed(() => [
     filters: salesPersonFilters.value,
     onFilter: (value: string, record: any) => String(record.sales_person) === value,
     filterMultiple: true,
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
   {
     title: t.value.common.action,
     key: 'actions',
     width: 200,
     fixed: 'right',
-    customCell: (record: any) => {
-      if (record._isFirstRow && record._rowCount > 1) {
-        return { rowSpan: record._rowCount }
-      }
-      if (!record._isFirstRow) {
-        return { rowSpan: 0 }
-      }
-      return {}
-    },
   },
 ])
 
