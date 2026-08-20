@@ -87,7 +87,7 @@ export const deleteReceivable = async (req, res) => {
 export const updateReceivable = async (req, res) => {
   try {
     const { id } = req.params
-    const { billing_status, handling_fee, status } = req.body
+    const { billing_status, handling_fee, status, received_amount, balance_amount, due_date } = req.body
 
     const existing = await Receivable.findById(id)
     if (!existing) {
@@ -98,6 +98,9 @@ export const updateReceivable = async (req, res) => {
     if (billing_status !== undefined) updateData.billing_status = billing_status
     if (handling_fee !== undefined) updateData.handling_fee = handling_fee
     if (status !== undefined) updateData.status = status
+    if (received_amount !== undefined) updateData.received_amount = received_amount
+    if (balance_amount !== undefined) updateData.balance_amount = balance_amount
+    if (due_date !== undefined) updateData.due_date = due_date
 
     const receivable = await Receivable.update(id, updateData)
     res.json({ success: true, data: receivable })

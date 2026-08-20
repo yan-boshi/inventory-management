@@ -12,6 +12,9 @@ import customerRoutes from './routes/customerRoutes.js'
 import supplierRoutes from './routes/supplierRoutes.js'
 import salesOrderRoutes from './routes/salesOrderRoutes.js'
 import purchaseOrderRoutes from './routes/purchaseOrderRoutes.js'
+import purchasePlanRoutes from './routes/purchasePlanRoutes.js'
+import inboundPlanRoutes from './routes/inboundPlanRoutes.js'
+import outboundPlanRoutes from './routes/outboundPlanRoutes.js'
 import quotationRoutes from './routes/quotationRoutes.js'
 import warehousingOrderRoutes from './routes/warehousingOrderRoutes.js'
 import deliveryOrderRoutes from './routes/deliveryOrderRoutes.js'
@@ -23,6 +26,10 @@ import profitReportRoutes from './routes/profitReportRoutes.js'
 import receivableRoutes from './routes/receivableRoutes.js'
 import payableRoutes from './routes/payableRoutes.js'
 import settlementRoutes from './routes/settlementRoutes.js'
+import inboundReturnRoutes from './routes/inboundReturnRoutes.js'
+import outboundReturnRoutes from './routes/outboundReturnRoutes.js'
+import packingListRoutes from './routes/packingListRoutes.js'
+import invoiceRoutes from './routes/invoiceRoutes.js'
 
 dotenv.config()
 
@@ -48,6 +55,9 @@ app.use('/api/customers', customerRoutes)
 app.use('/api/suppliers', supplierRoutes)
 app.use('/api/sales-orders', salesOrderRoutes)
 app.use('/api/purchase-orders', purchaseOrderRoutes)
+app.use('/api/purchase-plans', purchasePlanRoutes)
+app.use('/api/inbound-plans', inboundPlanRoutes)
+app.use('/api/outbound-plans', outboundPlanRoutes)
 app.use('/api/quotations', quotationRoutes)
 app.use('/api/warehousing-orders', warehousingOrderRoutes)
 app.use('/api/delivery-orders', deliveryOrderRoutes)
@@ -59,6 +69,10 @@ app.use('/api/profit-report', profitReportRoutes)
 app.use('/api/receivables', receivableRoutes)
 app.use('/api/payables', payableRoutes)
 app.use('/api/settlement', settlementRoutes)
+app.use('/api/inbound-returns', inboundReturnRoutes)
+app.use('/api/outbound-returns', outboundReturnRoutes)
+app.use('/api/packing-lists', packingListRoutes)
+app.use('/api/invoices', invoiceRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

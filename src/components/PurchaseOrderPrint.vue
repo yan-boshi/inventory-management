@@ -53,9 +53,9 @@
         <thead>
           <tr>
             <th>{{ t.purchaseOrderPrint.no }}</th>
-            <th>{{ t.purchaseOrderPrint.productCode }}</th>
             <th>{{ t.purchaseOrderPrint.productName }}</th>
-            <th>{{ t.purchaseOrderPrint.specification }}</th>
+            <th>{{ t.purchaseOrderPrint.model }}</th>
+            <th>{{ t.purchaseOrderPrint.description }}</th>
             <th>{{ t.purchaseOrderPrint.quantity }}</th>
             <th>{{ t.purchaseOrderPrint.unit }}</th>
             <th>{{ t.purchaseOrderPrint.taxIncludedPrice }}</th>
@@ -67,12 +67,9 @@
         <tbody>
           <tr v-for="item in JSON.parse(orderData?.purchase_items || '[]')" :key="item.no">
             <td>{{ item.no }}</td>
-            <td>{{ item.product_code || '-' }}</td>
             <td>{{ item.product_name || '-' }}</td>
-            <td>
-              <div>{{ item.model || '-' }}</div>
-              <div class="product-extra">{{ item.description || '' }}</div>
-            </td>
+            <td>{{ item.model || '-' }}</td>
+            <td>{{ item.description || '-' }}</td>
             <td>{{ item.quantity || '-' }}</td>
             <td>{{ item.unit || '-' }}</td>
             <td>{{ item.tax_included_price }}</td>
@@ -136,8 +133,13 @@
               <span class="footer-value">{{ supplierData?.supplier_email || '-' }}</span>
             </div>
           </div>
-          <div class="sign-box">
+          <div class="sign-box" @click="handleStampClick('seller')">
             <span class="sign-label">{{ t.purchaseOrderPrint.signatureAndSeal }}</span>
+            <img v-if="sellerStamp" :src="sellerStamp" class="stamp-image" alt="供方盖章" />
+            <div v-else class="stamp-placeholder no-print">
+              <UploadOutlined />
+              <span>点击盖章</span>
+            </div>
           </div>
         </div>
         <div class="footer-right">
@@ -170,8 +172,13 @@
               }}</span>
             </div>
           </div>
-          <div class="sign-box">
+          <div class="sign-box" @click="handleStampClick('buyer')">
             <span class="sign-label">{{ t.purchaseOrderPrint.signatureAndSeal }}</span>
+            <img v-if="buyerStamp" :src="buyerStamp" class="stamp-image" alt="需方盖章" />
+            <div v-else class="stamp-placeholder no-print">
+              <UploadOutlined />
+              <span>点击盖章</span>
+            </div>
           </div>
         </div>
       </div>
@@ -180,9 +187,44 @@
     <div class="modal-footer">
       <a-space>
         <a-button @click="handleCancel">{{ t.purchaseOrderPrint.cancel }}</a-button>
+        <a-button @click="handleClearStamps" v-if="buyerStamp || sellerStamp">清除印章</a-button>
         <a-button type="primary" @click="handlePrint">{{ t.purchaseOrderPrint.print }}</a-button>
       </a-space>
     </div>
+
+    <!-- 印章选择弹窗 -->
+    <a-modal
+      v-model:open="stampModalVisible"
+      title="选择电子印章"
+      @cancel="stampModalVisible = false"
+      :footer="null"
+      width="400px"
+    >
+      <div class="stamp-selection">
+        <div class="stamp-list">
+          <div
+            v-for="(stamp, index) in availableStamps"
+            :key="index"
+            class="stamp-item"
+            @click="selectStamp(stamp)"
+          >
+            <img :src="stamp" :alt="'印章' + (index + 1)" />
+          </div>
+        </div>
+        <div class="stamp-upload">
+          <a-upload
+            :before-upload="handleStampUpload"
+            :show-upload-list="false"
+            accept="image/*"
+          >
+            <a-button>
+              <UploadOutlined />
+              上传自定义印章
+            </a-button>
+          </a-upload>
+        </div>
+      </div>
+    </a-modal>
 
     <!-- 编辑弹窗 -->
     <a-modal
@@ -199,6 +241,8 @@
 <script setup lang="ts">
 import { ref, reactive, watch, computed, nextTick, onMounted } from 'vue'
 import dayjs from 'dayjs'
+import { UploadOutlined } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 import type { PurchaseOrder } from '@/types'
 import { useUserStore } from '@/stores/user'
 import { suppliersApi } from '@/api/suppliers'
@@ -251,6 +295,76 @@ const editModalVisible = ref(false)
 const editField = ref('')
 const editValue = ref('')
 const editInputRef = ref<HTMLInputElement | null>(null)
+
+// 印章相关
+const stampModalVisible = ref(false)
+const currentStampType = ref<'buyer' | 'seller'>('buyer')
+const buyerStamp = ref<string>('')
+const sellerStamp = ref<string>('')
+
+// 预置印章（可以是base64或URL）
+const availableStamps = ref<string[]>([
+  // 可以在这里添加预置印章图片
+])
+
+const handleStampClick = (type: 'buyer' | 'seller') => {
+  currentStampType.value = type
+  stampModalVisible.value = true
+}
+
+const selectStamp = (stamp: string) => {
+  if (currentStampType.value === 'buyer') {
+    buyerStamp.value = stamp
+  } else {
+    sellerStamp.value = stamp
+  }
+  stampModalVisible.value = false
+  saveStamps()
+}
+
+const handleStampUpload = (file: File) => {
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const result = e.target?.result as string
+    if (currentStampType.value === 'buyer') {
+      buyerStamp.value = result
+    } else {
+      sellerStamp.value = result
+    }
+    stampModalVisible.value = false
+    saveStamps()
+    message.success('印章上传成功')
+  }
+  reader.readAsDataURL(file)
+  return false
+}
+
+const handleClearStamps = () => {
+  buyerStamp.value = ''
+  sellerStamp.value = ''
+  saveStamps()
+  message.success('印章已清除')
+}
+
+const saveStamps = () => {
+  const key = `purchase_order_stamps_${orderData.value?.purchase_order_id || 'default'}`
+  localStorage.setItem(key, JSON.stringify({
+    buyer: buyerStamp.value,
+    seller: sellerStamp.value
+  }))
+}
+
+const loadStamps = () => {
+  const key = `purchase_order_stamps_${orderData.value?.purchase_order_id || 'default'}`
+  const saved = localStorage.getItem(key)
+  if (saved) {
+    try {
+      const { buyer, seller } = JSON.parse(saved)
+      buyerStamp.value = buyer || ''
+      sellerStamp.value = seller || ''
+    } catch (e) {}
+  }
+}
 
 const user = computed(() => userStore.user)
 
@@ -373,7 +487,7 @@ const initializeFormData = () => {
   const order = orderData.value
   const supplier = supplierData.value
   formData.orderDate = order.created_at || new Date().toISOString()
-  formData.taxRate = (order.tax_rate || 0) * 100
+  formData.taxRate = order.tax_rate || 0
   formData.remarks = ''
 
   // 从purchase_items中计算总金额
@@ -397,6 +511,7 @@ watch(
   newVal => {
     if (newVal) {
       initializeFormData()
+      loadStamps()
     }
   }
 )
@@ -680,11 +795,82 @@ const handlePrint = () => {
     margin-top: 20px;
     padding-top: 20px;
     border-top: 1px dashed #d9d9d9;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
 
     .sign-label {
       color: #595959;
       font-size: 14px;
     }
+
+    .stamp-image {
+      max-width: 150px;
+      max-height: 100px;
+      margin-top: 10px;
+      object-fit: contain;
+    }
+
+    .stamp-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+      color: #bfbfbf;
+      font-size: 12px;
+
+      .anticon {
+        font-size: 24px;
+        margin-bottom: 4px;
+      }
+    }
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.02);
+    }
+  }
+}
+
+.stamp-selection {
+  .stamp-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+
+    .stamp-item {
+      width: 120px;
+      height: 120px;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 8px;
+
+      &:hover {
+        border-color: #1890ff;
+        background-color: #f0f5ff;
+      }
+
+      img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+    }
+  }
+
+  .stamp-upload {
+    text-align: center;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
   }
 }
 
@@ -869,9 +1055,14 @@ const handlePrint = () => {
     .sign-box {
       margin-top: 4px;
       padding-top: 4px;
+      min-height: 100px !important;
 
       .sign-label {
         font-size: 8px;
+      }
+
+      .stamp-placeholder {
+        display: none !important;
       }
     }
   }

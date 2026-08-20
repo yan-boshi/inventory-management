@@ -92,6 +92,10 @@
                   列设置
                 </a-button>
               </a-popover>
+              <a-button @click="handleExport" :disabled="reportData.length === 0">
+                <template #icon><DownloadOutlined /></template>
+                导出Excel
+              </a-button>
               <a-button @click="handlePrint" :disabled="reportData.length === 0">
                 <template #icon><PrinterOutlined /></template>
                 打印
@@ -162,11 +166,12 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined, PrinterOutlined, SettingOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, ReloadOutlined, PrinterOutlined, SettingOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { inventoryReportApi } from '@/api/inventoryReport'
 import InventoryReportPrint from '@/components/InventoryReportPrint.vue'
 import type { InventoryReportItem } from '@/types'
 import { formatDate } from '@/utils/date'
+import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 
 const loading = ref(false)
 const reportData = ref<InventoryReportItem[]>([])
@@ -250,7 +255,7 @@ const formatNumber = (value: number) => {
 }
 
 const formatMoney = (value: number) => {
-  return value != null ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'
+  return value != null ? value.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : '0.0000'
 }
 
 const fetchReport = async () => {
@@ -285,6 +290,21 @@ const handleReset = () => {
 const handlePageChange = (page: number, pageSize: number) => {
   pagination.current = page
   pagination.pageSize = pageSize
+}
+
+const handleExport = () => {
+  const visibleCols = allColumns.filter(col => visibleColumnKeys.value.includes(col.key))
+  const exportColumns: ExportColumn[] = visibleCols.map(col => ({
+    key: col.dataIndex || col.key,
+    title: col.title,
+  }))
+
+  exportToExcel({
+    filename: '进销存明细表',
+    columns: exportColumns,
+    data: reportData.value,
+    sheetName: '进销存明细表',
+  })
 }
 
 const handlePrint = () => {

@@ -17,8 +17,7 @@
             <a-input
               v-model:value="searchParams.quotationNumber"
               placeholder="请输入报价单号"
-              allow-clear
-              style="width: 200px"
+              allow-clear
             />
           </a-form-item>
 
@@ -26,8 +25,7 @@
             <a-input
               v-model:value="searchParams.customerName"
               placeholder="请输入客户名称"
-              allow-clear
-              style="width: 200px"
+              allow-clear
             />
           </a-form-item>
 
@@ -35,16 +33,14 @@
             <a-input
               v-model:value="searchParams.customerCode"
               placeholder="请输入客户代码"
-              allow-clear
-              style="width: 200px"
+              allow-clear
             />
           </a-form-item>
 
           <a-form-item label="报价日期">
             <a-range-picker
               v-model:value="dateRange"
-              @change="handleDateRangeChange"
-              style="width: 260px"
+              @change="handleDateRangeChange"
             />
           </a-form-item>
 
@@ -146,12 +142,6 @@
       :printData="printData"
     />
 
-    <QuotationPrintEn
-      v-model:visible="printEnVisible"
-      :quotation="currentQuotation"
-      :printData="printData"
-    />
-
     <SalesOrderForm
       v-model:visible="salesOrderFormVisible"
       :isEdit="false"
@@ -170,7 +160,6 @@ import { customersApi } from '@/api/customers'
 import type { Quotation, QuotationQueryParams } from '@/types'
 import QuotationForm from '@/components/QuotationForm.vue'
 import QuotationPrint from '@/components/QuotationPrint.vue'
-import QuotationPrintEn from '@/components/QuotationPrintEn.vue'
 import SalesOrderForm from '@/components/SalesOrderForm.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate } from '@/utils/date'
@@ -180,7 +169,6 @@ const quotations = ref<Quotation[]>([])
 const loading = ref(false)
 const formVisible = ref(false)
 const printVisible = ref(false)
-const printEnVisible = ref(false)
 const isEdit = ref(false)
 const currentQuotation = ref<Quotation | undefined>(undefined)
 const printData = ref<any>(undefined)
@@ -376,12 +364,10 @@ const handlePrint = async (quotation: Quotation, lang: 'zh' | 'en' = 'zh') => {
       validity_period: detail.data.validity_period,
       delivery_method: detail.data.delivery_method,
       tax_rate: detail.data.tax_rate,
+      payment_terms: detail.data.payment_terms,
+      trade_terms: detail.data.trade_terms,
     }
-    if (lang === 'en') {
-      printEnVisible.value = true
-    } else {
-      printVisible.value = true
-    }
+    printVisible.value = true
   } catch (error) {
     message.error('获取报价单详情失败')
   }
@@ -475,7 +461,7 @@ const handleConvertFromForm = (data: any) => {
       description: item.description || '',
       unit: item.unit || '',
       quantity: item.quantity,
-      tax_rate: tax_rate || 13,
+      tax_rate: tax_rate ?? 13,
       tax_included_price: item.unit_price || 0,
       tax_excluded_price: 0,
       tax_included_amount: item.total_amount || 0,
@@ -553,6 +539,29 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+
+    :deep(.ant-form-item) {
+      margin-bottom: 12px;
+
+      > .ant-form-item-label {
+        width: 80px;
+        text-align: right;
+        padding-right: 8px;
+      }
+    }
+
+    :deep(.ant-input),
+    :deep(.ant-input-affix-wrapper) {
+      width: 180px;
+    }
+
+    :deep(.ant-picker) {
+      width: 240px;
+    }
+
+    :deep(.ant-select) {
+      width: 180px;
+    }
   }
 
   .order-link {

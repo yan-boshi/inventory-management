@@ -22,7 +22,8 @@ class Customer extends BaseModel {
       contact_phone: data.contact_phone || null,
       receiver: data.receiver || null,
       receiver_address: data.receiver_address || null,
-      remarks: data.remarks || null
+      remarks: data.remarks || null,
+      created_by: data.created_by || null
     }
     return super.create(customerData)
   }

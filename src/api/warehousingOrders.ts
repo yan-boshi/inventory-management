@@ -29,6 +29,6 @@ export const warehousingOrdersApi = {
   },
 
   getPurchaseOrdersForWarehousing: async () => {
-    return instance.get<WarehousingOrder[]>('/purchase-orders')
+    return instance.get<WarehousingOrder[]>('/warehousing-orders/purchase-orders')
   }
 }

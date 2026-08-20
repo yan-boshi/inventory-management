@@ -18,7 +18,6 @@
               v-model:value="searchParams.orderNumber"
               placeholder="请输入订单号"
               allow-clear
-              style="width: 200px"
             />
           </a-form-item>
 
@@ -27,7 +26,6 @@
               v-model:value="searchParams.supplierName"
               placeholder="请输入供应商名称"
               allow-clear
-              style="width: 200px"
             />
           </a-form-item>
 
@@ -36,7 +34,14 @@
               v-model:value="searchParams.supplierCode"
               placeholder="请输入供应商代码"
               allow-clear
-              style="width: 200px"
+            />
+          </a-form-item>
+
+          <a-form-item label="合同编号">
+            <a-input
+              v-model:value="searchParams.contractNumber"
+              placeholder="请输入合同编号"
+              allow-clear
             />
           </a-form-item>
 
@@ -45,7 +50,6 @@
               v-model:value="searchParams.productCode"
               placeholder="请输入产品代码"
               allow-clear
-              style="width: 200px"
             />
           </a-form-item>
 
@@ -54,7 +58,6 @@
               v-model:value="searchParams.productName"
               placeholder="请输入产品名称"
               allow-clear
-              style="width: 200px"
             />
           </a-form-item>
 
@@ -63,23 +66,23 @@
               v-model:value="searchParams.productModel"
               placeholder="请输入产品型号"
               allow-clear
-              style="width: 200px"
             />
           </a-form-item>
 
           <a-form-item label="采购日期">
-            <a-range-picker
-              v-model:value="dateRange"
-              @change="handleDateRangeChange"
-              style="width: 260px"
-            />
+            <a-range-picker v-model:value="dateRange" @change="handleDateRangeChange" />
           </a-form-item>
 
           <a-form-item>
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
-              <ColumnConfig v-model:columns="allColumns" cacheKey="purchaseOrders" />
+              <a-button @click="handleExport"> <DownloadOutlined /> 导出Excel </a-button>
+              <ColumnConfig
+                :columns="allColumns"
+                @update:columns="handleColumnConfigUpdate"
+                cacheKey="purchaseOrders"
+              />
             </a-space>
           </a-form-item>
         </a-form>
@@ -92,7 +95,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="row_key"
-        :scroll="{ x: 2200, y: 'calc(100vh - 300px)' }"
+        :scroll="{ x: 3600, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
@@ -131,15 +134,27 @@
             <span>{{ record.purchase_person || '-' }}</span>
           </template>
 
+          <template v-else-if="column.key === 'settlement_status'">
+            <a-tag
+              :color="
+                record.settlement_status === '全部结算'
+                  ? 'green'
+                  : record.settlement_status === '部分结算'
+                  ? 'orange'
+                  : 'default'
+              "
+            >
+              {{ record.settlement_status || '未结算' }}
+            </a-tag>
+          </template>
+
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-button type="link" size="small" @click="handleEdit(record)"> 编辑 </a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record)">
                 删除
               </a-button>
-              <a-button type="link" size="small" @click="handlePrint(record)">
-                打印
-              </a-button>
+              <a-button type="link" size="small" @click="handlePrint(record)"> 打印 </a-button>
             </a-space>
           </template>
         </template>
@@ -172,9 +187,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import {
+  PlusOutlined,
+  SearchOutlined,
+  ReloadOutlined,
+  DownloadOutlined,
+} from '@ant-design/icons-vue'
 import { purchaseOrdersApi } from '@/api/purchaseOrders'
 import { suppliersApi } from '@/api/suppliers'
 import type { PurchaseOrder, PurchaseOrderQueryParams } from '@/types'
@@ -183,6 +203,7 @@ import PurchaseOrderDetail from '@/components/PurchaseOrderDetail.vue'
 import PurchaseOrderPrint from '@/components/PurchaseOrderPrint.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate } from '@/utils/date'
+import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import dayjs from 'dayjs'
 
 const orders = ref<PurchaseOrder[]>([])
@@ -209,11 +230,22 @@ const expandedOrders = computed(() => {
         model: '-',
         description: '-',
         quantity: '-',
+        tax_included_price: 0,
         unit: '-',
         amount: 0,
         tax_rate: 0,
         tax_excluded_amount: 0,
         tax_excluded_price: 0,
+        business_category: '',
+        delivery_date: '',
+        invoice_date: '',
+        invoice_number: '',
+        invoice_received: '',
+        settlement_date: '',
+        settlement_amount: 0,
+        unsettled_amount: 0,
+        settlement_status: '未结算',
+        remarks: '',
         item_status: order.status,
         _isFirstRow: true,
         _rowCount: 1,
@@ -230,11 +262,22 @@ const expandedOrders = computed(() => {
           model: item.model || '-',
           description: item.description || '-',
           quantity: item.quantity || '-',
+          tax_included_price: item.tax_included_price || 0,
           unit: item.unit || '-',
           amount: item.tax_included_amount || 0,
           tax_rate: item.tax_rate || 0,
           tax_excluded_amount: item.tax_excluded_amount || 0,
           tax_excluded_price: item.tax_excluded_price || 0,
+          business_category: item.business_category || '',
+          delivery_date: item.delivery_date || '',
+          invoice_date: item.invoice_date || '',
+          invoice_number: item.invoice_number || '',
+          invoice_received: item.invoice_received || '',
+          settlement_date: item.settlement_date || '',
+          settlement_amount: item.settlement_amount || 0,
+          unsettled_amount: item.unsettled_amount || 0,
+          settlement_status: item.settlement_status || '未结算',
+          remarks: item.remarks || '',
           item_status: item.status || 1,
           _isFirstRow: index === 0,
           _rowCount: items.length,
@@ -253,6 +296,7 @@ const searchParams = reactive<PurchaseOrderQueryParams>({
   orderNumber: '',
   supplierName: '',
   supplierCode: '',
+  contractNumber: '',
   startDate: '',
   endDate: '',
 })
@@ -266,7 +310,9 @@ const pagination = reactive({
 // 动态生成筛选选项的辅助函数
 const generateFilters = (dataKey: string) => {
   return computed(() => {
-    const values = [...new Set(expandedOrders.value.map((item: any) => item[dataKey]).filter(Boolean))]
+    const values = [
+      ...new Set(expandedOrders.value.map((item: any) => item[dataKey]).filter(Boolean)),
+    ]
     return values.map(value => ({ text: String(value), value: String(value) }))
   })
 }
@@ -286,11 +332,10 @@ const statusFilters = computed(() => [
   { text: '未入库', value: '1' },
   { text: '已全部入库', value: '2' },
   { text: '已部分入库', value: '3' },
-  { text: '退货', value: '4' },
 ])
 
-// 使用 computed 使列定义响应式
-const allColumns = computed(() => [
+// 使用 ref 使列配置可通过 ColumnConfig 组件更新
+const allColumns = ref([
   {
     title: '序号',
     key: 'index',
@@ -368,6 +413,7 @@ const allColumns = computed(() => [
     key: 'quantity',
     width: 80,
     align: 'right',
+    sorter: (a: any, b: any) => (Number(a.quantity) || 0) - (Number(b.quantity) || 0),
   },
   {
     title: '单位',
@@ -377,19 +423,31 @@ const allColumns = computed(() => [
     align: 'center',
   },
   {
-    title: '金额',
+    title: '含税单价',
+    dataIndex: 'tax_included_price',
+    key: 'tax_included_price',
+    width: 100,
+    align: 'right',
+    customRender: ({ text }: { text: number }) => formatMoney(text),
+    sorter: (a: any, b: any) => (a.tax_included_price || 0) - (b.tax_included_price || 0),
+  },
+  {
+    title: '未税单价',
+    dataIndex: 'tax_excluded_price',
+    key: 'tax_excluded_price',
+    width: 110,
+    align: 'right',
+    customRender: ({ text }: { text: number }) => formatMoney(text),
+    sorter: (a: any, b: any) => (a.tax_excluded_price || 0) - (b.tax_excluded_price || 0),
+  },
+  {
+    title: '含税金额',
     dataIndex: 'amount',
     key: 'amount',
     width: 100,
     align: 'right',
     customRender: ({ text }: { text: number }) => formatMoney(text),
-  },
-  {
-    title: '税率(%)',
-    dataIndex: 'tax_rate',
-    key: 'tax_rate',
-    width: 80,
-    align: 'right',
+    sorter: (a: any, b: any) => (a.amount || 0) - (b.amount || 0),
   },
   {
     title: '未税金额',
@@ -398,21 +456,28 @@ const allColumns = computed(() => [
     width: 100,
     align: 'right',
     customRender: ({ text }: { text: number }) => formatMoney(text),
+    sorter: (a: any, b: any) => (a.tax_excluded_amount || 0) - (b.tax_excluded_amount || 0),
   },
   {
-    title: '未税单价',
-    dataIndex: 'tax_excluded_price',
-    key: 'tax_excluded_price',
+    title: '税率(%)',
+    dataIndex: 'tax_rate',
+    key: 'tax_rate',
+    width: 80,
+    align: 'right',
+    sorter: (a: any, b: any) => (a.tax_rate || 0) - (b.tax_rate || 0),
+  },
+  {
+    title: '业务分类',
+    dataIndex: 'business_category',
+    key: 'business_category',
     width: 100,
-    align: 'right',
-    customRender: ({ text }: { text: number }) => formatMoney(text),
   },
   {
-    title: '含税金额',
-    dataIndex: 'amount',
-    key: 'total_amount',
-    width: 120,
-    align: 'right',
+    title: '币种',
+    dataIndex: 'currency',
+    key: 'currency',
+    width: 80,
+    align: 'center',
   },
   {
     title: '状态',
@@ -430,6 +495,7 @@ const allColumns = computed(() => [
     key: 'entry_date',
     width: 120,
     customRender: ({ text }: { text: string }) => formatDate(text),
+    sorter: (a: any, b: any) => (a.entry_date || '').localeCompare(b.entry_date || ''),
   },
   {
     title: '采购人',
@@ -442,12 +508,119 @@ const allColumns = computed(() => [
     filterMultiple: true,
   },
   {
+    title: '交货日期',
+    dataIndex: 'delivery_date',
+    key: 'delivery_date',
+    width: 120,
+    customRender: ({ text }: { text: string }) => formatDate(text),
+    sorter: (a: any, b: any) => (a.delivery_date || '').localeCompare(b.delivery_date || ''),
+  },
+  {
+    title: '发票日期',
+    dataIndex: 'invoice_date',
+    key: 'invoice_date',
+    width: 120,
+    customRender: ({ text }: { text: string }) => formatDate(text),
+    sorter: (a: any, b: any) => (a.invoice_date || '').localeCompare(b.invoice_date || ''),
+  },
+  {
+    title: '发票号码',
+    dataIndex: 'invoice_number',
+    key: 'invoice_number',
+    width: 120,
+  },
+  {
+    title: '发票已收',
+    dataIndex: 'invoice_received',
+    key: 'invoice_received',
+    width: 90,
+    align: 'center',
+  },
+  {
+    title: '结算日期',
+    dataIndex: 'settlement_date',
+    key: 'settlement_date',
+    width: 120,
+    customRender: ({ text }: { text: string }) => formatDate(text),
+    sorter: (a: any, b: any) => (a.settlement_date || '').localeCompare(b.settlement_date || ''),
+  },
+  {
+    title: '结算金额',
+    dataIndex: 'settlement_amount',
+    key: 'settlement_amount',
+    width: 110,
+    align: 'right',
+    customRender: ({ text }: { text: number }) => formatMoney(text),
+    sorter: (a: any, b: any) => (a.settlement_amount || 0) - (b.settlement_amount || 0),
+  },
+  {
+    title: '未结算金额',
+    dataIndex: 'unsettled_amount',
+    key: 'unsettled_amount',
+    width: 110,
+    align: 'right',
+    customRender: ({ text }: { text: number }) => formatMoney(text),
+    sorter: (a: any, b: any) => (a.unsettled_amount || 0) - (b.unsettled_amount || 0),
+  },
+  {
+    title: '结算状态',
+    dataIndex: 'settlement_status',
+    key: 'settlement_status',
+    width: 100,
+    align: 'center',
+  },
+  {
+    title: '备注',
+    dataIndex: 'remarks',
+    key: 'remarks',
+    width: 150,
+  },
+  {
     title: '操作',
     key: 'actions',
     width: 220,
     fixed: 'right',
   },
 ])
+
+// 标记是否正在从 ColumnConfig 更新，防止 watcher 覆盖
+let isUpdatingFromConfig = false
+
+// 处理 ColumnConfig 组件的列更新
+const handleColumnConfigUpdate = (newColumns: any[]) => {
+  isUpdatingFromConfig = true
+  allColumns.value = newColumns
+  isUpdatingFromConfig = false
+}
+
+// 当动态筛选数据变化时，更新 allColumns 中对应列的 filters
+watch(
+  [
+    productCodeFilters,
+    productNameFilters,
+    modelFilters,
+    descriptionFilters,
+    purchasePersonFilters,
+    statusFilters,
+  ],
+  () => {
+    if (isUpdatingFromConfig) return
+    const cols = allColumns.value
+    const filterMap: Record<string, any> = {
+      product_code: productCodeFilters.value,
+      product_name: productNameFilters.value,
+      model: modelFilters.value,
+      description: descriptionFilters.value,
+      purchase_person: purchasePersonFilters.value,
+      status: statusFilters.value,
+    }
+    cols.forEach((col: any) => {
+      if (col.dataIndex && filterMap[col.dataIndex]) {
+        col.filters = filterMap[col.dataIndex]
+      }
+    })
+  }
+)
 
 const visibleColumns = computed(() => {
   return allColumns.value.filter((col: any) => col.visible !== false)
@@ -480,6 +653,7 @@ const handleReset = () => {
   searchParams.orderNumber = ''
   searchParams.supplierName = ''
   searchParams.supplierCode = ''
+  searchParams.contractNumber = ''
   searchParams.productCode = ''
   searchParams.productName = ''
   searchParams.productModel = ''
@@ -587,7 +761,7 @@ const handlePrint = (order: PurchaseOrder) => {
 
 const formatMoney = (amount: number | string) => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
-  return `${(numAmount || 0).toFixed(2)}`
+  return `${(numAmount || 0).toFixed(4)}`
 }
 
 const getStatusColor = (status: number) => {
@@ -595,7 +769,6 @@ const getStatusColor = (status: number) => {
     1: 'blue', // 未入库
     2: 'green', // 已全部入库
     3: 'orange', // 已部分入库
-    4: 'red', // 退货
   }
   return colorMap[status] || 'default'
 }
@@ -605,9 +778,125 @@ const getStatusText = (status: number) => {
     1: '未入库',
     2: '已全部入库',
     3: '已部分入库',
-    4: '退货',
   }
   return textMap[status] || '未知'
+}
+
+// 导出Excel
+const settlementStatusTextMap: Record<string, string> = {
+  未结算: '未结算',
+  部分结算: '部分结算',
+  全部结算: '全部结算',
+}
+
+const exportColumns: ExportColumn[] = [
+  { key: 'order_number', title: '默认单据编号' },
+  { key: 'contract_number', title: '合同编号' },
+  { key: 'supplier_name', title: '供应商名称' },
+  { key: 'supplier_code', title: '供应商代码' },
+  { key: 'product_code', title: '产品代码' },
+  { key: 'product_name', title: '产品名称' },
+  { key: 'model', title: '产品型号' },
+  { key: 'description', title: '产品描述' },
+  { key: 'quantity', title: '数量' },
+  { key: 'tax_included_price', title: '含税单价', formatter: v => formatMoney(v) },
+  { key: 'tax_excluded_price', title: '未税单价', formatter: v => formatMoney(v) },
+  { key: 'unit', title: '单位' },
+  { key: 'amount', title: '含税金额', formatter: v => formatMoney(v) },
+  { key: 'tax_excluded_amount', title: '未税金额', formatter: v => formatMoney(v) },
+  { key: 'tax_rate', title: '税率(%)' },
+  { key: 'business_category', title: '业务分类' },
+  { key: 'currency', title: '币种' },
+  { key: 'item_status', title: '状态', formatter: v => getStatusText(v) },
+  { key: 'entry_date', title: '录入日期', formatter: v => formatDate(v) },
+  { key: 'purchase_person', title: '采购人' },
+  { key: 'delivery_date', title: '交货日期', formatter: v => formatDate(v) },
+  { key: 'invoice_date', title: '发票日期', formatter: v => formatDate(v) },
+  { key: 'invoice_number', title: '发票号码' },
+  { key: 'invoice_received', title: '发票已收' },
+  { key: 'settlement_date', title: '结算日期', formatter: v => formatDate(v) },
+  { key: 'settlement_amount', title: '结算金额', formatter: v => formatMoney(v) },
+  { key: 'unsettled_amount', title: '未结算金额', formatter: v => formatMoney(v) },
+  {
+    key: 'settlement_status',
+    title: '结算状态',
+    formatter: v => settlementStatusTextMap[v] || v || '未结算',
+  },
+  { key: 'remarks', title: '备注' },
+]
+
+const handleExport = async () => {
+  try {
+    const response = await purchaseOrdersApi.getAll({ ...searchParams, page: 1, pageSize: 99999 })
+    const allOrders: PurchaseOrder[] = response.data || []
+    const rows: any[] = []
+    allOrders.forEach(order => {
+      const items = getParsedPurchaseItems(order)
+      if (items.length === 0) {
+        rows.push({
+          ...order,
+          product_code: '-',
+          product_name: '-',
+          model: '-',
+          description: '-',
+          quantity: '-',
+          unit: '-',
+          amount: 0,
+          tax_included_price: 0,
+          tax_excluded_price: 0,
+          tax_excluded_amount: 0,
+          tax_rate: 0,
+          business_category: '',
+          item_status: order.status,
+          delivery_date: '',
+          invoice_date: '',
+          invoice_number: '',
+          invoice_received: '',
+          settlement_date: '',
+          settlement_amount: 0,
+          unsettled_amount: 0,
+          settlement_status: '未结算',
+          remarks: '',
+        })
+      } else {
+        items.forEach((item: any) => {
+          rows.push({
+            ...order,
+            product_code: item.product_code || '-',
+            product_name: item.product_name || '-',
+            model: item.model || '-',
+            description: item.description || '-',
+            quantity: item.quantity || '-',
+            tax_included_price: item.tax_included_price || 0,
+            tax_excluded_price: item.tax_excluded_price || 0,
+            unit: item.unit || '-',
+            amount: item.tax_included_amount || 0,
+            tax_excluded_amount: item.tax_excluded_amount || 0,
+            tax_rate: item.tax_rate || 0,
+            business_category: item.business_category || '',
+            item_status: item.status || 1,
+            delivery_date: item.delivery_date || '',
+            invoice_date: item.invoice_date || '',
+            invoice_number: item.invoice_number || '',
+            invoice_received: item.invoice_received || '',
+            settlement_date: item.settlement_date || '',
+            settlement_amount: item.settlement_amount || 0,
+            unsettled_amount: item.unsettled_amount || 0,
+            settlement_status: item.settlement_status || '未结算',
+            remarks: item.remarks || '',
+          })
+        })
+      }
+    })
+    // 只导出显示的列
+    const visibleDataIndexSet = new Set(
+      visibleColumns.value.map((col: any) => col.dataIndex || col.key).filter(Boolean)
+    )
+    const filteredExportColumns = exportColumns.filter(col => visibleDataIndexSet.has(col.key))
+    exportToExcel({ filename: '采购订单', columns: filteredExportColumns, data: rows })
+  } catch {
+    message.error('导出失败')
+  }
 }
 
 onMounted(() => {
@@ -634,6 +923,29 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+
+    :deep(.ant-form-item) {
+      margin-bottom: 12px;
+
+      > .ant-form-item-label {
+        width: 80px;
+        text-align: right;
+        padding-right: 8px;
+      }
+    }
+
+    :deep(.ant-input),
+    :deep(.ant-input-affix-wrapper) {
+      width: 180px;
+    }
+
+    :deep(.ant-picker) {
+      width: 240px;
+    }
+
+    :deep(.ant-select) {
+      width: 180px;
+    }
   }
 
   .order-link {

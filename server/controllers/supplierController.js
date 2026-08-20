@@ -91,7 +91,8 @@ export const createSupplier = async (req, res) => {
       bank_code,
       contact,
       contact_phone,
-      remarks
+      remarks,
+      created_by: req.user?.username || null
     })
     res.status(201).json({ success: true, data: supplier })
   } catch (error) {
@@ -130,6 +131,7 @@ export const updateSupplier = async (req, res) => {
     }
 
     const updateData = {}
+    updateData.created_by = req.user?.username || null
     if (supplier_name !== undefined) updateData.supplier_name = supplier_name
     if (supplier_code !== undefined) updateData.supplier_code = supplier_code
     if (supplier_tax_number !== undefined) updateData.supplier_tax_number = supplier_tax_number

@@ -29,14 +29,31 @@ export const salesOrdersApi = {
     return instance.delete<{ message: string }>(`${API_BASE_URL}/${id}`)
   },
 
-  // 退货销售订单
-  return: async (id: string) => {
-    return instance.post<SalesOrder>(`${API_BASE_URL}/${id}/return`)
-  },
-
   // 获取新的订单号
   getNewOrderNumber: async () => {
     const response = await instance.get<{ success: boolean; data: { order_number: string } }>(`${API_BASE_URL}/new-order-number`)
     return response.data
+  },
+
+  // 获取未出库的销售订单合同号列表
+  getUndeliveredContractNumbers: async (customerName?: string) => {
+    const params = customerName ? { customerName } : {}
+    return instance.get<string[]>(`${API_BASE_URL}/undelivered-contracts`, { params })
+  },
+
+  // 根据合同号获取销售订单的商品信息
+  getSalesItemsByContractNumber: async (contractNumber: string) => {
+    return instance.get<{
+      order_number: string
+      customer_name: string
+      sales_items: Array<{
+        product_name: string
+        model?: string
+        description?: string
+        unit?: string
+        quantity: number
+        [key: string]: any
+      }>
+    }>(`${API_BASE_URL}/by-contract/${encodeURIComponent(contractNumber)}`)
   }
 }

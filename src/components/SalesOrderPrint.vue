@@ -1,5 +1,12 @@
 <template>
-  <a-modal v-model:open="visible" title="" width="900px" :footer="null" :closable="false" @cancel="handleCancel">
+  <a-modal
+    v-model:open="visible"
+    title=""
+    width="900px"
+    :footer="null"
+    :closable="false"
+    @cancel="handleCancel"
+  >
     <div class="lang-switch-bar no-print">
       <a-radio-group v-model:value="lang" size="small">
         <a-radio-button value="zh">中文</a-radio-button>
@@ -47,7 +54,11 @@
             </div>
             <div class="info-item">
               <span class="label">{{ t.salesOrderPrint.registeredAddress }}</span>
-              <span class="value">{{ lang === 'zh' ? '深圳市龙岗区坂田街道五和大道（南）景丰大厦602室' : 'Room 602, Jingfeng Building, No.42 Wuhedadao (South), Bantian, Longgang, Shenzhen' }}</span>
+              <span class="value">{{
+                lang === 'zh'
+                  ? '深圳市龙岗区坂田街道五和大道（南）景丰大厦602室'
+                  : 'Room 602, Jingfeng Building, No.42 Wuhedadao (South), Bantian, Longgang, Shenzhen'
+              }}</span>
             </div>
           </div>
         </div>
@@ -60,16 +71,14 @@
           <thead>
             <tr>
               <th>{{ t.salesOrderPrint.no }}</th>
-              <th>{{ t.salesOrderPrint.productName }}</th>
-              <th>{{ t.salesOrderPrint.productCode }}</th>
-              <th>{{ t.salesOrderPrint.model }}</th>
-              <th>{{ t.salesOrderPrint.description }}</th>
+              <th style="min-width: 140px">{{ t.salesOrderPrint.productName }}</th>
+              <th style="min-width: 100px">{{ t.salesOrderPrint.model }}</th>
+              <th style="min-width: 120px">{{ t.salesOrderPrint.description }}</th>
               <th>{{ t.salesOrderPrint.quantity }}</th>
               <th>{{ t.salesOrderPrint.unit }}</th>
-              <th>{{ t.salesOrderPrint.taxIncludedPrice }}</th>
-              <th>{{ t.salesOrderPrint.taxAmount }}</th>
-              <th>{{ t.salesOrderPrint.taxIncludedAmount }}</th>
-              <th>{{ t.salesOrderPrint.deliveryDate }}</th>
+              <th>{{ t.salesOrderPrint.taxIncludedPrice }}(RMB)</th>
+              <th>{{ t.salesOrderPrint.taxAmount }}(RMB)</th>
+              <th>{{ t.salesOrderPrint.taxIncludedAmount }}(RMB)</th>
               <th style="width: 100px">{{ t.salesOrderPrint.remarks }}</th>
             </tr>
           </thead>
@@ -77,7 +86,6 @@
             <tr v-for="item in orderItems" :key="item.no">
               <td>{{ item.no }}</td>
               <td>{{ item.product_name || '-' }}</td>
-              <td>{{ item.product_code || '-' }}</td>
               <td>{{ item.model || '-' }}</td>
               <td>{{ item.description || '-' }}</td>
               <td>{{ item.quantity || '-' }}</td>
@@ -85,27 +93,26 @@
               <td>{{ item.tax_included_price }}</td>
               <td>{{ item.tax_amount }}</td>
               <td>{{ item.tax_included_amount }}</td>
-              <td>{{ formatDate(item.delivery_date) }}</td>
               <td>
                 <span class="value editable" @click="handleEdit('remarks')">-</span>
               </td>
             </tr>
             <!-- 金额总计行 -->
-            <tr v-if="lang === 'zh'" class="total-row">
-              <td colspan="10" class="total-label">{{ t.salesOrderPrint.taxAmountInWords }}</td>
-              <td colspan="2">{{ taxAmountInWords }}</td>
+            <tr class="total-row">
+              <td colspan="9" class="total-label">{{ t.salesOrderPrint.taxAmountLabel }}</td>
+              <td colspan="1">{{ formatPrice(formData.taxTotal) }}</td>
             </tr>
             <tr class="total-row">
-              <td colspan="10" class="total-label">{{ t.salesOrderPrint.taxAmountLabel }}</td>
-              <td colspan="2">{{ formatPrice(formData.taxTotal) }}</td>
-            </tr>
-            <tr v-if="lang === 'zh'" class="total-row">
-              <td colspan="10" class="total-label">{{ t.salesOrderPrint.totalWithTaxInWords }}</td>
-              <td colspan="2">{{ amountInWords }}</td>
-            </tr>
-            <tr class="total-row">
-              <td colspan="10" class="total-label">{{ t.salesOrderPrint.totalWithTax }}</td>
-              <td colspan="2">{{ formatPrice(formData.total) }}</td>
+              <template v-if="lang === 'zh'">
+                <td colspan="3" class="total-label">{{ t.salesOrderPrint.totalWithTaxInWords }}</td>
+                <td colspan="3">{{ amountInWords }}</td>
+                <td colspan="3" class="total-label">{{ t.salesOrderPrint.totalWithTax }}</td>
+                <td colspan="1">{{ formatPrice(formData.total) }}</td>
+              </template>
+              <template v-else>
+                <td colspan="9" class="total-label">{{ t.salesOrderPrint.totalWithTax }}</td>
+                <td colspan="1">{{ formatPrice(formData.total) }}</td>
+              </template>
             </tr>
           </tbody>
         </table>
@@ -113,10 +120,17 @@
 
       <!-- 合同条款 -->
       <div class="terms-section">
-        <div class="term-item">{{ t.salesOrderPrint.paymentTerms }}{{ t.salesOrderPrint.paymentTermsContent }}</div>
+        <div class="term-item">
+          {{ t.salesOrderPrint.paymentTerms }}{{ t.salesOrderPrint.paymentTermsContent }}
+        </div>
         <div class="term-item">{{ t.salesOrderPrint.invoiceTerms }}</div>
         <div class="term-item indent">{{ t.salesOrderPrint.deliveryMethod }}</div>
-        <div class="term-item">{{ t.salesOrderPrint.deliveryPeriod }}</div>
+        <div class="term-item">
+          {{ t.salesOrderPrint.deliveryPeriodPrefix }}
+          <span :class="['value', { editable: !formData.deliveryPeriodValue }]" @click="handleEdit('deliveryPeriodValue')">
+            {{ formData.deliveryPeriodValue || '-' }}
+          </span>
+        </div>
         <div class="term-item">{{ t.salesOrderPrint.acceptanceStandard }}</div>
         <div class="term-item">{{ t.salesOrderPrint.warranty }}</div>
         <div class="term-item">{{ t.salesOrderPrint.limitedLiability }}</div>
@@ -132,23 +146,40 @@
           <div class="footer-content">
             <div class="footer-item">
               <span class="footer-label">{{ t.salesOrderPrint.contactPerson }}</span>
-              <span :class="['footer-value', { editable: !formData.buyerContact }]" @click="handleEdit('buyerContact')">{{ formData.buyerContact || '-' }}</span>
+              <span
+                :class="['footer-value', { editable: !formData.buyerContact }]"
+                @click="handleEdit('buyerContact')"
+                >{{ formData.buyerContact || '-' }}</span
+              >
             </div>
             <div class="footer-item">
               <span class="footer-label">{{ t.salesOrderPrint.phone }}</span>
-              <span :class="['footer-value', { editable: !formData.buyerPhone }]" @click="handleEdit('buyerPhone')">{{ formData.buyerPhone || '-' }}</span>
+              <span
+                :class="['footer-value', { editable: !formData.buyerPhone }]"
+                @click="handleEdit('buyerPhone')"
+                >{{ formData.buyerPhone || '-' }}</span
+              >
             </div>
             <div class="footer-item">
               <span class="footer-label">{{ t.salesOrderPrint.email }}</span>
-              <span :class="['footer-value', { editable: !formData.buyerEmail }]" @click="handleEdit('buyerEmail')">{{ formData.buyerEmail || '-' }}</span>
+              <span
+                :class="['footer-value', { editable: !formData.buyerEmail }]"
+                @click="handleEdit('buyerEmail')"
+                >{{ formData.buyerEmail || '-' }}</span
+              >
             </div>
             <div class="footer-item">
               <span class="footer-label">{{ t.salesOrderPrint.date }}</span>
               <span class="footer-value">{{ formatDate(orderData?.entry_date) }}</span>
             </div>
           </div>
-          <div class="sign-box">
+          <div class="sign-box" @click="handleStampClick('buyer')">
             <span class="sign-label">{{ t.salesOrderPrint.signatureAndSeal }}</span>
+            <img v-if="buyerStamp" :src="buyerStamp" class="stamp-image" alt="甲方盖章" />
+            <div v-else class="stamp-placeholder no-print">
+              <UploadOutlined />
+              <span>点击盖章</span>
+            </div>
           </div>
         </div>
         <div class="footer-right">
@@ -156,23 +187,40 @@
           <div class="footer-content">
             <div class="footer-item">
               <span class="footer-label">{{ t.salesOrderPrint.contactPerson }}</span>
-              <span :class="['footer-value', { editable: !formData.sellerContact }]" @click="handleEdit('sellerContact')">{{ formData.sellerContact || '-' }}</span>
+              <span
+                :class="['footer-value', { editable: !formData.sellerContact }]"
+                @click="handleEdit('sellerContact')"
+                >{{ formData.sellerContact || '-' }}</span
+              >
             </div>
             <div class="footer-item">
               <span class="footer-label">{{ t.salesOrderPrint.phone }}</span>
-              <span :class="['footer-value', { editable: !formData.sellerPhone }]" @click="handleEdit('sellerPhone')">{{ formData.sellerPhone || '-' }}</span>
+              <span
+                :class="['footer-value', { editable: !formData.sellerPhone }]"
+                @click="handleEdit('sellerPhone')"
+                >{{ formData.sellerPhone || '-' }}</span
+              >
             </div>
             <div class="footer-item">
               <span class="footer-label">{{ t.salesOrderPrint.email }}</span>
-              <span :class="['footer-value', { editable: !formData.sellerEmail }]" @click="handleEdit('sellerEmail')">{{ formData.sellerEmail || '-' }}</span>
+              <span
+                :class="['footer-value', { editable: !formData.sellerEmail }]"
+                @click="handleEdit('sellerEmail')"
+                >{{ formData.sellerEmail || '-' }}</span
+              >
             </div>
             <div class="footer-item">
               <span class="footer-label">{{ t.salesOrderPrint.date }}</span>
               <span class="footer-value">{{ formatDate(orderData?.entry_date) }}</span>
             </div>
           </div>
-          <div class="sign-box">
+          <div class="sign-box" @click="handleStampClick('seller')">
             <span class="sign-label">{{ t.salesOrderPrint.signatureAndSeal }}</span>
+            <img v-if="sellerStamp" :src="sellerStamp" class="stamp-image" alt="乙方盖章" />
+            <div v-else class="stamp-placeholder no-print">
+              <UploadOutlined />
+              <span>点击盖章</span>
+            </div>
           </div>
         </div>
       </div>
@@ -181,9 +229,44 @@
     <div class="modal-footer">
       <a-space>
         <a-button @click="handleCancel">{{ t.salesOrderPrint.cancel }}</a-button>
+        <a-button @click="handleClearStamps" v-if="buyerStamp || sellerStamp">清除印章</a-button>
         <a-button type="primary" @click="handlePrint">{{ t.salesOrderPrint.print }}</a-button>
       </a-space>
     </div>
+
+    <!-- 印章选择弹窗 -->
+    <a-modal
+      v-model:open="stampModalVisible"
+      title="选择电子印章"
+      @cancel="stampModalVisible = false"
+      :footer="null"
+      width="400px"
+    >
+      <div class="stamp-selection">
+        <div class="stamp-list">
+          <div
+            v-for="(stamp, index) in availableStamps"
+            :key="index"
+            class="stamp-item"
+            @click="selectStamp(stamp)"
+          >
+            <img :src="stamp" :alt="'印章' + (index + 1)" />
+          </div>
+        </div>
+        <div class="stamp-upload">
+          <a-upload
+            :before-upload="handleStampUpload"
+            :show-upload-list="false"
+            accept="image/*"
+          >
+            <a-button>
+              <UploadOutlined />
+              上传自定义印章
+            </a-button>
+          </a-upload>
+        </div>
+      </div>
+    </a-modal>
 
     <!-- 编辑弹窗 -->
     <a-modal
@@ -200,6 +283,8 @@
 <script setup lang="ts">
 import { ref, reactive, watch, computed, nextTick } from 'vue'
 import dayjs from 'dayjs'
+import { UploadOutlined } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 import type { SalesOrder } from '@/types'
 import { useUserStore } from '@/stores/user'
 import { customersApi } from '@/api/customers'
@@ -232,6 +317,7 @@ const userStore = useUserStore()
 
 const formData = reactive({
   salesDate: '',
+  deliveryPeriodValue: '',
   taxRate: 0,
   remarks: '',
   total: 0,
@@ -253,9 +339,81 @@ const editField = ref('')
 const editValue = ref('')
 const editInputRef = ref<HTMLInputElement | null>(null)
 
+// 印章相关
+const stampModalVisible = ref(false)
+const currentStampType = ref<'buyer' | 'seller'>('buyer')
+const buyerStamp = ref<string>('')
+const sellerStamp = ref<string>('')
+
+// 预置印章（可以是base64或URL）
+const availableStamps = ref<string[]>([
+  // 可以在这里添加预置印章图片
+])
+
+const handleStampClick = (type: 'buyer' | 'seller') => {
+  currentStampType.value = type
+  stampModalVisible.value = true
+}
+
+const selectStamp = (stamp: string) => {
+  if (currentStampType.value === 'buyer') {
+    buyerStamp.value = stamp
+  } else {
+    sellerStamp.value = stamp
+  }
+  stampModalVisible.value = false
+  // 保存到localStorage
+  saveStamps()
+}
+
+const handleStampUpload = (file: File) => {
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const result = e.target?.result as string
+    if (currentStampType.value === 'buyer') {
+      buyerStamp.value = result
+    } else {
+      sellerStamp.value = result
+    }
+    stampModalVisible.value = false
+    saveStamps()
+    message.success('印章上传成功')
+  }
+  reader.readAsDataURL(file)
+  return false // 阻止自动上传
+}
+
+const handleClearStamps = () => {
+  buyerStamp.value = ''
+  sellerStamp.value = ''
+  saveStamps()
+  message.success('印章已清除')
+}
+
+const saveStamps = () => {
+  const key = `sales_order_stamps_${orderData.value?.sales_order_id || 'default'}`
+  localStorage.setItem(key, JSON.stringify({
+    buyer: buyerStamp.value,
+    seller: sellerStamp.value
+  }))
+}
+
+const loadStamps = () => {
+  const key = `sales_order_stamps_${orderData.value?.sales_order_id || 'default'}`
+  const saved = localStorage.getItem(key)
+  if (saved) {
+    try {
+      const { buyer, seller } = JSON.parse(saved)
+      buyerStamp.value = buyer || ''
+      sellerStamp.value = seller || ''
+    } catch (e) {}
+  }
+}
+
 const editFieldTitle = computed(() => {
   const titles: Record<string, string> = {
     salesDate: t.value.salesOrderPrint.editSalesDate,
+    deliveryPeriodValue: t.value.salesOrderPrint.editDeliveryPeriod,
     taxRate: t.value.salesOrderPrint.editTaxRate,
     remarks: t.value.salesOrderPrint.editRemarks,
     sellerContact: t.value.salesOrderPrint.editContact,
@@ -323,8 +481,30 @@ const numberToEnglish = (num: number): string => {
   if (num === 0) return 'Zero'
 
   const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
-  const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
-  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+  const teens = [
+    'Ten',
+    'Eleven',
+    'Twelve',
+    'Thirteen',
+    'Fourteen',
+    'Fifteen',
+    'Sixteen',
+    'Seventeen',
+    'Eighteen',
+    'Nineteen',
+  ]
+  const tens = [
+    '',
+    '',
+    'Twenty',
+    'Thirty',
+    'Forty',
+    'Fifty',
+    'Sixty',
+    'Seventy',
+    'Eighty',
+    'Ninety',
+  ]
 
   const convertHundreds = (n: number): string => {
     let result = ''
@@ -374,6 +554,7 @@ const initializeFormData = () => {
   const order = orderData.value
 
   formData.salesDate = order.sales_date || new Date().toISOString()
+  formData.deliveryPeriodValue = ''
   formData.taxRate = 0
   formData.remarks = ''
   formData.total = order.tax_included_amount || 0
@@ -400,6 +581,7 @@ watch(
   async newVal => {
     if (newVal) {
       initializeFormData()
+      loadStamps()
       // 页面打开时获取客户信息
       const customerCode = orderData.value?.customer_code
       if (customerCode) {
@@ -444,6 +626,9 @@ const handleEdit = (field: string) => {
     case 'salesDate':
       editValue.value = dayjs(formData.salesDate).format('YYYY-MM-DD')
       break
+    case 'deliveryPeriodValue':
+      editValue.value = formData.deliveryPeriodValue
+      break
     case 'taxRate':
       editValue.value = String(formData.taxRate)
       break
@@ -479,6 +664,9 @@ const handleEditConfirm = () => {
   switch (editField.value) {
     case 'salesDate':
       formData.salesDate = dayjs(editValue.value).toISOString()
+      break
+    case 'deliveryPeriodValue':
+      formData.deliveryPeriodValue = editValue.value
       break
     case 'taxRate':
       formData.taxRate = parseFloat(editValue.value) || 0
@@ -745,11 +933,82 @@ const handlePrint = () => {
     margin-top: 20px;
     padding-top: 20px;
     border-top: 1px dashed #d9d9d9;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
 
     .sign-label {
       color: #595959;
       font-size: 14px;
     }
+
+    .stamp-image {
+      max-width: 150px;
+      max-height: 100px;
+      margin-top: 10px;
+      object-fit: contain;
+    }
+
+    .stamp-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+      color: #bfbfbf;
+      font-size: 12px;
+
+      .anticon {
+        font-size: 24px;
+        margin-bottom: 4px;
+      }
+    }
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.02);
+    }
+  }
+}
+
+.stamp-selection {
+  .stamp-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+
+    .stamp-item {
+      width: 120px;
+      height: 120px;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 8px;
+
+      &:hover {
+        border-color: #1890ff;
+        background-color: #f0f5ff;
+      }
+
+      img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+    }
+  }
+
+  .stamp-upload {
+    text-align: center;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
   }
 }
 
@@ -764,7 +1023,6 @@ const handlePrint = () => {
   padding: 8px 16px;
   border-bottom: 1px solid #f0f0f0;
 }
-
 </style>
 
 <style lang="scss">
@@ -890,14 +1148,18 @@ const handlePrint = () => {
     }
 
     .product-table {
+      border: 1.5px solid #000 !important;
+
       th {
         padding: 3px 4px !important;
         font-size: 10px !important;
+        border: 1.5px solid #333 !important;
       }
 
       td {
         padding: 3px 4px !important;
         font-size: 10px !important;
+        border: 1.5px solid #333 !important;
       }
     }
   }
@@ -942,9 +1204,14 @@ const handlePrint = () => {
     .sign-box {
       margin-top: 6px !important;
       padding-top: 6px !important;
+      min-height: 100px !important;
 
       .sign-label {
         font-size: 10px !important;
+      }
+
+      .stamp-placeholder {
+        display: none !important;
       }
     }
   }

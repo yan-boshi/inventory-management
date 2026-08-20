@@ -18,7 +18,6 @@
               v-model:value="searchParams.name"
               placeholder="请输入客户名称"
               allow-clear
-              style="width: 200px"
             />
           </a-form-item>
 
@@ -27,7 +26,6 @@
               v-model:value="searchParams.code"
               placeholder="请输入客户代码"
               allow-clear
-              style="width: 200px"
             />
           </a-form-item>
 
@@ -35,26 +33,24 @@
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
+              <a-button @click="handleExport"> <DownloadOutlined /> 导出Excel </a-button>
+              <ColumnConfig :columns="allColumns" @update:columns="handleColumnConfigUpdate" cacheKey="customers" />
             </a-space>
           </a-form-item>
         </a-form>
       </div>
 
       <a-table
-        :columns="columns"
+        :columns="visibleColumns"
         :data-source="customers"
         :loading="loading"
         :pagination="false"
         rowKey="customer_id"
-        :scroll="{ y: 'calc(100vh - 300px)' }"
+        :scroll="{ x: 2100, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'customer_name'">
             <a @click="handleViewDetail(record)">{{ record.customer_name }}</a>
-          </template>
-
-          <template v-else-if="column.key === 'created_at'">
-            {{ formatDate(record.created_at) }}
           </template>
 
           <template v-else-if="column.key === 'actions'">
@@ -91,14 +87,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { customersApi } from '@/api/customers'
 import type { Customer, CustomerQueryParams } from '@/types'
 import CustomerForm from '@/components/CustomerForm.vue'
+import ColumnConfig from '@/components/ColumnConfig.vue'
+import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import { formatDate } from '@/utils/date'
-import dayjs from 'dayjs'
 
 const customers = ref<Customer[]>([])
 const loading = ref(false)
@@ -119,12 +116,24 @@ const pagination = reactive({
   total: 0,
 })
 
-const columns = [
+// 使用 ref 使列配置可通过 ColumnConfig 组件更新
+const allColumns = ref([
+  {
+    title: '序号',
+    key: 'index',
+    width: 60,
+    align: 'center',
+    fixed: 'left',
+    customRender: ({ index }: { index: number }) => {
+      return (pagination.current - 1) * pagination.pageSize + index + 1
+    },
+  },
   {
     title: '客户名称',
     dataIndex: 'customer_name',
     key: 'customer_name',
     width: 150,
+    fixed: 'left',
   },
   {
     title: '客户代码',
@@ -136,13 +145,13 @@ const columns = [
     title: '信用代码',
     dataIndex: 'customer_tax_number',
     key: 'customer_tax_number',
-    width: 150,
+    width: 180,
   },
   {
     title: '联系电话',
     dataIndex: 'customer_phone',
     key: 'customer_phone',
-    width: 120,
+    width: 130,
   },
   {
     title: '联系人',
@@ -151,17 +160,74 @@ const columns = [
     width: 100,
   },
   {
+    title: '联系人电话',
+    dataIndex: 'contact_phone',
+    key: 'contact_phone',
+    width: 130,
+  },
+  {
     title: '邮箱',
     dataIndex: 'customer_email',
     key: 'customer_email',
     width: 180,
   },
   {
-    title: '创建时间',
+    title: '注册地址',
+    dataIndex: 'register_address',
+    key: 'register_address',
+    width: 200,
+    ellipsis: true,
+  },
+  {
+    title: '收货人',
+    dataIndex: 'receiver',
+    key: 'receiver',
+    width: 100,
+  },
+  {
+    title: '收货地址',
+    dataIndex: 'receiver_address',
+    key: 'receiver_address',
+    width: 200,
+    ellipsis: true,
+  },
+  {
+    title: '开户银行',
+    dataIndex: 'bank_name',
+    key: 'bank_name',
+    width: 150,
+  },
+  {
+    title: '银行账号',
+    dataIndex: 'bank_account',
+    key: 'bank_account',
+    width: 180,
+  },
+  {
+    title: '银行代码',
+    dataIndex: 'bank_code',
+    key: 'bank_code',
+    width: 120,
+  },
+  {
+    title: '备注',
+    dataIndex: 'remarks',
+    key: 'remarks',
+    width: 150,
+    ellipsis: true,
+  },
+  {
+    title: '建档日期',
     dataIndex: 'created_at',
     key: 'created_at',
     width: 120,
     customRender: ({ text }: { text: string }) => formatDate(text),
+  },
+  {
+    title: '建档人',
+    dataIndex: 'created_by',
+    key: 'created_by',
+    width: 100,
   },
   {
     title: '操作',
@@ -169,7 +235,17 @@ const columns = [
     width: 120,
     fixed: 'right',
   },
-]
+])
+
+// 处理 ColumnConfig 组件的列更新
+const handleColumnConfigUpdate = (newColumns: any[]) => {
+  allColumns.value = newColumns
+}
+
+// 计算可见列
+const visibleColumns = computed(() => {
+  return allColumns.value.filter((col: any) => col.visible !== false)
+})
 
 const loadCustomers = async () => {
   loading.value = true
@@ -246,6 +322,45 @@ const handleSuccess = () => {
   loadCustomers()
 }
 
+// 导出Excel
+const exportColumns: ExportColumn[] = [
+  { key: 'customer_name', title: '客户名称' },
+  { key: 'customer_code', title: '客户代码' },
+  { key: 'customer_tax_number', title: '信用代码' },
+  { key: 'customer_phone', title: '联系电话' },
+  { key: 'contact', title: '联系人' },
+  { key: 'contact_phone', title: '联系人电话' },
+  { key: 'customer_email', title: '邮箱' },
+  { key: 'register_address', title: '注册地址' },
+  { key: 'receiver', title: '收货人' },
+  { key: 'receiver_address', title: '收货地址' },
+  { key: 'bank_name', title: '开户银行' },
+  { key: 'bank_account', title: '银行账号' },
+  { key: 'bank_code', title: '银行代码' },
+  { key: 'remarks', title: '备注' },
+  { key: 'created_at', title: '建档日期', formatter: (v) => formatDate(v) },
+  { key: 'created_by', title: '建档人' },
+]
+
+const handleExport = async () => {
+  try {
+    const params: any = { page: 1, pageSize: 99999 }
+    if (searchParams.name) params.name = searchParams.name
+    if (searchParams.code) params.code = searchParams.code
+
+    const response = await customersApi.getAll(params)
+    const data = response.data || []
+
+    // 只导出显示的列
+    const visibleKeySet = new Set(visibleColumns.value.flatMap((col: any) => [col.dataIndex, col.key]).filter(Boolean))
+    const filteredExportColumns = exportColumns.filter(col => visibleKeySet.has(col.key))
+
+    exportToExcel({ filename: '客户列表', columns: filteredExportColumns, data })
+  } catch (error) {
+    console.error('导出失败:', error)
+  }
+}
+
 onMounted(() => {
   loadCustomers()
 })
@@ -270,6 +385,29 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+
+    :deep(.ant-form-item) {
+      margin-bottom: 12px;
+
+      > .ant-form-item-label {
+        width: 80px;
+        text-align: right;
+        padding-right: 8px;
+      }
+    }
+
+    :deep(.ant-input),
+    :deep(.ant-input-affix-wrapper) {
+      width: 180px;
+    }
+
+    :deep(.ant-picker) {
+      width: 240px;
+    }
+
+    :deep(.ant-select) {
+      width: 180px;
+    }
   }
 }
 </style>

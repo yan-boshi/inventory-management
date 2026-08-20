@@ -53,6 +53,10 @@
                 <template #icon><ReloadOutlined /></template>
                 重置
               </a-button>
+              <a-button @click="handleExport" :loading="exportLoading">
+                <template #icon><DownloadOutlined /></template>
+                导出Excel
+              </a-button>
             </a-space>
           </a-form-item>
         </a-form>
@@ -205,13 +209,15 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { profitReportApi } from '@/api/profitReport'
 import type { ProfitReportItem, ProfitReportParams } from '@/api/profitReport'
 import { formatDate } from '@/utils/date'
+import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import type { Dayjs } from 'dayjs'
 
 const loading = ref(false)
+const exportLoading = ref(false)
 const reportData = ref<ProfitReportItem[]>([])
 const dateRange = ref<[Dayjs, Dayjs] | null>(null)
 
@@ -389,7 +395,7 @@ const isMoneyColumn = (key: string) => moneyKeys.has(key)
 
 const formatMoney = (value: number | null | undefined) => {
   if (value === null || value === undefined) return ''
-  return value.toFixed(2)
+  return value.toFixed(4)
 }
 
 const formatNumber = (value: number | null | undefined) => {
@@ -504,6 +510,46 @@ const handlePageChange = (page: number, pageSize: number) => {
   pagination.current = page
   pagination.pageSize = pageSize
   fetchReport()
+}
+
+const handleExport = async () => {
+  exportLoading.value = true
+  try {
+    const params: ProfitReportParams = { ...searchParams }
+    if (dateRange.value && dateRange.value[0] && dateRange.value[1]) {
+      params.startDate = dateRange.value[0].format('YYYY-MM-DD')
+      params.endDate = dateRange.value[1].format('YYYY-MM-DD')
+    }
+    // 获取所有数据（不分页）
+    params.page = 1
+    params.pageSize = 99999
+    const res = await profitReportApi.getReport(params)
+    const allData = res.data || []
+
+    if (allData.length === 0) {
+      message.warning('没有可导出的数据')
+      return
+    }
+
+    const exportColumns: ExportColumn[] = columns.value.map(col => ({
+      key: col.dataIndex || col.key,
+      title: col.title,
+      formatter: col.key === 'delivery_date' || col.key === 'settlement_date' || col.key === 'warehousing_date'
+        ? (value: any) => value ? formatDate(value) : ''
+        : undefined,
+    }))
+
+    exportToExcel({
+      filename: '毛利表',
+      columns: exportColumns,
+      data: allData,
+      sheetName: '毛利表',
+    })
+  } catch (error: any) {
+    message.error(error.message || '导出失败')
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 onMounted(() => {

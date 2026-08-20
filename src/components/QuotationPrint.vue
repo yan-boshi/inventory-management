@@ -15,15 +15,15 @@
       <div class="top-section">
         <div class="info-row">
           <div class="info-item">
-            <span class="label">{{ t.quotation.quotationNo }}</span>
-            <span class="value">{{
-              printData?.quotation_number || quotationData?.quotation_number || '-'
-            }}</span>
-          </div>
-          <div class="info-item">
             <span class="label">{{ t.quotation.customer }}</span>
             <span class="value">{{
               customerData?.customer_name || printData?.customer_name || '-'
+            }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">{{ t.quotation.quotationNo }}</span>
+            <span class="value">{{
+              printData?.quotation_number || quotationData?.quotation_number || '-'
             }}</span>
           </div>
         </div>
@@ -59,31 +59,54 @@
 
       <!-- 报价说明 -->
       <div class="note-section">
-        <div class="note-item">
-          <span class="note-label">{{ t.quotation.currency }}</span>
-          <span class="note-value">{{
-            printData?.currency || quotationData?.currency || 'CNY'
-          }}</span>
-        </div>
-        <div class="note-item">
-          <span class="note-label">{{ t.quotation.validity }}</span>
-          <span class="note-value">{{
-            printData?.validity_period || quotationData?.validity_period || t.quotation.validityPlaceholder
-          }}</span>
-        </div>
-        <div class="note-item">
-          <span class="note-label">{{ t.quotation.delivery }}</span>
-          <span class="note-value">{{
-            getDeliveryText(printData?.delivery_method || quotationData?.delivery_method)
-          }}</span>
-        </div>
-        <div class="note-item">
-          <span class="note-label">{{ t.quotation.taxRate }}</span>
-          <span class="note-value"
-            >{{ printData?.tax_rate || quotationData?.tax_rate || 13 }}%</span
-          >
-        </div>
-        <div class="note-item" v-if="printData?.remarks || quotationData?.remarks">
+        <!-- 中文显示：币种、报价有效期、送货方式、报价单税率、制表日期 -->
+        <template v-if="lang === 'zh'">
+          <div class="note-item">
+            <span class="note-label">{{ t.quotation.currency }}</span>
+            <span class="note-value">{{
+              printData?.currency || quotationData?.currency || 'CNY'
+            }}</span>
+          </div>
+          <div class="note-item">
+            <span class="note-label">{{ t.quotation.validity }}</span>
+            <span class="note-value">{{
+              printData?.validity_period || quotationData?.validity_period || t.quotation.validityPlaceholder
+            }}</span>
+          </div>
+          <div class="note-item">
+            <span class="note-label">{{ t.quotation.delivery }}</span>
+            <span class="note-value">{{
+              getDeliveryText(printData?.delivery_method || quotationData?.delivery_method)
+            }}</span>
+          </div>
+          <div class="note-item">
+            <span class="note-label">{{ t.quotation.taxRate }}</span>
+            <span class="note-value"
+              >{{ printData?.tax_rate ?? quotationData?.tax_rate ?? 13 }}%</span
+            >
+          </div>
+          <div class="note-item">
+            <span class="note-label">{{ t.quotation.prepareDate }}</span>
+            <span class="note-value">{{
+              formatDate(printData?.entry_date || quotationData?.entry_date)
+            }}</span>
+          </div>
+        </template>
+        <!-- 英文显示：Payment Terms、Trade Terms -->
+        <template v-if="lang === 'en'">
+          <div class="note-item">
+            <span class="note-label">{{ t.quotation.paymentTerms }}</span>
+            <span class="note-value">{{ printData?.payment_terms || quotationData?.payment_terms || '' }}</span>
+          </div>
+          <div class="note-item">
+            <span class="note-label">{{ t.quotation.tradeTerms }}</span>
+            <span class="note-value">{{ printData?.trade_terms || quotationData?.trade_terms || '' }}</span>
+          </div>
+          <div class="note-item" v-if="printData?.remarks || quotationData?.remarks">
+            <span class="note-value">{{ printData?.remarks || quotationData?.remarks }}</span>
+          </div>
+        </template>
+        <div class="note-item" v-if="lang === 'zh' && (printData?.remarks || quotationData?.remarks)">
           <span class="note-label">{{ t.quotation.remarks }}</span>
           <span class="note-value">{{ printData?.remarks || quotationData?.remarks }}</span>
         </div>

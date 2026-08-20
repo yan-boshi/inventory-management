@@ -1,4 +1,6 @@
 import SalesOrder from '../models/SalesOrder.js'
+import { generateFromSalesOrder as generatePurchasePlan } from './purchasePlanController.js'
+import { generateFromSalesOrder as generateOutboundPlan } from './outboundPlanController.js'
 
 export const getAllSalesOrders = async (req, res) => {
   try {
@@ -7,6 +9,7 @@ export const getAllSalesOrders = async (req, res) => {
       pageSize = 10,
       customerName,
       customerCode,
+      contractNumber,
       orderNumber,
       productName,
       productCode,
@@ -31,6 +34,11 @@ export const getAllSalesOrders = async (req, res) => {
     if (customerCode) {
       where.push('customer_code LIKE ?')
       params.push(`%${customerCode}%`)
+    }
+
+    if (contractNumber) {
+      where.push('contract_number LIKE ?')
+      params.push(`%${contractNumber}%`)
     }
 
     if (productName) {
@@ -134,6 +142,16 @@ export const createSalesOrder = async (req, res) => {
       sales_person
     })
     res.status(201).json({ success: true, data: order })
+
+    // 自动生成采购计划
+    generatePurchasePlan(order).catch(err =>
+      console.error('Auto generate purchase plan failed:', err)
+    )
+
+    // 自动生成出库计划
+    generateOutboundPlan(order).catch(err =>
+      console.error('Auto generate outbound plan failed:', err)
+    )
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
@@ -182,6 +200,16 @@ export const updateSalesOrder = async (req, res) => {
 
     const order = await SalesOrder.update(id, updateData)
     res.json({ success: true, data: order })
+
+    // 自动生成采购计划（更新时重新生成）
+    generatePurchasePlan(order).catch(err =>
+      console.error('Auto regenerate purchase plan failed:', err)
+    )
+
+    // 自动生成出库计划（更新时重新生成）
+    generateOutboundPlan(order).catch(err =>
+      console.error('Auto regenerate outbound plan failed:', err)
+    )
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
@@ -203,56 +231,84 @@ export const deleteSalesOrder = async (req, res) => {
   }
 }
 
-export const returnSalesOrder = async (req, res) => {
+export const getNewOrderNumber = async (req, res) => {
   try {
-    const { id } = req.params
-
-    const existing = await SalesOrder.findById(id)
-    if (!existing) {
-      return res.status(404).json({ success: false, message: 'Sales order not found' })
-    }
-
-    // 退货时回退已出库的库存
-    const salesItems = JSON.parse(existing.sales_items || '[]')
-    const { default: pool } = await import('../config/database.js')
-    for (const item of salesItems) {
-      if (item.outbound_quantity && item.outbound_quantity > 0 && item.product_code) {
-        const [productResult] = await pool.query(
-          'SELECT stock FROM products WHERE product_code = ?',
-          [item.product_code]
-        )
-        if (productResult.length > 0) {
-          const currentStock = parseFloat(productResult[0].stock || 0)
-          const newStock = currentStock + parseFloat(item.outbound_quantity)
-          await pool.query(
-            'UPDATE products SET stock = ? WHERE product_code = ?',
-            [newStock.toFixed(2), item.product_code]
-          )
-        }
-      }
-    }
-
-    // 重置销售项的出库数量和状态
-    const resetItems = salesItems.map(item => ({
-      ...item,
-      outbound_quantity: 0,
-      status: 4
-    }))
-
-    const updated = await SalesOrder.update(id, {
-      status: 4,
-      sales_items: JSON.stringify(resetItems)
-    })
-    res.json({ success: true, data: updated })
+    const orderNumber = await SalesOrder.getNewOrderNumber()
+    res.json({ success: true, data: { order_number: orderNumber } })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
 }
 
-export const getNewOrderNumber = async (req, res) => {
+export const getUndeliveredContractNumbers = async (req, res) => {
   try {
-    const orderNumber = await SalesOrder.getNewOrderNumber()
-    res.json({ success: true, data: { order_number: orderNumber } })
+    const { customerName } = req.query
+
+    // 构建查询条件
+    let where = 'contract_number IS NOT NULL AND contract_number != ""'
+    const params = []
+
+    if (customerName) {
+      where += ' AND customer_name = ?'
+      params.push(customerName)
+    }
+
+    // 获取销售订单
+    const orders = await SalesOrder.findAllWithStatus({
+      where,
+      orderBy: 'sales_date DESC',
+      params
+    })
+
+    // 过滤出未出库或部分出库的订单（状态1或3）
+    const undeliveredOrders = orders.filter(order => order.status === 1 || order.status === 3)
+
+    // 提取合同号（去重）
+    const contractNumbers = [...new Set(undeliveredOrders.map(order => order.contract_number))]
+
+    res.json({ success: true, data: contractNumbers })
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message })
+  }
+}
+
+export const getSalesItemsByContractNumber = async (req, res) => {
+  try {
+    const { contractNumber } = req.params
+
+    if (!contractNumber) {
+      return res.status(400).json({ success: false, message: '合同号不能为空' })
+    }
+
+    // 根据合同号查询销售订单
+    const orders = await SalesOrder.findAllWithStatus({
+      where: 'contract_number = ?',
+      params: [contractNumber]
+    })
+
+    if (orders.length === 0) {
+      return res.status(404).json({ success: false, message: '未找到该合同号的销售订单' })
+    }
+
+    // 获取最新的订单
+    const order = orders[0]
+
+    // 解析销售商品列表
+    let salesItems = []
+    try {
+      salesItems = JSON.parse(order.sales_items || '[]')
+    } catch (e) {
+      console.error('解析销售商品列表失败:', e)
+    }
+
+    res.json({
+      success: true,
+      data: {
+        order_number: order.order_number,
+        customer_name: order.customer_name,
+        sales_items: salesItems
+      }
+    })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }

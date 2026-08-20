@@ -120,6 +120,14 @@
                 :disabled="!!form.purchase_order_number"
               />
             </template>
+            <template v-else-if="column.key === 'model'">
+              <a-input
+                v-model:value="record.model"
+                placeholder="规格型号"
+                style="width: 100%"
+                class="invisible-input"
+              />
+            </template>
             <template v-else-if="column.key === 'description'">
               <a-input
                 v-model:value="record.description"
@@ -369,6 +377,58 @@ const emit = defineEmits<{
   print: [data: any]
 }>()
 
+// ==================== 可拖拽列宽 ====================
+const resizableColumnWidths = reactive<Record<string, number>>({
+  product_name: 150,
+  model: 150,
+  description: 150,
+})
+
+const startResize = (colKey: string, e: MouseEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+
+  const thEl = (e.target as HTMLElement).closest('th') as HTMLElement
+  if (!thEl) return
+
+  const startX = e.clientX
+  const startWidth = thEl.offsetWidth
+
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+
+  const onMouseMove = (ev: MouseEvent) => {
+    const newWidth = Math.max(60, startWidth + ev.clientX - startX)
+    thEl.style.width = newWidth + 'px'
+    thEl.style.minWidth = newWidth + 'px'
+    thEl.style.maxWidth = newWidth + 'px'
+    resizableColumnWidths[colKey] = newWidth
+  }
+
+  const onMouseUp = () => {
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
+
+const resizableHeaderCell = (colKey: string) => ({
+  style: { position: 'relative' as const, overflow: 'visible' as const },
+  onMouseenter: (e: MouseEvent) => {
+    const th = (e.target as HTMLElement).closest('th')
+    if (th) th.style.cursor = 'col-resize'
+  },
+  onMouseleave: (e: MouseEvent) => {
+    const th = (e.target as HTMLElement).closest('th')
+    if (th) th.style.cursor = ''
+  },
+  onMousedown: (e: MouseEvent) => startResize(colKey, e),
+})
+
 const orderNumber = ref('')
 const submitting = ref(false)
 const loading = reactive({
@@ -402,8 +462,9 @@ const form = reactive<CreateWarehousingOrderRequest & { warehousing_items: Wareh
 const itemColumns = [
   { title: '序号', key: 'no', width: '5%', align: 'center' },
   { title: '产品代码', key: 'product_code', width: '10%' },
-  { title: '产品名称', key: 'product_name', width: '12%' },
-  { title: '规格描述', key: 'description', width: '10%' },
+  { title: '产品名称', key: 'product_name', width: resizableColumnWidths.product_name, customHeaderCell: () => resizableHeaderCell('product_name') },
+  { title: '规格型号', key: 'model', width: resizableColumnWidths.model, customHeaderCell: () => resizableHeaderCell('model') },
+  { title: '规格描述', key: 'description', width: resizableColumnWidths.description, customHeaderCell: () => resizableHeaderCell('description') },
   { title: '单位', key: 'unit', width: '5%' },
   { title: '剩余可入库', key: 'max_quantity', width: '7%', align: 'right' },
   { title: '入库数量', key: 'quantity', width: '7%', align: 'right' },
@@ -468,6 +529,7 @@ const handlePurchaseOrderChange = async (value: string) => {
             no: index + 1,
             product_code: item.product_code || '',
             product_name: item.product_name || '',
+            model: item.model || '',
             description: item.description || '',
             unit: item.unit || '',
             quantity: remainingQty > 0 ? remainingQty : 0,
@@ -513,6 +575,7 @@ const addNewItem = () => {
     no: form.warehousing_items.length + 1,
     product_code: '',
     product_name: '',
+    model: '',
     description: '',
     unit: '',
     quantity: 1,
@@ -639,8 +702,23 @@ watch(
       if (!props.isEdit) {
         getNewOrderNumber()
         getPurchaseOrdersForWarehousing()
-        resetForm()
-        checkDraft()
+        if (props.warehousingOrderData) {
+          // 从计划单生成时，应用预填充数据
+          resetForm()
+          form.contract_number = props.warehousingOrderData.contract_number || ''
+          form.customer_name = props.warehousingOrderData.customer_name || ''
+          form.currency = props.warehousingOrderData.currency || 'CNY'
+          form.remarks = props.warehousingOrderData.remarks || ''
+          if (props.warehousingOrderData.entry_date) {
+            form.entry_date = dayjs(props.warehousingOrderData.entry_date)
+          }
+          if (props.warehousingOrderData.warehousing_items) {
+            form.warehousing_items = props.warehousingOrderData.warehousing_items
+          }
+        } else {
+          resetForm()
+          checkDraft()
+        }
       } else if (props.warehousingOrderData) {
         orderNumber.value = props.warehousingOrderData.order_number || ''
         form.contract_number = props.warehousingOrderData.contract_number || ''

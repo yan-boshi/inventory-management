@@ -27,10 +27,6 @@
       <div class="quotation-content">
         <div class="form-row">
           <div class="form-item">
-            <label class="form-label">{{ t.quotation.quotationNo }}</label>
-            <a-input v-model:value="quotationNumber" class="invisible-input" />
-          </div>
-          <div class="form-item">
             <label class="form-label">{{ t.quotation.customer }}</label>
             <a-select
               v-model:value="form.customer_name"
@@ -51,11 +47,17 @@
               </a-select-option>
             </a-select>
           </div>
+          <div class="form-item">
+            <label class="form-label">{{ t.quotation.quotationNo }}</label>
+            <a-input v-model:value="quotationNumber" class="invisible-input" />
+          </div>
         </div>
 
         <div class="form-row">
           <div class="form-item">
-            <label class="form-label"><span class="required">*</span>{{ t.quotation.entryDate }}</label>
+            <label class="form-label"
+              ><span class="required">*</span>{{ t.quotation.entryDate }}</label
+            >
             <a-date-picker
               v-model:value="form.entry_date"
               style="width: 100%"
@@ -68,12 +70,13 @@
         <!-- 报价内容表格 -->
         <div class="table-container">
           <a-table
+            v-scroll-topbar
             :columns="itemColumns"
             :data-source="form.quotation_items"
             :pagination="false"
             bordered
             size="small"
-            :scroll="{ y: 400 }"
+            :scroll="{ x: 1300, y: 400 }"
           >
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'no'">
@@ -90,6 +93,7 @@
                   @search="value => handleProductSearch(value, index)"
                   @change="value => handleProductChange(value, index)"
                   style="width: 100%"
+                  :dropdownStyle="{ minWidth: '350px' }"
                   class="invisible-select"
                   optionLabelProp="product_code"
                 >
@@ -103,7 +107,11 @@
                 </a-select>
               </template>
               <template v-else-if="column.key === 'product_name'">
-                <a-input v-model:value="record.product_name" style="width: 100%" class="invisible-input" />
+                <a-input
+                  v-model:value="record.product_name"
+                  style="width: 100%"
+                  class="invisible-input"
+                />
               </template>
 
               <template v-else-if="column.key === 'model'">
@@ -190,47 +198,75 @@
 
         <!-- 报价说明 -->
         <div class="quotation-note">
-          <div class="note-row">
-            <label class="note-label">{{ t.quotation.currency }}</label>
-            <a-select v-model:value="form.currency" class="invisible-select note-input">
-              <a-select-option value="CNY">CNY</a-select-option>
-              <a-select-option value="USD">USD</a-select-option>
-              <a-select-option value="EUR">EUR</a-select-option>
-              <a-select-option value="HKD">HKD</a-select-option>
-            </a-select>
-          </div>
-          <div class="note-row">
-            <label class="note-label">{{ t.quotation.validity }}</label>
-            <a-input
-              v-model:value="form.validity_period"
-              :placeholder="t.quotation.validityPlaceholder"
-              class="invisible-input note-input"
-            />
-          </div>
-          <div class="note-row">
-            <label class="note-label">{{ t.quotation.delivery }}</label>
-            <a-select v-model:value="form.delivery_method" class="invisible-select note-input">
-              <a-select-option value="送货上门">{{ t.quotation.deliveryOptions.doorToDoor }}</a-select-option>
-              <a-select-option value="自提">{{ t.quotation.deliveryOptions.selfPickup }}</a-select-option>
-              <a-select-option value="物流快递">{{ t.quotation.deliveryOptions.express }}</a-select-option>
-              <a-select-option value="其他">{{ t.quotation.deliveryOptions.other }}</a-select-option>
-            </a-select>
-          </div>
-          <div class="note-row">
-            <label class="note-label">{{ t.quotation.taxRate }}</label>
-            <a-input-number
-              v-model:value="form.tax_rate"
-              :min="0"
-              :max="100"
-              :precision="2"
-              style="width: 100px"
-              class="invisible-input"
-            >
-              <template #addonAfter>
-                <span>%</span>
-              </template>
-            </a-input-number>
-          </div>
+          <!-- 中文版显示：币种、报价有效期、送货方式、报价单税率 -->
+          <template v-if="lang === 'zh'">
+            <div class="note-row">
+              <label class="note-label">{{ t.quotation.currency }}</label>
+              <a-select v-model:value="form.currency" class="invisible-select note-input">
+                <a-select-option value="CNY">CNY</a-select-option>
+                <a-select-option value="USD">USD</a-select-option>
+                <a-select-option value="EUR">EUR</a-select-option>
+                <a-select-option value="HKD">HKD</a-select-option>
+              </a-select>
+            </div>
+            <div class="note-row">
+              <label class="note-label">{{ t.quotation.validity }}</label>
+              <a-input
+                v-model:value="form.validity_period"
+                :placeholder="t.quotation.validityPlaceholder"
+                class="invisible-input note-input"
+              />
+            </div>
+            <div class="note-row">
+              <label class="note-label">{{ t.quotation.delivery }}</label>
+              <a-select v-model:value="form.delivery_method" class="invisible-select note-input">
+                <a-select-option value="送货上门">{{
+                  t.quotation.deliveryOptions.doorToDoor
+                }}</a-select-option>
+                <a-select-option value="自提">{{
+                  t.quotation.deliveryOptions.selfPickup
+                }}</a-select-option>
+                <a-select-option value="物流快递">{{
+                  t.quotation.deliveryOptions.express
+                }}</a-select-option>
+                <a-select-option value="其他">{{
+                  t.quotation.deliveryOptions.other
+                }}</a-select-option>
+              </a-select>
+            </div>
+            <div class="note-row">
+              <label class="note-label">{{ t.quotation.taxRate }}</label>
+              <a-input-number
+                v-model:value="form.tax_rate"
+                :min="0"
+                :max="100"
+                :precision="2"
+                style="width: 100px"
+                class="invisible-input"
+              >
+                <template #addonAfter>
+                  <span>%</span>
+                </template>
+              </a-input-number>
+            </div>
+          </template>
+          <!-- 英文版显示：Payment Terms、Trade Terms -->
+          <template v-if="lang === 'en'">
+            <div class="note-row">
+              <label class="note-label">{{ t.quotation.paymentTerms }}</label>
+              <a-input
+                v-model:value="form.payment_terms"
+                class="invisible-input note-input"
+              />
+            </div>
+            <div class="note-row">
+              <label class="note-label">{{ t.quotation.tradeTerms }}</label>
+              <a-input
+                v-model:value="form.trade_terms"
+                class="invisible-input note-input"
+              />
+            </div>
+          </template>
         </div>
 
         <!-- 备注 -->
@@ -250,7 +286,9 @@
         <a-space>
           <a-button @click="handleCancel">{{ t.common.cancel }}</a-button>
           <a-button @click="handlePrint">{{ t.quotation.print }}</a-button>
-          <a-button type="primary" @click="handleSaveAndPrint">{{ t.quotation.saveAndPrint }}</a-button>
+          <a-button type="primary" @click="handleSaveAndPrint">{{
+            t.quotation.saveAndPrint
+          }}</a-button>
           <a-button type="primary" @click="handleSubmit">{{ t.common.save }}</a-button>
           <a-button type="primary" @click="handleConvertAll">{{ t.quotation.sale }}</a-button>
         </a-space>
@@ -270,6 +308,7 @@ import { productsApi } from '@/api/products'
 import type { CreateQuotationRequest, QuotationItem, CustomerOption, ProductOption } from '@/types'
 import type { Quotation } from '@/types'
 import { getLocale, type Lang } from '@/locales'
+import { scrollTopbar } from '@/directives/scrollTopbar'
 
 const props = defineProps<{
   visible: boolean
@@ -306,6 +345,8 @@ const form = reactive<CreateQuotationRequest & { quotation_items: QuotationItem[
   delivery_method: '',
   tax_rate: 13,
   currency: 'CNY',
+  payment_terms: '',
+  trade_terms: '',
   remarks: '',
   entry_date: dayjs(),
 })
@@ -316,12 +357,12 @@ const itemColumns = computed(() => [
   { title: t.value.quotation.productCode, key: 'product_code', width: 120 },
   { title: t.value.quotation.productName, key: 'product_name', width: 150 },
   { title: t.value.quotation.model, key: 'model', width: 120 },
-  { title: t.value.quotation.description, key: 'description', width: 120 },
+  { title: t.value.quotation.description, key: 'description', width: 180 },
   { title: t.value.quotation.unit, key: 'unit', width: 80 },
-  { title: t.value.quotation.quantity, key: 'quantity', width: 100 },
-  { title: t.value.quotation.unitPrice, key: 'unit_price', width: 100, align: 'right' as const },
+  { title: t.value.quotation.quantity, key: 'quantity', width: 80 },
+  { title: t.value.quotation.unitPrice, key: 'unit_price', width: 90, align: 'right' as const },
   { title: t.value.common.status, key: 'status', width: 100 },
-  { title: t.value.common.remarks, key: 'remarks', width: 150 },
+  { title: t.value.common.remarks, key: 'remarks', width: 120 },
   { title: t.value.common.action, key: 'actions', width: 80, fixed: 'right' as const },
 ])
 
@@ -469,6 +510,8 @@ const handleSubmit = async () => {
       delivery_method: form.delivery_method,
       tax_rate: form.tax_rate,
       currency: form.currency,
+      payment_terms: form.payment_terms,
+      trade_terms: form.trade_terms,
       tax_include_amount: 0,
       remarks: form.remarks,
       entry_date: formatDate(form.entry_date),
@@ -503,6 +546,9 @@ const handlePrint = () => {
     delivery_method: form.delivery_method,
     tax_rate: form.tax_rate,
     currency: form.currency,
+    payment_terms: form.payment_terms,
+    trade_terms: form.trade_terms,
+    entry_date: form.entry_date ? dayjs(form.entry_date).format('YYYY-MM-DD') : undefined,
     remarks: form.remarks,
     total_amount: 0,
     lang: lang.value,
@@ -531,10 +577,13 @@ watch(
       } else if (props.quotationData) {
         form.customer_name = props.quotationData.customer_name
         form.customer_code = props.quotationData.customer_code
-        form.validity_period = props.quotationData.validity_period || t.value.quotation.validityPlaceholder
+        form.validity_period =
+          props.quotationData.validity_period || t.value.quotation.validityPlaceholder
         form.delivery_method = props.quotationData.delivery_method || '送货上门'
-        form.tax_rate = props.quotationData.tax_rate || 13
+        form.tax_rate = props.quotationData.tax_rate ?? 13
         form.currency = props.quotationData.currency || 'CNY'
+        form.payment_terms = props.quotationData.payment_terms || ''
+        form.trade_terms = props.quotationData.trade_terms || ''
         form.remarks = props.quotationData.remarks || ''
         quotationNumber.value = props.quotationData.quotation_number || ''
         if (props.quotationData.entry_date) {
@@ -577,6 +626,8 @@ const resetForm = () => {
   form.delivery_method = '送货上门'
   form.tax_rate = 13
   form.currency = 'CNY'
+  form.payment_terms = ''
+  form.trade_terms = ''
   form.remarks = ''
   form.entry_date = dayjs()
   quotationNumber.value = ''
@@ -717,10 +768,15 @@ watch(
 
 .table-container {
   margin-bottom: 20px;
+  overflow-x: auto;
 
   :deep(.ant-table) {
     .ant-table-tbody > tr > td {
       padding: 4px 8px;
+    }
+
+    .ant-table-fixed-right {
+      right: 0 !important;
     }
   }
 }

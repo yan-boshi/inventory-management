@@ -43,6 +43,9 @@
           <a-menu-item key="PurchaseOrders" @click="navigateTo('/purchase-orders')">
             <span>采购订单</span>
           </a-menu-item>
+          <a-menu-item key="PurchasePlans" @click="navigateTo('/purchase-plans')">
+            <span>采购计划</span>
+          </a-menu-item>
         </a-sub-menu>
         <a-sub-menu key="Inventory">
           <template #icon>
@@ -56,6 +59,12 @@
           >
             <span>入库单</span>
           </a-menu-item>
+          <a-menu-item key="InboundPlans" @click="navigateTo('/inbound-plans')">
+            <span>入库计划</span>
+          </a-menu-item>
+          <a-menu-item key="InboundReturnOrders" @click="navigateTo('/inbound-return-orders')">
+            <span>入库退货单</span>
+          </a-menu-item>
           <a-menu-item
             key="WarehousingExpenseReport"
             @click="navigateTo('/warehousing-expense-report')"
@@ -64,6 +73,12 @@
           </a-menu-item>
           <a-menu-item key="DeliveryOrders" @click="navigateTo('/delivery-orders')">
             <span>出库单</span>
+          </a-menu-item>
+          <a-menu-item key="OutboundPlans" @click="navigateTo('/outbound-plans')">
+            <span>出库计划</span>
+          </a-menu-item>
+          <a-menu-item key="OutboundReturnOrders" @click="navigateTo('/outbound-return-orders')">
+            <span>出库退货单</span>
           </a-menu-item>
           <a-menu-item key="DeliveryExpenseReport" @click="navigateTo('/delivery-expense-report')">
             出库明细表
@@ -94,6 +109,18 @@
           <template #title>报表中心</template>
           <a-menu-item key="ProfitReport" @click="navigateTo('/profit-report')">
             毛利表
+          </a-menu-item>
+        </a-sub-menu>
+        <a-sub-menu key="Documents">
+          <template #icon>
+            <FileSearchOutlined />
+          </template>
+          <template #title>单据中心</template>
+          <a-menu-item key="PackingLists" @click="navigateTo('/packing-lists')">
+            装箱单
+          </a-menu-item>
+          <a-menu-item key="Invoices" @click="navigateTo('/invoices')">
+            发票
           </a-menu-item>
         </a-sub-menu>
         <a-menu-item key="Products" @click="navigateTo('/products')" v-if="userStore.isAdvanced">
@@ -203,6 +230,7 @@ import {
   UserOutlined,
   DownOutlined,
   LogoutOutlined,
+  FileSearchOutlined,
 } from '@ant-design/icons-vue'
 
 const router = useRouter()

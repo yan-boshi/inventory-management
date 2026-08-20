@@ -420,7 +420,7 @@ const handleEntityCodeChange = (value: string) => {
     formData.entity_name = option.name
   }
   // 如果已选择月份，自动获取未开票记录
-  if (formData.entity_id && formData.billing_month) {
+  if (formData.entity_id && formData.settlement_date_start) {
     fetchUninvoicedRecords()
   }
 }

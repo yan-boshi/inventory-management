@@ -95,7 +95,6 @@
               v-model:value="searchParams.type"
               placeholder="请选择类型"
               allow-clear
-              style="width: 150px"
             >
               <a-select-option :value="1">应收</a-select-option>
               <a-select-option :value="2">应付</a-select-option>
@@ -108,7 +107,6 @@
               :mode="['month', 'month']"
               format="YYYY-MM"
               :placeholder="['开始月份', '结束月份']"
-              style="width: 220px"
             />
           </a-form-item>
 
@@ -117,7 +115,6 @@
               v-model:value="searchParams.entity_name"
               placeholder="请输入名称"
               allow-clear
-              style="width: 180px"
             />
           </a-form-item>
 
@@ -126,7 +123,6 @@
               v-model:value="searchParams.billing_status"
               placeholder="请选择状态"
               allow-clear
-              style="width: 150px"
             >
               <a-select-option :value="0">未开票</a-select-option>
               <a-select-option :value="1">已开票</a-select-option>
@@ -143,6 +139,10 @@
               <a-button @click="handleReset">
                 <template #icon><ReloadOutlined /></template>
                 重置
+              </a-button>
+              <a-button @click="handleExport">
+                <template #icon><DownloadOutlined /></template>
+                导出Excel
               </a-button>
             </a-space>
           </a-form-item>
@@ -245,10 +245,11 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, ReloadOutlined, PlusOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { settlementApi } from '@/api/settlement'
 import type { SettlementStatement, SettlementSummary, SettlementQueryParams } from '@/types'
 import { formatDate } from '@/utils/date'
+import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import SettlementFormModal from './SettlementFormModal.vue'
 import dayjs from 'dayjs'
 
@@ -495,6 +496,41 @@ const handleDelete = async (record: SettlementStatement) => {
   }
 }
 
+// 导出Excel
+const exportColumns: ExportColumn[] = [
+  { key: 'statement_number', title: '账单编号' },
+  { key: 'type', title: '类型', formatter: (v) => v === 1 ? '应收' : '应付' },
+  { key: 'entity_name', title: '客户/供应商' },
+  { key: 'settlement_date', title: '结算日期' },
+  { key: 'payment_method', title: '结算方式' },
+  { key: 'total_amount', title: '总计' },
+  { key: 'handling_fee', title: '手续费' },
+  { key: 'invoiced_amount', title: '已开票金额' },
+  { key: 'uninvoiced_amount', title: '未开票金额' },
+  { key: 'billing_status', title: '开票状态', formatter: (v) => v === 1 ? '已开票' : v === 2 ? '部分开票' : '未开票' },
+  { key: 'invoice_number', title: '发票号' },
+  { key: 'document_date', title: '制单日期' },
+]
+
+const handleExport = async () => {
+  try {
+    const params: any = { page: 1, pageSize: 99999 }
+    if (searchParams.statement_number) params.statement_number = searchParams.statement_number
+    if (searchParams.type !== undefined && searchParams.type !== null) params.type = searchParams.type
+    if (searchParams.entity_name) params.entity_name = searchParams.entity_name
+    if (searchParams.billing_status !== undefined && searchParams.billing_status !== null) params.billing_status = searchParams.billing_status
+    if (settlementDateRange.value) {
+      params.settlement_date_start = settlementDateRange.value[0].startOf('month').format('YYYY-MM-DD')
+      params.settlement_date_end = settlementDateRange.value[1].endOf('month').format('YYYY-MM-DD')
+    }
+    const response = await settlementApi.getList(params)
+    const allData = response.data || []
+    exportToExcel({ filename: '对账单', columns: exportColumns, data: allData })
+  } catch {
+    message.error('导出失败')
+  }
+}
+
 onMounted(() => {
   fetchSummary()
   fetchSettlementList()
@@ -524,6 +560,29 @@ onMounted(() => {
 
 .search-bar {
   margin-bottom: 16px;
+
+  :deep(.ant-form-item) {
+    margin-bottom: 12px;
+
+    > .ant-form-item-label {
+      width: 80px;
+      text-align: right;
+      padding-right: 8px;
+    }
+  }
+
+  :deep(.ant-input),
+  :deep(.ant-input-affix-wrapper) {
+    width: 180px;
+  }
+
+  :deep(.ant-picker) {
+    width: 240px;
+  }
+
+  :deep(.ant-select) {
+    width: 180px;
+  }
 }
 
 :deep(.ant-statistic-title) {

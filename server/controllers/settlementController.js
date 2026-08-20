@@ -81,9 +81,15 @@ export const getSettlementList = async (req, res) => {
       params
     })
 
+    // 将 billing_month 映射为 settlement_date 供前端使用
+    const rows = result.data.map(row => ({
+      ...row,
+      settlement_date: row.billing_month || null,
+    }))
+
     res.json({
       success: true,
-      data: result.data,
+      data: rows,
       pagination: {
         total: result.total,
         page: result.page,
@@ -177,6 +183,7 @@ export const getSettlementById = async (req, res) => {
       success: true,
       data: {
         ...statement,
+        settlement_date: statement.billing_month || null,
         items
       }
     })
@@ -190,11 +197,14 @@ export const getSettlementById = async (req, res) => {
 export const createSettlement = async (req, res) => {
   try {
     const {
-      type, entity_id, entity_name, billing_month, payment_method,
+      type, entity_id, entity_name, billing_month, settlement_date, payment_method,
       sales_amount, is_invoiced, invoice_date, invoice_number,
       handling_fee, document_date, total_amount, invoiced_amount, uninvoiced_amount,
       billing_status, remarks, items
     } = req.body
+
+    // 兼容前端发送的 settlement_date，映射到 billing_month
+    const resolvedBillingMonth = billing_month || (settlement_date ? settlement_date.substring(0, 7) : null)
 
     if (!type || !entity_id) {
       return res.status(400).json({ success: false, message: '缺少必要参数' })
@@ -209,7 +219,7 @@ export const createSettlement = async (req, res) => {
       type,
       entity_id,
       entity_name,
-      billing_month,
+      billing_month: resolvedBillingMonth,
       payment_method,
       sales_amount,
       is_invoiced,
@@ -278,10 +288,14 @@ export const updateSettlement = async (req, res) => {
   try {
     const { id } = req.params
     const {
-      billing_month, payment_method, sales_amount, is_invoiced,
-      invoice_date, invoice_number, document_date, total_amount,
-      invoiced_amount, uninvoiced_amount, billing_status, handling_fee, remarks, items
+      type, entity_id, entity_name, billing_month, settlement_date, payment_method,
+      sales_amount, is_invoiced, invoice_date, invoice_number, document_date,
+      total_amount, invoiced_amount, uninvoiced_amount, billing_status,
+      handling_fee, remarks, items
     } = req.body
+
+    // 兼容前端发送的 settlement_date，映射到 billing_month
+    const resolvedBillingMonth = billing_month || (settlement_date ? settlement_date.substring(0, 7) : null)
 
     const existing = await SettlementStatement.findById(id)
     if (!existing) {
@@ -290,7 +304,10 @@ export const updateSettlement = async (req, res) => {
 
     // 更新对账单
     const updateData = {}
-    if (billing_month !== undefined) updateData.billing_month = billing_month
+    if (type !== undefined) updateData.type = type
+    if (entity_id !== undefined) updateData.entity_id = entity_id
+    if (entity_name !== undefined) updateData.entity_name = entity_name
+    if (resolvedBillingMonth !== undefined) updateData.billing_month = resolvedBillingMonth
     if (payment_method !== undefined) updateData.payment_method = payment_method
     if (sales_amount !== undefined) updateData.sales_amount = sales_amount
     if (is_invoiced !== undefined) updateData.is_invoiced = is_invoiced

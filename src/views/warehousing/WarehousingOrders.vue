@@ -18,7 +18,6 @@
               v-model:value="searchParams.orderNumber"
               placeholder="请输入入库单号"
               allow-clear
-              style="width: 160px"
             />
           </a-form-item>
 
@@ -27,7 +26,6 @@
               v-model:value="searchParams.contractNumber"
               placeholder="请输入采购合同编号"
               allow-clear
-              style="width: 160px"
             />
           </a-form-item>
 
@@ -36,7 +34,6 @@
               v-model:value="searchParams.customerName"
               placeholder="请输入客户名称"
               allow-clear
-              style="width: 160px"
             />
           </a-form-item>
 
@@ -45,7 +42,6 @@
               v-model:value="searchParams.productCode"
               placeholder="请输入产品代码"
               allow-clear
-              style="width: 160px"
             />
           </a-form-item>
 
@@ -54,7 +50,6 @@
               v-model:value="searchParams.productName"
               placeholder="请输入产品名称"
               allow-clear
-              style="width: 160px"
             />
           </a-form-item>
 
@@ -63,7 +58,6 @@
               v-model:value="searchParams.productModel"
               placeholder="请输入产品型号"
               allow-clear
-              style="width: 160px"
             />
           </a-form-item>
 
@@ -71,7 +65,6 @@
             <a-range-picker
               v-model:value="dateRange"
               @change="handleDateRangeChange"
-              style="width: 260px"
             />
           </a-form-item>
 
@@ -79,7 +72,8 @@
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
-              <ColumnConfig v-model:columns="allColumns" cacheKey="warehousingOrders" />
+              <a-button @click="handleExport"> <DownloadOutlined /> 导出Excel </a-button>
+              <ColumnConfig :columns="allColumns" @update:columns="handleColumnConfigUpdate" cacheKey="warehousingOrders" />
             </a-space>
           </a-form-item>
         </a-form>
@@ -132,6 +126,7 @@
               <a-button type="link" size="small" danger @click="handleDelete(record)">
                 删除
               </a-button>
+              <a-button type="link" size="small" @click="handleReturn(record)"> 退货 </a-button>
               <a-button type="link" size="small" @click="handlePrint(record)"> 打印 </a-button>
             </a-space>
           </template>
@@ -150,20 +145,28 @@
     <WarehousingOrderPrint v-model:visible="printVisible" :order="printOrder" />
 
     <WarehousingOrderDetail v-model:visible="detailVisible" :order="currentOrder" />
+
+    <InboundReturnForm
+      v-model:visible="returnFormVisible"
+      :sourceOrder="returnSourceOrder"
+      @success="loadOrders"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { warehousingOrdersApi } from '@/api/warehousingOrders'
 import type { WarehousingOrder, WarehousingOrderQueryParams } from '@/types'
 import WarehousingOrderForm from '@/components/WarehousingOrderForm.vue'
 import WarehousingOrderPrint from '@/components/WarehousingOrderPrint.vue'
 import WarehousingOrderDetail from '@/components/WarehousingOrderDetail.vue'
+import InboundReturnForm from '@/components/InboundReturnForm.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate, formatDateTime } from '@/utils/date'
+import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import dayjs from 'dayjs'
 
 const orders = ref<WarehousingOrder[]>([])
@@ -171,9 +174,11 @@ const loading = ref(false)
 const formVisible = ref(false)
 const printVisible = ref(false)
 const detailVisible = ref(false)
+const returnFormVisible = ref(false)
 const isEdit = ref(false)
 const currentOrder = ref<WarehousingOrder | undefined>(undefined)
 const printOrder = ref<any>(undefined)
+const returnSourceOrder = ref<any>(undefined)
 const dateRange = ref<[any, any] | undefined>(undefined)
 
 // 展开订单数据，每个商品一行
@@ -262,8 +267,8 @@ const modelFilters = generateFilters('model')
 // 产品描述筛选选项
 const descriptionFilters = generateFilters('description')
 
-// 使用 computed 使列定义响应式
-const allColumns = computed(() => [
+// 使用 ref 使列配置可通过 ColumnConfig 组件更新
+const allColumns = ref([
   {
     title: '序号',
     key: 'index',
@@ -377,6 +382,36 @@ const allColumns = computed(() => [
   },
 ])
 
+// 标记是否正在从 ColumnConfig 更新，防止 watcher 覆盖
+let isUpdatingFromConfig = false
+
+// 处理 ColumnConfig 组件的列更新
+const handleColumnConfigUpdate = (newColumns: any[]) => {
+  isUpdatingFromConfig = true
+  allColumns.value = newColumns
+  isUpdatingFromConfig = false
+}
+
+// 当动态筛选数据变化时，更新 allColumns 中对应列的 filters
+watch(
+  [productCodeFilters, productNameFilters, modelFilters, descriptionFilters],
+  () => {
+    if (isUpdatingFromConfig) return
+    const cols = allColumns.value
+    const filterMap: Record<string, any> = {
+      product_code: productCodeFilters.value,
+      product_name: productNameFilters.value,
+      model: modelFilters.value,
+      description: descriptionFilters.value,
+    }
+    cols.forEach((col: any) => {
+      if (col.dataIndex && filterMap[col.dataIndex]) {
+        col.filters = filterMap[col.dataIndex]
+      }
+    })
+  }
+)
+
 const visibleColumns = computed(() => {
   return allColumns.value.filter((col: any) => col.visible !== false)
 })
@@ -465,6 +500,11 @@ const handleDelete = (order: WarehousingOrder) => {
   })
 }
 
+const handleReturn = (order: WarehousingOrder) => {
+  returnSourceOrder.value = order
+  returnFormVisible.value = true
+}
+
 const handlePrint = (order?: any) => {
   const data = order || currentOrder.value
   if (!data) return
@@ -499,6 +539,54 @@ const getParsedWarehousingItems = (order: WarehousingOrder) => {
   }
 }
 
+// 导出Excel
+const exportColumns: ExportColumn[] = [
+  { key: 'order_number', title: '入库单编号' },
+  { key: 'contract_number', title: '采购合同编号' },
+  { key: 'product_code', title: '产品代码' },
+  { key: 'product_name', title: '产品名称' },
+  { key: 'model', title: '产品型号' },
+  { key: 'description', title: '产品描述' },
+  { key: 'quantity', title: '数量' },
+  { key: 'unit', title: '单位' },
+  { key: 'customer_name', title: '客户名称' },
+  { key: 'warehousing_time', title: '入库时间' },
+  { key: 'entry_date', title: '录入日期', formatter: (v) => formatDate(v) },
+  { key: 'tracking_number', title: '快递单号' },
+]
+
+const handleExport = async () => {
+  try {
+    const response = await warehousingOrdersApi.getAll({ ...searchParams, page: 1, pageSize: 99999 })
+    const allOrders: WarehousingOrder[] = response.data || []
+    const rows: any[] = []
+    allOrders.forEach((order) => {
+      const items = getParsedWarehousingItems(order)
+      if (items.length === 0) {
+        rows.push({ ...order, product_code: '-', product_name: '-', model: '-', description: '-', quantity: '-', unit: '-' })
+      } else {
+        items.forEach((item: any) => {
+          rows.push({
+            ...order,
+            product_code: item.product_code || '-',
+            product_name: item.product_name || '-',
+            model: item.model || '-',
+            description: item.description || '-',
+            quantity: item.quantity || '-',
+            unit: item.unit || '-',
+          })
+        })
+      }
+    })
+    // 只导出显示的列
+    const visibleKeySet = new Set(visibleColumns.value.flatMap((col: any) => [col.dataIndex, col.key]).filter(Boolean))
+    const filteredExportColumns = exportColumns.filter(col => visibleKeySet.has(col.key))
+    exportToExcel({ filename: '入库单', columns: filteredExportColumns, data: rows })
+  } catch {
+    message.error('导出失败')
+  }
+}
+
 onMounted(() => {
   loadOrders()
 })
@@ -523,6 +611,29 @@ onMounted(() => {
 
   .search-bar {
     margin-bottom: 16px;
+
+    :deep(.ant-form-item) {
+      margin-bottom: 12px;
+
+      > .ant-form-item-label {
+        width: 80px;
+        text-align: right;
+        padding-right: 8px;
+      }
+    }
+
+    :deep(.ant-input),
+    :deep(.ant-input-affix-wrapper) {
+      width: 180px;
+    }
+
+    :deep(.ant-picker) {
+      width: 240px;
+    }
+
+    :deep(.ant-select) {
+      width: 180px;
+    }
   }
 
   .order-link {

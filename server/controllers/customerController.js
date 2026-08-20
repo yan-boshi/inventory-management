@@ -94,7 +94,8 @@ export const createCustomer = async (req, res) => {
       contact_phone,
       receiver,
       receiver_address,
-      remarks
+      remarks,
+      created_by: req.user?.username || null
     })
     res.status(201).json({ success: true, data: customer })
   } catch (error) {
@@ -135,6 +136,7 @@ export const updateCustomer = async (req, res) => {
     }
 
     const updateData = {}
+    updateData.created_by = req.user?.username || null
     if (customer_name !== undefined) updateData.customer_name = customer_name
     if (customer_code !== undefined) updateData.customer_code = customer_code
     if (customer_tax_number !== undefined) updateData.customer_tax_number = customer_tax_number

@@ -53,6 +53,10 @@
                 <template #icon><ReloadOutlined /></template>
                 重置
               </a-button>
+              <a-button @click="handleExport" :disabled="reportData.length === 0">
+                <template #icon><DownloadOutlined /></template>
+                导出Excel
+              </a-button>
               <ColumnConfig v-model:columns="allColumns" cacheKey="deliveryExpenseReport" />
               <a-button @click="handlePrint" :disabled="reportData.length === 0">
                 <template #icon><PrinterOutlined /></template>
@@ -69,17 +73,24 @@
         :data-source="reportData"
         :loading="loading"
         :pagination="false"
-        rowKey="delivery_order_id"
+        rowKey="row_key"
         bordered
         size="small"
         :scroll="{ x: 2800, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'delivery_time'">
+          <template v-if="column.key === 'order_type'">
+            <a-tag :color="record.order_type === '出库退货' ? 'red' : 'blue'">
+              {{ record.order_type }}
+            </a-tag>
+          </template>
+          <template v-else-if="column.key === 'delivery_time'">
             {{ formatDate(record.delivery_time) }}
           </template>
           <template v-else-if="column.key === 'quantity'">
-            {{ formatNumber(record.quantity) }}
+            <span :style="{ color: record.quantity < 0 ? '#f5222d' : '' }">
+              {{ formatNumber(record.quantity) }}
+            </span>
           </template>
           <template v-else-if="column.key === 'tax_included_price'">
             {{ formatMoney(record.tax_included_price) }}
@@ -124,34 +135,34 @@
         <template #summary v-if="reportData.length > 0">
           <a-table-summary>
             <a-table-summary-row>
-              <a-table-summary-cell :index="0" :colSpan="11" :align="'right'">
+              <a-table-summary-cell :index="0" :colSpan="12" :align="'right'">
                 <strong>合计</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="11" :align="'right'">
+              <a-table-summary-cell :index="12" :align="'right'">
                 <strong>{{ formatMoney(totals.total_price) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="12" :align="'right'">
+              <a-table-summary-cell :index="13" :align="'right'">
                 {{ formatMoney(totals.express_delivery_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="13" :align="'right'">
+              <a-table-summary-cell :index="14" :align="'right'">
                 {{ formatMoney(totals.transportation_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="14" :align="'right'">
+              <a-table-summary-cell :index="15" :align="'right'">
                 {{ formatMoney(totals.customs_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="15" :align="'right'">
+              <a-table-summary-cell :index="16" :align="'right'">
                 {{ formatMoney(totals.delivery_other_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="16" :align="'right'">
+              <a-table-summary-cell :index="17" :align="'right'">
                 <strong>{{ formatMoney(totals.delivery_expense_subtotal) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="17" :align="'right'">
+              <a-table-summary-cell :index="18" :align="'right'">
                 {{ formatMoney(totals.sales_transportation_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="18" :align="'right'">
+              <a-table-summary-cell :index="19" :align="'right'">
                 {{ formatMoney(totals.sales_handling_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="19" :align="'right'">
+              <a-table-summary-cell :index="20" :align="'right'">
                 {{ formatMoney(totals.sales_other_fee) }}
               </a-table-summary-cell>
               <a-table-summary-cell :index="21" :align="'right'">
@@ -193,12 +204,13 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined, PrinterOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, ReloadOutlined, PrinterOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { deliveryExpenseReportApi } from '@/api/deliveryExpenseReport'
 import DeliveryExpenseReportPrint from '@/components/DeliveryExpenseReportPrint.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import type { DeliveryExpenseReportItem, DeliveryExpenseReportParams } from '@/types'
 import { formatDate } from '@/utils/date'
+import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import type { Dayjs } from 'dayjs'
 
 const loading = ref(false)
@@ -221,6 +233,13 @@ const pagination = reactive({
 })
 
 const columns = [
+  {
+    title: '单据类型',
+    dataIndex: 'order_type',
+    key: 'order_type',
+    width: 100,
+    fixed: 'left' as const,
+  },
   {
     title: '出库单号',
     dataIndex: 'order_number',
@@ -447,8 +466,8 @@ const formatNumber = (value: number) => {
 
 const formatMoney = (value: number) => {
   return value != null
-    ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : '0.00'
+    ? value.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+    : '0.0000'
 }
 
 const fetchReport = async () => {
@@ -492,6 +511,49 @@ const handlePageChange = (page: number, pageSize: number) => {
 
 const handlePrint = () => {
   printVisible.value = true
+}
+
+// 导出Excel
+const exportColumns: ExportColumn[] = [
+  { key: 'order_number', title: '出库单号' },
+  { key: 'delivery_time', title: '出库时间' },
+  { key: 'contract_number', title: '销售合同编号' },
+  { key: 'customer_name', title: '客户名称' },
+  { key: 'product_code', title: '商品编码' },
+  { key: 'product_name', title: '商品名称' },
+  { key: 'specification', title: '规格型号' },
+  { key: 'unit', title: '单位' },
+  { key: 'quantity', title: '出库数量' },
+  { key: 'tax_included_price', title: '含税单价', formatter: (v) => formatMoney(v) },
+  { key: 'total_price', title: '含税金额', formatter: (v) => formatMoney(v) },
+  { key: 'express_delivery_fee', title: '快递费', formatter: (v) => formatMoney(v) },
+  { key: 'transportation_fee', title: '运杂费', formatter: (v) => formatMoney(v) },
+  { key: 'customs_fee', title: '报关费', formatter: (v) => formatMoney(v) },
+  { key: 'delivery_other_fee', title: '其他费用', formatter: (v) => formatMoney(v) },
+  { key: 'delivery_expense_subtotal', title: '出库费用小计', formatter: (v) => formatMoney(v) },
+  { key: 'sales_transportation_fee', title: '运输费', formatter: (v) => formatMoney(v) },
+  { key: 'sales_handling_fee', title: '手续费', formatter: (v) => formatMoney(v) },
+  { key: 'sales_other_fee', title: '其他费用', formatter: (v) => formatMoney(v) },
+  { key: 'sales_expense_subtotal', title: '销售费用小计', formatter: (v) => formatMoney(v) },
+  { key: 'total_expenses', title: '费用合计', formatter: (v) => formatMoney(v) },
+  { key: 'delivery_person', title: '出库人' },
+  { key: 'remarks', title: '备注' },
+]
+
+const handleExport = () => {
+  // 只导出显示的列（处理分组列）
+  const visibleKeySet = new Set<string>()
+  visibleColumns.value.forEach((col: any) => {
+    if (col.children) {
+      col.children.forEach((child: any) => {
+        if (child.visible !== false) visibleKeySet.add(child.key)
+      })
+    } else if (col.key && col.key !== 'index') {
+      visibleKeySet.add(col.key)
+    }
+  })
+  const filteredExportColumns = exportColumns.filter(col => visibleKeySet.has(col.key))
+  exportToExcel({ filename: '出库明细表', columns: filteredExportColumns, data: reportData.value })
 }
 
 onMounted(() => {

@@ -53,6 +53,10 @@
                 <template #icon><ReloadOutlined /></template>
                 重置
               </a-button>
+              <a-button @click="handleExport" :disabled="reportData.length === 0">
+                <template #icon><DownloadOutlined /></template>
+                导出Excel
+              </a-button>
               <ColumnConfig v-model:columns="allColumns" cacheKey="warehousingExpenseReport" />
               <a-button @click="handlePrint" :disabled="reportData.length === 0">
                 <template #icon><PrinterOutlined /></template>
@@ -69,17 +73,24 @@
         :data-source="reportData"
         :loading="loading"
         :pagination="false"
-        rowKey="warehousing_order_id"
+        rowKey="row_key"
         bordered
         size="small"
         :scroll="{ x: 2600, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'warehousing_time'">
+          <template v-if="column.key === 'order_type'">
+            <a-tag :color="record.order_type === '入库退货' ? 'red' : 'blue'">
+              {{ record.order_type }}
+            </a-tag>
+          </template>
+          <template v-else-if="column.key === 'warehousing_time'">
             {{ formatDate(record.warehousing_time) }}
           </template>
           <template v-else-if="column.key === 'quantity'">
-            {{ formatNumber(record.quantity) }}
+            <span :style="{ color: record.quantity < 0 ? '#f5222d' : '' }">
+              {{ formatNumber(record.quantity) }}
+            </span>
           </template>
           <template v-else-if="column.key === 'tax_included_price'">
             {{ formatMoney(record.tax_included_price) }}
@@ -130,51 +141,51 @@
         <template #summary v-if="reportData.length > 0">
           <a-table-summary>
             <a-table-summary-row>
-              <a-table-summary-cell :index="0" :colSpan="11" :align="'right'">
+              <a-table-summary-cell :index="0" :colSpan="12" :align="'right'">
                 <strong>合计</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="11" :align="'right'">
+              <a-table-summary-cell :index="12" :align="'right'">
                 <strong>{{ formatMoney(totals.total_price) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="12" :align="'right'">
+              <a-table-summary-cell :index="13" :align="'right'">
                 {{ formatMoney(totals.tariff) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="13" :align="'right'">
+              <a-table-summary-cell :index="14" :align="'right'">
                 {{ formatMoney(totals.transportation_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="14" :align="'right'">
+              <a-table-summary-cell :index="15" :align="'right'">
                 {{ formatMoney(totals.customs_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="15" :align="'right'">
+              <a-table-summary-cell :index="16" :align="'right'">
                 {{ formatMoney(totals.warehousing_other_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="16" :align="'right'">
+              <a-table-summary-cell :index="17" :align="'right'">
                 <strong>{{ formatMoney(totals.warehousing_expense_subtotal) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="17" :align="'right'">
+              <a-table-summary-cell :index="18" :align="'right'">
                 {{ formatMoney(totals.purchase_transportation_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="18" :align="'right'">
+              <a-table-summary-cell :index="19" :align="'right'">
                 {{ formatMoney(totals.purchase_tariff) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="19" :align="'right'">
+              <a-table-summary-cell :index="20" :align="'right'">
                 {{ formatMoney(totals.purchase_value_added_tax) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="20" :align="'right'">
+              <a-table-summary-cell :index="21" :align="'right'">
                 {{ formatMoney(totals.purchase_handling_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="21" :align="'right'">
+              <a-table-summary-cell :index="22" :align="'right'">
                 {{ formatMoney(totals.purchase_other_fee) }}
               </a-table-summary-cell>
-              <a-table-summary-cell :index="21" :align="'right'">
+              <a-table-summary-cell :index="23" :align="'right'">
                 <strong>{{ formatMoney(totals.purchase_expense_subtotal) }}</strong>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="22" :align="'right'">
+              <a-table-summary-cell :index="24" :align="'right'">
                 <span style="color: #f5222d; font-weight: bold">{{
                   formatMoney(totals.total_expenses)
                 }}</span>
               </a-table-summary-cell>
-              <a-table-summary-cell :index="23" :colSpan="2" />
+              <a-table-summary-cell :index="25" :colSpan="2" />
             </a-table-summary-row>
           </a-table-summary>
         </template>
@@ -205,12 +216,13 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined, PrinterOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, ReloadOutlined, PrinterOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { warehousingExpenseReportApi } from '@/api/warehousingExpenseReport'
 import WarehousingExpenseReportPrint from '@/components/WarehousingExpenseReportPrint.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import type { WarehousingExpenseReportItem, WarehousingExpenseReportParams } from '@/types'
 import { formatDate } from '@/utils/date'
+import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import type { Dayjs } from 'dayjs'
 
 const loading = ref(false)
@@ -233,6 +245,13 @@ const pagination = reactive({
 })
 
 const columns = [
+  {
+    title: '单据类型',
+    dataIndex: 'order_type',
+    key: 'order_type',
+    width: 100,
+    fixed: 'left' as const,
+  },
   {
     title: '入库单号',
     dataIndex: 'order_number',
@@ -471,8 +490,8 @@ const formatNumber = (value: number) => {
 
 const formatMoney = (value: number) => {
   return value != null
-    ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : '0.00'
+    ? value.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+    : '0.0000'
 }
 
 const fetchReport = async () => {
@@ -516,6 +535,50 @@ const handlePageChange = (page: number, pageSize: number) => {
 
 const handlePrint = () => {
   printVisible.value = true
+}
+
+// 导出Excel
+const exportColumns: ExportColumn[] = [
+  { key: 'order_number', title: '入库单号' },
+  { key: 'warehousing_time', title: '入库时间' },
+  { key: 'contract_number', title: '采购合同编号' },
+  { key: 'product_code', title: '商品编码' },
+  { key: 'product_name', title: '商品名称' },
+  { key: 'model', title: '规格型号' },
+  { key: 'unit', title: '单位' },
+  { key: 'quantity', title: '入库数量' },
+  { key: 'tax_included_price', title: '含税单价', formatter: (v) => formatMoney(v) },
+  { key: 'total_price', title: '含税金额', formatter: (v) => formatMoney(v) },
+  { key: 'tariff', title: '关税', formatter: (v) => formatMoney(v) },
+  { key: 'transportation_fee', title: '运杂费', formatter: (v) => formatMoney(v) },
+  { key: 'customs_fee', title: '报关费', formatter: (v) => formatMoney(v) },
+  { key: 'warehousing_other_fee', title: '其他费用', formatter: (v) => formatMoney(v) },
+  { key: 'warehousing_expense_subtotal', title: '入库费用小计', formatter: (v) => formatMoney(v) },
+  { key: 'purchase_transportation_fee', title: '运输费', formatter: (v) => formatMoney(v) },
+  { key: 'purchase_tariff', title: '关税', formatter: (v) => formatMoney(v) },
+  { key: 'purchase_value_added_tax', title: '增值税', formatter: (v) => formatMoney(v) },
+  { key: 'purchase_handling_fee', title: '手续费', formatter: (v) => formatMoney(v) },
+  { key: 'purchase_other_fee', title: '其他费用', formatter: (v) => formatMoney(v) },
+  { key: 'purchase_expense_subtotal', title: '采购费用小计', formatter: (v) => formatMoney(v) },
+  { key: 'total_expenses', title: '费用合计', formatter: (v) => formatMoney(v) },
+  { key: 'warehousing_person', title: '入库人' },
+  { key: 'remarks', title: '备注' },
+]
+
+const handleExport = () => {
+  // 只导出显示的列（处理分组列）
+  const visibleKeySet = new Set<string>()
+  visibleColumns.value.forEach((col: any) => {
+    if (col.children) {
+      col.children.forEach((child: any) => {
+        if (child.visible !== false) visibleKeySet.add(child.key)
+      })
+    } else if (col.key && col.key !== 'index') {
+      visibleKeySet.add(col.key)
+    }
+  })
+  const filteredExportColumns = exportColumns.filter(col => visibleKeySet.has(col.key))
+  exportToExcel({ filename: '入库明细表', columns: filteredExportColumns, data: reportData.value })
 }
 
 onMounted(() => {

@@ -526,6 +526,58 @@ const emit = defineEmits<{
   print: [data: any]
 }>()
 
+// ==================== 可拖拽列宽 ====================
+const resizableColumnWidths = reactive<Record<string, number>>({
+  product_name: 150,
+  model: 100,
+  description: 120,
+})
+
+const startResize = (colKey: string, e: MouseEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+
+  const thEl = (e.target as HTMLElement).closest('th') as HTMLElement
+  if (!thEl) return
+
+  const startX = e.clientX
+  const startWidth = thEl.offsetWidth
+
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+
+  const onMouseMove = (ev: MouseEvent) => {
+    const newWidth = Math.max(60, startWidth + ev.clientX - startX)
+    thEl.style.width = newWidth + 'px'
+    thEl.style.minWidth = newWidth + 'px'
+    thEl.style.maxWidth = newWidth + 'px'
+    resizableColumnWidths[colKey] = newWidth
+  }
+
+  const onMouseUp = () => {
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
+
+const resizableHeaderCell = (colKey: string) => ({
+  style: { position: 'relative' as const, overflow: 'visible' as const },
+  onMouseenter: (e: MouseEvent) => {
+    const th = (e.target as HTMLElement).closest('th')
+    if (th) th.style.cursor = 'col-resize'
+  },
+  onMouseleave: (e: MouseEvent) => {
+    const th = (e.target as HTMLElement).closest('th')
+    if (th) th.style.cursor = ''
+  },
+  onMousedown: (e: MouseEvent) => startResize(colKey, e),
+})
+
 const orderNumber = ref('')
 const submitting = ref(false)
 const loading = reactive({
@@ -538,7 +590,6 @@ const getStatusColor = (status: number) => {
     1: 'blue', // 未出库
     2: 'green', // 已全部出库
     3: 'orange', // 已部分出库
-    4: 'red', // 退货
   }
   return colorMap[status] || 'default'
 }
@@ -548,7 +599,6 @@ const getStatusText = (status: number) => {
     1: t.value.salesOrder.notShipped,
     2: t.value.salesOrder.fullyShipped,
     3: t.value.salesOrder.partiallyShipped,
-    4: t.value.salesOrder.returned,
   }
   return textMap[status] || t.value.salesOrder.unknown
 }
@@ -598,9 +648,9 @@ const itemColumns = computed(() => [
   { title: t.value.salesOrder.no, key: 'no', width: 60, align: 'center' as const, fixed: 'left' as const },
   { title: t.value.salesOrder.businessCategory, key: 'business_category', width: 120, fixed: 'left' as const },
   { title: t.value.salesOrder.productCode, key: 'product_code', width: 120, fixed: 'left' as const },
-  { title: t.value.salesOrder.productName, key: 'product_name', width: 150, fixed: 'left' as const },
-  { title: t.value.salesOrder.model, key: 'model', width: 100, fixed: 'left' as const },
-  { title: t.value.salesOrder.description, key: 'description', width: 120, fixed: 'left' as const },
+  { title: t.value.salesOrder.productName, key: 'product_name', width: resizableColumnWidths.product_name, customHeaderCell: () => resizableHeaderCell('product_name') },
+  { title: t.value.salesOrder.model, key: 'model', width: resizableColumnWidths.model, customHeaderCell: () => resizableHeaderCell('model') },
+  { title: t.value.salesOrder.description, key: 'description', width: resizableColumnWidths.description, customHeaderCell: () => resizableHeaderCell('description') },
   { title: t.value.salesOrder.unit, key: 'unit', width: 70 },
   { title: t.value.salesOrder.quantity, key: 'quantity', width: 80 },
   { title: t.value.salesOrder.taxRate, key: 'tax_rate', width: 90 },
@@ -788,6 +838,7 @@ const handleProductSearch = async (value: string, index: number) => {
       model: p.model,
       description: p.description,
       unit: p.unit,
+      tax_included_price: p.tax_included_price,
     }))
   } catch (error) {
     message.error(t.value.salesOrder.getProductsFail)
@@ -804,6 +855,11 @@ const handleProductChange = (value: string, index: number) => {
     // form.sales_items[index].product_code = product.product_code || ''
     form.sales_items[index].description = product.description || ''
     form.sales_items[index].unit = product.unit || ''
+    if (product.tax_included_price) {
+      form.sales_items[index].tax_included_price = product.tax_included_price
+    }
+    // 触发价格计算
+    taxIncludedPriceRowTotal(index)
   }
 }
 

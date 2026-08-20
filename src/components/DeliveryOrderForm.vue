@@ -366,6 +366,58 @@ const emit = defineEmits<{
   (e: 'print', data: any): void
 }>()
 
+// ==================== 可拖拽列宽 ====================
+const resizableColumnWidths = reactive<Record<string, number>>({
+  product_name: 150,
+  model: 120,
+  specification: 150,
+})
+
+const startResize = (colKey: string, e: MouseEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+
+  const thEl = (e.target as HTMLElement).closest('th') as HTMLElement
+  if (!thEl) return
+
+  const startX = e.clientX
+  const startWidth = thEl.offsetWidth
+
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+
+  const onMouseMove = (ev: MouseEvent) => {
+    const newWidth = Math.max(60, startWidth + ev.clientX - startX)
+    thEl.style.width = newWidth + 'px'
+    thEl.style.minWidth = newWidth + 'px'
+    thEl.style.maxWidth = newWidth + 'px'
+    resizableColumnWidths[colKey] = newWidth
+  }
+
+  const onMouseUp = () => {
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
+
+const resizableHeaderCell = (colKey: string) => ({
+  style: { position: 'relative' as const, overflow: 'visible' as const },
+  onMouseenter: (e: MouseEvent) => {
+    const th = (e.target as HTMLElement).closest('th')
+    if (th) th.style.cursor = 'col-resize'
+  },
+  onMouseleave: (e: MouseEvent) => {
+    const th = (e.target as HTMLElement).closest('th')
+    if (th) th.style.cursor = ''
+  },
+  onMousedown: (e: MouseEvent) => startResize(colKey, e),
+})
+
 const orderNumber = ref('')
 const saving = ref(false)
 const loading = reactive({
@@ -406,9 +458,9 @@ const formData = reactive({
 const itemColumns = [
   { title: '序号', key: 'no', width: '5%', align: 'center' },
   { title: '产品代码', key: 'product_code', width: '9%' },
-  { title: '产品名称', key: 'product_name', width: '11%' },
-  { title: '规格型号', key: 'model', width: '8%' },
-  { title: '规格描述', key: 'specification', width: '9%' },
+  { title: '产品名称', key: 'product_name', width: resizableColumnWidths.product_name, customHeaderCell: () => resizableHeaderCell('product_name') },
+  { title: '规格型号', key: 'model', width: resizableColumnWidths.model, customHeaderCell: () => resizableHeaderCell('model') },
+  { title: '规格描述', key: 'specification', width: resizableColumnWidths.specification, customHeaderCell: () => resizableHeaderCell('specification') },
   { title: '单位', key: 'unit', width: '5%' },
   { title: '库存数', key: 'stock', width: '7%', align: 'right' },
   { title: '未出库数', key: 'max_quantity', width: '7%', align: 'right' },
@@ -891,10 +943,25 @@ watch(
       if (!props.isEdit) {
         getNewOrderNumber()
         getSalesOrdersForDelivery()
-        resetForm()
-        checkDraft()
-        if (formData.delivery_items.length === 0) {
-          addItem()
+        if (props.deliveryOrderData) {
+          // 从计划单生成时，应用预填充数据
+          resetForm()
+          formData.contract_number = props.deliveryOrderData.contract_number || ''
+          formData.customer_name = props.deliveryOrderData.customer_name || ''
+          formData.currency = props.deliveryOrderData.currency || 'CNY'
+          formData.remarks = props.deliveryOrderData.remarks || ''
+          if (props.deliveryOrderData.entry_date) {
+            formData.entry_date = dayjs(props.deliveryOrderData.entry_date)
+          }
+          if (props.deliveryOrderData.delivery_items) {
+            formData.delivery_items = props.deliveryOrderData.delivery_items
+          }
+        } else {
+          resetForm()
+          checkDraft()
+          if (formData.delivery_items.length === 0) {
+            addItem()
+          }
         }
       } else if (props.deliveryOrderData) {
         orderNumber.value = props.deliveryOrderData.order_number || ''
@@ -949,7 +1016,7 @@ watch(
           !salesOrderOptions.value.some((o: any) => o.contract_number === formData.contract_number)
         ) {
           try {
-            const res = await salesOrdersApi.getAll({ contract_number: formData.contract_number })
+            const res = await salesOrdersApi.getAll({ contractNumber: formData.contract_number })
             const orders = res.data?.data || res.data || []
             if (orders.length > 0) {
               salesOrderOptions.value.push(orders[0])

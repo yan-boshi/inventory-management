@@ -356,6 +356,7 @@ export interface SalesOrderQueryParams {
   orderNumber?: string
   customerName?: string
   customerCode?: string
+  contractNumber?: string
   quotationNumber?: string
   salesDate?: string
   startDate?: string
@@ -376,6 +377,7 @@ export interface ProductOption {
   description?: string
   unit?: string
   stock?: number
+  tax_included_price?: number
 }
 
 export interface PaymentMethodOption {
@@ -510,6 +512,139 @@ export interface PurchaseOrderQueryParams {
   supplierName?: string
   supplierCode?: string
   orderNumber?: string
+  contractNumber?: string
+  startDate?: string
+  endDate?: string
+}
+
+export interface PurchasePlanItem {
+  no: number
+  product_code: string
+  product_name: string
+  model?: string
+  description?: string
+  quantity: number
+  unit?: string
+  delivery_date?: string
+  remarks?: string
+  purchase_status?: string
+}
+
+export interface PurchasePlan {
+  purchase_plan_id: string
+  plan_number: string
+  sales_order_id?: string
+  contract_number?: string
+  customer_name?: string
+  plan_items: string
+  currency: string
+  entry_date?: string
+  sales_person?: string
+  status: 'pending' | 'completed' | 'cancelled'
+  remarks?: string
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PurchasePlanQueryParams {
+  page?: number
+  pageSize?: number
+  planNumber?: string
+  contractNumber?: string
+  customerName?: string
+  salesPerson?: string
+  status?: string
+  startDate?: string
+  endDate?: string
+}
+
+// 入库计划
+export interface InboundPlanItem {
+  no: number
+  product_code: string
+  product_name: string
+  model?: string
+  description?: string
+  quantity: number
+  unit?: string
+  tax_included_price?: number
+  tax_rate?: number
+  delivery_date?: string
+  remarks?: string
+  inbound_status?: string
+}
+
+export interface InboundPlan {
+  inbound_plan_id: string
+  plan_number: string
+  purchase_order_id?: string
+  contract_number?: string
+  supplier_name?: string
+  plan_items: string
+  currency: string
+  entry_date?: string
+  purchase_person?: string
+  status: 'pending' | 'completed' | 'cancelled'
+  remarks?: string
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface InboundPlanQueryParams {
+  page?: number
+  pageSize?: number
+  planNumber?: string
+  contractNumber?: string
+  supplierName?: string
+  purchasePerson?: string
+  status?: string
+  startDate?: string
+  endDate?: string
+}
+
+// 出库计划
+export interface OutboundPlanItem {
+  no: number
+  product_code: string
+  product_name: string
+  model?: string
+  description?: string
+  quantity: number
+  unit?: string
+  tax_included_price?: number
+  tax_rate?: number
+  delivery_date?: string
+  remarks?: string
+  outbound_status?: string
+}
+
+export interface OutboundPlan {
+  outbound_plan_id: string
+  plan_number: string
+  sales_order_id?: string
+  contract_number?: string
+  customer_name?: string
+  plan_items: string
+  currency: string
+  entry_date?: string
+  sales_person?: string
+  status: 'pending' | 'completed' | 'cancelled'
+  remarks?: string
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface OutboundPlanQueryParams {
+  page?: number
+  pageSize?: number
+  planNumber?: string
+  contractNumber?: string
+  customerName?: string
+  salesPerson?: string
+  status?: string
   startDate?: string
   endDate?: string
 }
@@ -932,4 +1067,86 @@ export interface SettlementQueryParams {
   settlement_date_start?: string
   settlement_date_end?: string
   entity_name?: string
+}
+
+// 入库退货单接口
+export interface InboundReturnItem {
+  product_code: string
+  product_name: string
+  specifications: string
+  unit: string
+  quantity: number
+  unit_price: number
+  amount_with_tax: number
+}
+
+export interface InboundReturnOrder {
+  inbound_return_id: string
+  order_number: string
+  source_order_id: string
+  source_order_number: string
+  contract_number: string
+  supplier_name: string
+  supplier_code: string
+  return_items: string
+  total_amount: number
+  return_time: string
+  entry_date: string
+  currency: string
+  return_person: string
+  reason: string
+  remarks: string
+  created_at: string
+  updated_at: string
+}
+
+export interface InboundReturnQueryParams {
+  page?: number
+  pageSize?: number
+  orderNumber?: string
+  contractNumber?: string
+  supplierName?: string
+  startDate?: string
+  endDate?: string
+}
+
+// 出库退货单接口
+export interface OutboundReturnItem {
+  product_code: string
+  product_name: string
+  specifications: string
+  unit: string
+  quantity: number
+  unit_price: number
+  amount_with_tax: number
+}
+
+export interface OutboundReturnOrder {
+  outbound_return_id: string
+  order_number: string
+  source_order_id: string
+  source_order_number: string
+  contract_number: string
+  customer_name: string
+  customer_code: string
+  return_items: string
+  total_amount: number
+  return_time: string
+  entry_date: string
+  currency: string
+  return_person: string
+  reason: string
+  remarks: string
+  created_at: string
+  updated_at: string
+}
+
+export interface OutboundReturnQueryParams {
+  page?: number
+  pageSize?: number
+  orderNumber?: string
+  contractNumber?: string
+  customerName?: string
+  startDate?: string
+  endDate?: string
 }

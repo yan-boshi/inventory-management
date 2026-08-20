@@ -69,7 +69,6 @@ export interface LocaleMessages {
     notShipped: string
     fullyShipped: string
     partiallyShipped: string
-    returned: string
     unknown: string
     notPurchased: string
     partiallyPurchased: string
@@ -113,10 +112,6 @@ export interface LocaleMessages {
     deleteConfirmContent: string
     deleteSuccess: string
     deleteFail: string
-    returnConfirmTitle: string
-    returnConfirmContent: string
-    returnSuccess: string
-    returnFail: string
     loadOrdersFail: string
     totalRecords: string
     orderNumber: string
@@ -168,6 +163,9 @@ export interface LocaleMessages {
       other: string
     }
     taxRate: string
+    prepareDate: string
+    paymentTerms: string
+    tradeTerms: string
     // 公司信息
     address: string
     addressValue: string
@@ -210,6 +208,7 @@ export interface LocaleMessages {
     invoiceTerms: string
     deliveryMethod: string
     deliveryPeriod: string
+    deliveryPeriodPrefix: string
     acceptanceStandard: string
     warranty: string
     limitedLiability: string
@@ -224,6 +223,7 @@ export interface LocaleMessages {
     cancel: string
     print: string
     editSalesDate: string
+    editDeliveryPeriod: string
     editTaxRate: string
     editRemarks: string
     editContact: string
@@ -279,7 +279,6 @@ export interface LocaleMessages {
     notInStock: string
     fullyInStock: string
     partiallyInStock: string
-    returned: string
     unknown: string
     yes: string
     noOption: string
@@ -355,6 +354,8 @@ export interface LocaleMessages {
     productCode: string
     productName: string
     specification: string
+    model: string
+    description: string
     quantity: string
     unit: string
     taxIncludedPrice: string
@@ -460,7 +461,6 @@ const locales: Record<Lang, LocaleMessages> = {
       notShipped: '未出库',
       fullyShipped: '已全部出库',
       partiallyShipped: '已部分出库',
-      returned: '退货',
       unknown: '未知',
       notPurchased: '未采购',
       partiallyPurchased: '部分采购',
@@ -504,10 +504,6 @@ const locales: Record<Lang, LocaleMessages> = {
       deleteConfirmContent: '确定要删除销售订单 {orderNumber} 吗？',
       deleteSuccess: '删除成功',
       deleteFail: '删除失败',
-      returnConfirmTitle: '确认退货',
-      returnConfirmContent: '确定要将销售订单 {orderNumber} 标记为退货吗？',
-      returnSuccess: '退货成功',
-      returnFail: '退货失败',
       loadOrdersFail: '加载销售订单失败',
       totalRecords: '共 {total} 条记录',
       orderNumber: '订单号',
@@ -554,6 +550,9 @@ const locales: Record<Lang, LocaleMessages> = {
         other: '其他',
       },
       taxRate: '报价单税率：',
+      prepareDate: '制表日期：',
+      paymentTerms: '付款方式：',
+      tradeTerms: '贸易条款：',
       address: '地址：',
       addressValue: '深圳市龙岗区坂田街道五和大道（南）景丰大厦602室',
       tel: '联系方式：',
@@ -592,6 +591,7 @@ const locales: Record<Lang, LocaleMessages> = {
       invoiceTerms: '三、发票：验收合格后，乙方提供合法正规发票，甲方收到发票后3个工作日内支付货款。',
       deliveryMethod: '交货方式：乙方负责将货物运送至甲方指定地址，货物在交货运输前造成的损失和意外均由乙方负责。',
       deliveryPeriod: '四、交货周期：合同生效后30日',
+      deliveryPeriodPrefix: '四、交货周期：',
       acceptanceStandard: '五、验收标准：甲方收到货物3个工作日内（节假日顺延）以书面方式或者邮件的形式告知乙方开箱验收情况，超过3个工作日，则默认为甲方验收合格。乙方提供的产品必须符合国家标准，以及双方确认的图纸要求的标准（附件一），乙方产品经甲方入库后，如果在生产中发现不良品情况，乙方必须无条件退货或者返修，并按照甲方要求将合格产品送达甲方指定的收货地址。',
       warranty: '六、保修和售后服务：乙方保证所提供的货物为原厂出品，符合附件一所要求的标准，从甲方收到货物后开始计算，免费保修期为壹年（不含人为因素，消耗品易损件除外），如果产品故障是由于需方选型不当、意外事故、错误使用或没有按技术要求正常使用所引起，供方不承担质保责任。',
       limitedLiability: '七、有限责任：任何情况下，供方在本合同任何条款下所承担的全部责任，以需方产品实际已支付的价款为限。',
@@ -606,6 +606,7 @@ const locales: Record<Lang, LocaleMessages> = {
       cancel: '取消',
       print: '打印',
       editSalesDate: '销售日期',
+      editDeliveryPeriod: '交货周期',
       editTaxRate: '税率',
       editRemarks: '备注',
       editContact: '联系人',
@@ -660,7 +661,6 @@ const locales: Record<Lang, LocaleMessages> = {
       notInStock: '未入库',
       fullyInStock: '已全部入库',
       partiallyInStock: '已部分入库',
-      returned: '退货',
       unknown: '未知',
       yes: '是',
       noOption: '否',
@@ -734,6 +734,8 @@ const locales: Record<Lang, LocaleMessages> = {
       productCode: '产品代码',
       productName: '产品名称',
       specification: '产品规格/描述',
+      model: '规格型号',
+      description: '规格描述',
       quantity: '数量',
       unit: '单位',
       taxIncludedPrice: '含税单价',
@@ -837,7 +839,6 @@ const locales: Record<Lang, LocaleMessages> = {
       notShipped: 'Not Shipped',
       fullyShipped: 'Fully Shipped',
       partiallyShipped: 'Partially Shipped',
-      returned: 'Returned',
       unknown: 'Unknown',
       notPurchased: 'Not Purchased',
       partiallyPurchased: 'Partial',
@@ -881,10 +882,6 @@ const locales: Record<Lang, LocaleMessages> = {
       deleteConfirmContent: 'Delete sales order {orderNumber}?',
       deleteSuccess: 'Deleted successfully',
       deleteFail: 'Failed to delete',
-      returnConfirmTitle: 'Confirm Return',
-      returnConfirmContent: 'Mark sales order {orderNumber} as returned?',
-      returnSuccess: 'Returned successfully',
-      returnFail: 'Failed to return',
       loadOrdersFail: 'Failed to load sales orders',
       totalRecords: '{total} records',
       orderNumber: 'Order No.',
@@ -931,6 +928,9 @@ const locales: Record<Lang, LocaleMessages> = {
         other: 'Other',
       },
       taxRate: 'Tax Rate:',
+      prepareDate: 'Date:',
+      paymentTerms: 'Payment Terms:',
+      tradeTerms: 'Trade Terms:',
       address: 'Address:',
       addressValue: 'Room 602, Jingfeng Building. No. 42 Wuhedadao (South), Nankun Communit, Bantian Subdistrict, Longgang Distric,Shenzhen',
       tel: 'Tel:',
@@ -969,6 +969,7 @@ const locales: Record<Lang, LocaleMessages> = {
       invoiceTerms: '3. Invoice: After acceptance, Party B shall provide a valid invoice. Party A shall make payment within 3 business days after receiving the invoice.',
       deliveryMethod: 'Delivery: Party B shall deliver the goods to the address designated by Party A. Party B shall bear all losses and accidents before delivery.',
       deliveryPeriod: '4. Delivery Period: Within 30 days after the contract takes effect.',
+      deliveryPeriodPrefix: '4. Delivery Period: ',
       acceptanceStandard: '5. Acceptance Criteria: Party A shall notify Party B in writing or by email of the unboxing inspection within 3 business days (excluding holidays) after receiving the goods. If no notification is given within 3 business days, it shall be deemed that Party A has accepted the goods. Products provided by Party B must comply with national standards and the standards confirmed by both parties (Appendix I). If defective products are found during production after warehousing, Party B shall unconditionally accept returns or repairs and deliver qualified products to the address designated by Party A.',
       warranty: '6. Warranty and After-sales Service: Party B guarantees that the goods are original factory products meeting the standards required in Appendix I. The free warranty period is one year from the date Party A receives the goods (excluding human factors and consumable parts). Party B shall not bear warranty responsibility if product failures are caused by improper selection, accidents, misuse, or failure to use according to technical requirements.',
       limitedLiability: '7. Limited Liability: Under any circumstances, Party B\'s total liability under any terms of this contract shall be limited to the actual amount paid by Party A.',
@@ -983,6 +984,7 @@ const locales: Record<Lang, LocaleMessages> = {
       cancel: 'Cancel',
       print: 'Print',
       editSalesDate: 'Sales Date',
+      editDeliveryPeriod: 'Delivery Period',
       editTaxRate: 'Tax Rate',
       editRemarks: 'Remarks',
       editContact: 'Contact Person',
@@ -1037,7 +1039,6 @@ const locales: Record<Lang, LocaleMessages> = {
       notInStock: 'Not in Stock',
       fullyInStock: 'Fully in Stock',
       partiallyInStock: 'Partially in Stock',
-      returned: 'Returned',
       unknown: 'Unknown',
       yes: 'Yes',
       noOption: 'No',
@@ -1111,6 +1112,8 @@ const locales: Record<Lang, LocaleMessages> = {
       productCode: 'Product Code',
       productName: 'Product Name',
       specification: 'Specification',
+      model: 'Model',
+      description: 'Description',
       quantity: 'Qty',
       unit: 'Unit',
       taxIncludedPrice: 'Unit Price',

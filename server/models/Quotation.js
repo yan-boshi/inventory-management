@@ -61,6 +61,8 @@ class Quotation extends BaseModel {
       tax_rate: data.tax_rate || 13,
       tax_included_amount: parseFloat(taxIncludedAmount.toFixed(2)) || 0,
       currency: data.currency || 'CNY',
+      payment_terms: data.payment_terms || null,
+      trade_terms: data.trade_terms || null,
       entry_date: data.entry_date || null,
       remarks: data.remarks || null
     }

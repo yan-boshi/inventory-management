@@ -4,7 +4,7 @@ export const getWarehousingExpenseReport = async (req, res) => {
   try {
     const { startDate, endDate, orderNumber, contractNumber, productKeyword } = req.query
 
-    // 构建查询条件
+    // 构建入库单查询条件
     const conditions = []
     const params = []
 
@@ -41,12 +41,48 @@ export const getWarehousingExpenseReport = async (req, res) => {
       params
     )
 
+    // 构建入库退货单查询条件
+    const returnConditions = []
+    const returnParams = []
+
+    if (startDate) {
+      returnConditions.push('iro.return_time >= ?')
+      returnParams.push(startDate)
+    }
+
+    if (endDate) {
+      returnConditions.push('iro.return_time <= ?')
+      returnParams.push(endDate)
+    }
+
+    if (orderNumber) {
+      returnConditions.push('iro.order_number LIKE ?')
+      returnParams.push(`%${orderNumber}%`)
+    }
+
+    if (contractNumber) {
+      returnConditions.push('iro.contract_number LIKE ?')
+      returnParams.push(`%${contractNumber}%`)
+    }
+
+    const returnWhereClause = returnConditions.length > 0 ? 'WHERE ' + returnConditions.join(' AND ') : ''
+
+    // 查询入库退货单
+    const [inboundReturnOrders] = await pool.query(
+      `SELECT iro.inbound_return_id, iro.order_number, iro.contract_number,
+              iro.return_items, iro.return_time, iro.total_amount, iro.currency,
+              iro.return_person, iro.reason, iro.remarks
+       FROM inbound_return_orders iro
+       ${returnWhereClause}
+       ORDER BY iro.return_time DESC, iro.created_at DESC`,
+      returnParams
+    )
+
     // 收集所有采购合同编号，批量查询
-    const contractNumbers = [...new Set(
-      warehousingOrders
-        .map(o => o.contract_number)
-        .filter(Boolean)
-    )]
+    const contractNumbers = [...new Set([
+      ...warehousingOrders.map(o => o.contract_number),
+      ...inboundReturnOrders.map(o => o.contract_number)
+    ].filter(Boolean))]
 
     let purchaseOrderMap = {}
     if (contractNumbers.length > 0) {
@@ -62,6 +98,7 @@ export const getWarehousingExpenseReport = async (req, res) => {
     // 组装报表数据
     const reportRows = []
 
+    // 处理入库单
     for (const order of warehousingOrders) {
       let warehousingItems = []
       try {
@@ -117,14 +154,17 @@ export const getWarehousingExpenseReport = async (req, res) => {
       const purchaseExpenseSubtotal = poTransportationFee + tariff + valueAddedTax + handlingFee + poOtherFee
 
       // 每个商品生成一行
-      for (const item of filteredItems) {
+      for (let itemIndex = 0; itemIndex < filteredItems.length; itemIndex++) {
+        const item = filteredItems[itemIndex]
         const quantity = parseFloat(item.quantity) || 0
         const taxIncludedPrice = parseFloat(item.tax_included_price) || 0
         const totalPrice = parseFloat(item.total_price) || (quantity * taxIncludedPrice)
 
         reportRows.push({
+          row_key: `${order.warehousing_order_id}_${itemIndex}`,
           warehousing_order_id: order.warehousing_order_id,
           order_number: order.order_number,
+          order_type: '入库',
           warehousing_time: order.warehousing_time,
           contract_number: order.contract_number || '',
           currency: order.currency || 'CNY',
@@ -157,6 +197,98 @@ export const getWarehousingExpenseReport = async (req, res) => {
         })
       }
     }
+
+    // 处理入库退货单（数量为负）
+    for (const order of inboundReturnOrders) {
+      let returnItems = []
+      try {
+        returnItems = JSON.parse(order.return_items || '[]')
+      } catch (e) {
+        continue
+      }
+
+      // 商品关键字筛选
+      let filteredItems = returnItems
+      if (productKeyword) {
+        const keyword = productKeyword.toLowerCase()
+        filteredItems = returnItems.filter(item =>
+          (item.product_name && item.product_name.toLowerCase().includes(keyword)) ||
+          (item.product_code && item.product_code.toLowerCase().includes(keyword))
+        )
+      }
+
+      if (filteredItems.length === 0) continue
+
+      // 解析采购费用
+      let purchaseExpenses = {}
+      const purchaseOrder = order.contract_number ? purchaseOrderMap[order.contract_number] : null
+      if (purchaseOrder) {
+        try {
+          purchaseExpenses = JSON.parse(purchaseOrder.expenses || '{}')
+        } catch (e) {
+          purchaseExpenses = {}
+        }
+      }
+
+      // 采购费用
+      const poTransportationFee = parseFloat(purchaseExpenses.transportationFee) || 0
+      const tariff = parseFloat(purchaseExpenses.tariff) || 0
+      const valueAddedTax = parseFloat(purchaseExpenses.valueAddedTax) || 0
+      const handlingFee = parseFloat(purchaseExpenses.handlingFee) || 0
+      const poOtherFee = parseFloat(purchaseExpenses.otherFee) || 0
+      const purchaseExpenseSubtotal = poTransportationFee + tariff + valueAddedTax + handlingFee + poOtherFee
+
+      // 每个商品生成一行（数量为负）
+      for (let itemIndex = 0; itemIndex < filteredItems.length; itemIndex++) {
+        const item = filteredItems[itemIndex]
+        const quantity = -(parseFloat(item.quantity) || 0) // 负数
+        const taxIncludedPrice = parseFloat(item.unit_price || item.tax_included_price) || 0
+        const totalPrice = quantity * taxIncludedPrice
+
+        reportRows.push({
+          row_key: `return_${order.inbound_return_id}_${itemIndex}`,
+          warehousing_order_id: order.inbound_return_id,
+          order_number: order.order_number,
+          order_type: '入库退货',
+          warehousing_time: order.return_time,
+          contract_number: order.contract_number || '',
+          currency: order.currency || 'CNY',
+          remarks: order.remarks || '',
+          // 商品信息
+          product_code: item.product_code || '',
+          product_name: item.product_name || '',
+          model: item.specifications || item.model || '',
+          unit: item.unit || '',
+          quantity,
+          tax_included_price: taxIncludedPrice,
+          total_price: Math.round(totalPrice * 100) / 100,
+          // 入库费用（退货单无入库费用）
+          tariff: 0,
+          transportation_fee: 0,
+          customs_fee: 0,
+          warehousing_other_fee: 0,
+          warehousing_expense_subtotal: 0,
+          // 采购费用
+          purchase_transportation_fee: poTransportationFee,
+          purchase_tariff: tariff,
+          purchase_value_added_tax: valueAddedTax,
+          purchase_handling_fee: handlingFee,
+          purchase_other_fee: poOtherFee,
+          purchase_expense_subtotal: purchaseExpenseSubtotal,
+          // 费用合计
+          total_expenses: purchaseExpenseSubtotal,
+          // 入库人
+          warehousing_person: order.return_person || '',
+        })
+      }
+    }
+
+    // 按时间排序
+    reportRows.sort((a, b) => {
+      const timeA = new Date(a.warehousing_time || 0).getTime()
+      const timeB = new Date(b.warehousing_time || 0).getTime()
+      return timeB - timeA
+    })
 
     res.json({ success: true, data: reportRows })
   } catch (error) {

@@ -29,7 +29,9 @@
             <a-input v-model:value="orderNumber" class="invisible-input" />
           </div>
           <div class="form-item">
-            <label class="form-label"><span class="required">*</span>{{ t.purchaseOrder.contractNumber }}</label>
+            <label class="form-label"
+              ><span class="required">*</span>{{ t.purchaseOrder.contractNumber }}</label
+            >
             <a-input v-model:value="form.contract_number" class="invisible-input note-input" />
           </div>
           <!-- <div class="form-item">
@@ -61,7 +63,9 @@
             </a-select>
           </div>
           <div class="form-item">
-            <label class="form-label"><span class="required">*</span>{{ t.purchaseOrder.entryDate }}</label>
+            <label class="form-label"
+              ><span class="required">*</span>{{ t.purchaseOrder.entryDate }}</label
+            >
             <a-date-picker
               v-model:value="form.entry_date"
               style="width: 100%"
@@ -510,7 +514,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, computed } from 'vue'
+import { ref, reactive, watch, computed, h, onUnmounted, nextTick } from 'vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { message } from 'ant-design-vue'
@@ -551,6 +555,60 @@ const emit = defineEmits<{
   success: []
 }>()
 
+// ==================== 可拖拽列宽 ====================
+const resizableColumnWidths = reactive<Record<string, number>>({
+  product_name: 150,
+  model: 100,
+  description: 120,
+})
+
+// 直接操作 DOM + 同步响应式状态
+const startResize = (colKey: string, e: MouseEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+
+  const thEl = (e.target as HTMLElement).closest('th') as HTMLElement
+  if (!thEl) return
+
+  const startX = e.clientX
+  const startWidth = thEl.offsetWidth
+
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+
+  const onMouseMove = (ev: MouseEvent) => {
+    const newWidth = Math.max(60, startWidth + ev.clientX - startX)
+    thEl.style.width = newWidth + 'px'
+    thEl.style.minWidth = newWidth + 'px'
+    thEl.style.maxWidth = newWidth + 'px'
+    resizableColumnWidths[colKey] = newWidth
+  }
+
+  const onMouseUp = () => {
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
+
+// 为可拖拽列生成 customHeaderCell，包含拖拽手柄渲染
+const resizableHeaderCell = (colKey: string) => ({
+  style: { position: 'relative' as const, overflow: 'visible' as const },
+  onMouseenter: (e: MouseEvent) => {
+    const th = (e.target as HTMLElement).closest('th')
+    if (th) th.style.cursor = 'col-resize'
+  },
+  onMouseleave: (e: MouseEvent) => {
+    const th = (e.target as HTMLElement).closest('th')
+    if (th) th.style.cursor = ''
+  },
+  onMousedown: (e: MouseEvent) => startResize(colKey, e),
+})
+
 const orderNumber = ref('')
 const submitting = ref(false)
 const loading = reactive({
@@ -588,32 +646,98 @@ const form = reactive<
 })
 
 const itemColumns = computed(() => [
-  { title: t.value.purchaseOrder.no, key: 'no', width: 60, align: 'center' as const, fixed: 'left' as const },
-  { title: t.value.purchaseOrder.businessCategory, key: 'business_category', width: 120, fixed: 'left' as const },
-  { title: t.value.purchaseOrder.productCode, key: 'product_code', width: 120, fixed: 'left' as const },
-  { title: t.value.purchaseOrder.productName, key: 'product_name', width: 150, fixed: 'left' as const },
-  { title: t.value.purchaseOrder.model, key: 'model', width: 100, fixed: 'left' as const },
-  { title: t.value.purchaseOrder.description, key: 'description', width: 120, fixed: 'left' as const },
+  {
+    title: t.value.purchaseOrder.no,
+    key: 'no',
+    width: 60,
+    align: 'center' as const,
+    fixed: 'left' as const,
+  },
+  {
+    title: t.value.purchaseOrder.businessCategory,
+    key: 'business_category',
+    width: 120,
+    fixed: 'left' as const,
+  },
+  {
+    title: t.value.purchaseOrder.productCode,
+    key: 'product_code',
+    width: 120,
+    fixed: 'left' as const,
+  },
+  {
+    title: t.value.purchaseOrder.productName,
+    key: 'product_name',
+    width: resizableColumnWidths.product_name,
+    customHeaderCell: () => resizableHeaderCell('product_name'),
+  },
+  {
+    title: t.value.purchaseOrder.model,
+    key: 'model',
+    width: resizableColumnWidths.model,
+    customHeaderCell: () => resizableHeaderCell('model'),
+  },
+  {
+    title: t.value.purchaseOrder.description,
+    key: 'description',
+    width: resizableColumnWidths.description,
+    customHeaderCell: () => resizableHeaderCell('description'),
+  },
   { title: t.value.purchaseOrder.unit, key: 'unit', width: 70 },
   { title: t.value.purchaseOrder.quantity, key: 'quantity', width: 80 },
   // { title: '入库数', key: 'inbound_quantity', width: 80 },
   { title: t.value.purchaseOrder.taxRate, key: 'tax_rate', width: 90 },
-  { title: t.value.purchaseOrder.taxIncludedPrice, key: 'tax_included_price', width: 100, align: 'right' as const },
-  { title: t.value.purchaseOrder.taxExcludedPrice, key: 'tax_excluded_price', width: 100, align: 'right' as const },
-  { title: t.value.purchaseOrder.taxIncludedAmount, key: 'tax_included_amount', width: 110, align: 'right' as const },
-  { title: t.value.purchaseOrder.taxExcludedAmount, key: 'tax_excluded_amount', width: 110, align: 'right' as const },
-  { title: t.value.purchaseOrder.taxAmount, key: 'tax_amount', width: 100, align: 'right' as const },
+  {
+    title: t.value.purchaseOrder.taxIncludedPrice,
+    key: 'tax_included_price',
+    width: 100,
+    align: 'right' as const,
+  },
+  {
+    title: t.value.purchaseOrder.taxExcludedPrice,
+    key: 'tax_excluded_price',
+    width: 100,
+    align: 'right' as const,
+  },
+  {
+    title: t.value.purchaseOrder.taxIncludedAmount,
+    key: 'tax_included_amount',
+    width: 110,
+    align: 'right' as const,
+  },
+  {
+    title: t.value.purchaseOrder.taxExcludedAmount,
+    key: 'tax_excluded_amount',
+    width: 110,
+    align: 'right' as const,
+  },
+  {
+    title: t.value.purchaseOrder.taxAmount,
+    key: 'tax_amount',
+    width: 100,
+    align: 'right' as const,
+  },
   { title: t.value.purchaseOrder.status, key: 'status', width: 100 },
   { title: t.value.purchaseOrder.deliveryDate, key: 'delivery_date', width: 120 },
   { title: t.value.purchaseOrder.invoiceDate, key: 'invoice_date', width: 130 },
   { title: t.value.purchaseOrder.invoiceNumber, key: 'invoice_number', width: 120 },
   { title: t.value.purchaseOrder.invoiceReceived, key: 'invoice_received', width: 90 },
   { title: t.value.purchaseOrder.settlementDate, key: 'settlement_date', width: 130 },
-  { title: t.value.purchaseOrder.settlementAmount, key: 'settlement_amount', width: 100, align: 'right' as const },
-  { title: t.value.purchaseOrder.unsettledAmount, key: 'unsettled_amount', width: 100, align: 'right' as const },
+  {
+    title: t.value.purchaseOrder.settlementAmount,
+    key: 'settlement_amount',
+    width: 100,
+    align: 'right' as const,
+  },
+  {
+    title: t.value.purchaseOrder.unsettledAmount,
+    key: 'unsettled_amount',
+    width: 100,
+    align: 'right' as const,
+  },
   { title: t.value.purchaseOrder.settlementStatus, key: 'settlement_status', width: 100 },
   { title: t.value.common.remarks, key: 'remarks', width: 150 },
-  { title: t.value.purchaseOrder.totalPrice, key: 'total_price', width: 110, align: 'right' as const },
+  { title: t.value.purchaseOrder.totalPrice, key: 'total_price', width: 110 },
   { title: t.value.common.action, key: 'actions', width: 70, fixed: 'right' as const },
 ])
 
@@ -692,6 +816,7 @@ const handleProductSearch = async (value: string, index: number) => {
       model: p.model,
       description: p.description,
       unit: p.unit,
+      tax_included_price: p.tax_included_price,
     }))
   } catch (error) {
     message.error(t.value.purchaseOrder.getProductsFail)
@@ -707,6 +832,11 @@ const handleProductChange = (value: string, index: number) => {
     form.purchase_items[index].model = product.model || ''
     form.purchase_items[index].description = product.description || ''
     form.purchase_items[index].unit = product.unit || ''
+    if (product.tax_included_price) {
+      form.purchase_items[index].tax_included_price = product.tax_included_price
+    }
+    // 触发价格计算
+    calculateRowTotal(index)
   }
 }
 
@@ -737,8 +867,8 @@ const handleSalesOrderChange = (value: string | undefined) => {
       unit: item.unit || '',
       quantity: item.quantity || 1,
       inbound_quantity: 0,
-      tax_rate: 13,
-      tax_included_price: 0,
+      tax_rate: item.tax_rate || 13,
+      tax_included_price: item.tax_included_price || 0,
       tax_excluded_price: 0,
       tax_included_amount: 0,
       tax_excluded_amount: 0,
@@ -912,7 +1042,27 @@ watch(
   visible => {
     if (visible) {
       loadBasicData()
-      if (!props.isEdit) {
+      if (!props.isEdit && props.purchaseOrderData) {
+        // 预填充模式（从采购计划生成）
+        getNewOrderNumber()
+        resetForm()
+        form.contract_number = props.purchaseOrderData.contract_number || ''
+        form.supplier_name = props.purchaseOrderData.supplier_name || ''
+        form.supplier_code = props.purchaseOrderData.supplier_code || ''
+        form.currency = props.purchaseOrderData.currency || 'CNY'
+        form.purchase_person = userStore.user?.username || ''
+        form.related_sales_order_id = props.purchaseOrderData.related_sales_order_id || undefined
+        form.entry_date = props.purchaseOrderData.entry_date ? dayjs(props.purchaseOrderData.entry_date) : dayjs()
+        form.remarks = props.purchaseOrderData.remarks || ''
+        if (props.purchaseOrderData.purchase_items && Array.isArray(props.purchaseOrderData.purchase_items)) {
+          form.purchase_items = props.purchaseOrderData.purchase_items.map((item: any) => ({
+            ...item,
+            delivery_date: item.delivery_date ? dayjs(item.delivery_date) : undefined,
+            invoice_date: item.invoice_date ? dayjs(item.invoice_date) : undefined,
+            settlement_date: item.settlement_date ? dayjs(item.settlement_date) : undefined,
+          }))
+        }
+      } else if (!props.isEdit) {
         getNewOrderNumber()
         resetForm()
         form.purchase_person = userStore.user?.username || ''
@@ -1077,7 +1227,9 @@ const checkDraft = () => {
       const timeText = formatDraftTime(draft.timestamp)
       Modal.confirm({
         title: t.value.purchaseOrder.restoreDraftTitle,
-        content: t.value.purchaseOrder.restoreDraftContent.replace('{summary}', draft.summary).replace('{time}', timeText),
+        content: t.value.purchaseOrder.restoreDraftContent
+          .replace('{summary}', draft.summary)
+          .replace('{time}', timeText),
         okText: t.value.purchaseOrder.restore,
         cancelText: t.value.purchaseOrder.discard,
         zIndex: 1050,
@@ -1098,7 +1250,6 @@ const getStatusColor = (status: number) => {
     1: 'blue', // 未入库
     2: 'green', // 已全部入库
     3: 'orange', // 已部分入库
-    4: 'red', // 退货
   }
   return colorMap[status] || 'default'
 }
@@ -1107,16 +1258,15 @@ const getStatusText = (status: number) => {
     1: t.value.purchaseOrder.notInStock,
     2: t.value.purchaseOrder.fullyInStock,
     3: t.value.purchaseOrder.partiallyInStock,
-    4: t.value.purchaseOrder.returned,
   }
   return textMap[status] || t.value.purchaseOrder.unknown
 }
 
 const getSettlementStatusText = (status: string) => {
   const textMap: Record<string, string> = {
-    '全部结算': t.value.purchaseOrder.fullySettled,
-    '部分结算': t.value.purchaseOrder.partiallySettled,
-    '未结算': t.value.purchaseOrder.unsettled,
+    全部结算: t.value.purchaseOrder.fullySettled,
+    部分结算: t.value.purchaseOrder.partiallySettled,
+    未结算: t.value.purchaseOrder.unsettled,
   }
   return textMap[status] || t.value.purchaseOrder.unsettled
 }
@@ -1324,5 +1474,38 @@ const getSettlementStatusText = (status: string) => {
 .required {
   color: #ff4d4f;
   margin-right: 4px;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+  user-select: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 25%;
+    right: 3px;
+    width: 2px;
+    height: 50%;
+    background: #d9d9d9;
+    border-radius: 1px;
+    transition: background 0.2s;
+  }
+
+  &:hover::after,
+  &:active::after {
+    background: #1890ff;
+  }
+
+  &:hover,
+  &:active {
+    background-color: rgba(24, 144, 255, 0.08);
+  }
 }
 </style>

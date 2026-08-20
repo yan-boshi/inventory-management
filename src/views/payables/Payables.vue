@@ -12,7 +12,6 @@
               v-model:value="searchParams.supplier_name"
               placeholder="请输入供应商名称"
               allow-clear
-              style="width: 200px"
             />
           </a-form-item>
 
@@ -21,7 +20,6 @@
               v-model:value="searchParams.status"
               placeholder="请选择状态"
               allow-clear
-              style="width: 150px"
             >
               <a-select-option :value="0">未结算</a-select-option>
               <a-select-option :value="1">部分结算</a-select-option>
@@ -34,7 +32,6 @@
               v-model:value="searchParams.billing_status"
               placeholder="请选择状态"
               allow-clear
-              style="width: 150px"
             >
               <a-select-option :value="0">未开票</a-select-option>
               <a-select-option :value="1">已开票</a-select-option>
@@ -47,7 +44,6 @@
               v-model:value="dateRange"
               format="YYYY-MM-DD"
               :placeholder="['开始日期', '结束日期']"
-              style="width: 240px"
             />
           </a-form-item>
 
@@ -100,7 +96,14 @@
           </template>
 
           <template v-else-if="column.key === 'received_amount'">
-            {{ formatMoney(record.received_amount) }}
+            <a-input-number
+              v-model:value="record.received_amount"
+              :min="0"
+              :precision="2"
+              style="width: 100%"
+              size="small"
+              @change="() => handleReceivedAmountChange(record)"
+            />
           </template>
 
           <template v-else-if="column.key === 'balance_amount'">
@@ -118,8 +121,27 @@
             {{ formatMoney(record.handling_fee) }}
           </template>
 
+          <template v-else-if="column.key === 'status'">
+            <a-select
+              v-model:value="record.status"
+              style="width: 100%"
+              size="small"
+            >
+              <a-select-option :value="0">未结算</a-select-option>
+              <a-select-option :value="1">部分结算</a-select-option>
+              <a-select-option :value="2">已结算</a-select-option>
+            </a-select>
+          </template>
+
           <template v-else-if="column.key === 'due_date'">
-            {{ formatDate(record.due_date) }}
+            <a-date-picker
+              v-model:value="record._due_date"
+              format="YYYY-MM-DD"
+              style="width: 100%"
+              size="small"
+              :allowClear="true"
+              @change="(date: any) => { record.due_date = date ? date.format('YYYY-MM-DD') : null }"
+            />
           </template>
 
           <template v-else-if="column.key === 'warehousing_time'">
@@ -132,6 +154,9 @@
 
           <template v-else-if="column.key === 'actions'">
             <a-space>
+              <a-button type="primary" size="small" @click="handleSave(record)" :loading="record._saving">
+                保存
+              </a-button>
               <a-button type="link" size="small" @click="handleViewDetail(record)"> 详情 </a-button>
             </a-space>
           </template>
@@ -323,10 +348,10 @@ const getBillingStatusText = (status: number) => {
 }
 
 const formatMoney = (value: number | undefined | null) => {
-  if (value === undefined || value === null) return '0.00'
+  if (value === undefined || value === null) return '0.0000'
   return Number(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
   })
 }
 
@@ -356,7 +381,11 @@ const fetchPayables = async () => {
     }
 
     const res = await payablesApi.getAll(params)
-    payables.value = res.data || []
+    payables.value = (res.data || []).map((item: any) => ({
+      ...item,
+      _due_date: item.due_date ? dayjs(item.due_date) : null,
+      _saving: false,
+    }))
     pagination.total = res.pagination?.total || 0
   } catch (error: any) {
     message.error(error.message || '获取应付账款列表失败')
@@ -385,6 +414,37 @@ const handlePageChange = (page: number, pageSize: number) => {
   pagination.current = page
   pagination.pageSize = pageSize
   fetchPayables()
+}
+
+const handleReceivedAmountChange = (record: any) => {
+  const amount = Number(record.amount) || 0
+  const received = Number(record.received_amount) || 0
+  record.balance_amount = parseFloat((amount - received).toFixed(2))
+  // 自动更新结算状态
+  if (received <= 0) {
+    record.status = 0
+  } else if (received >= amount) {
+    record.status = 2
+  } else {
+    record.status = 1
+  }
+}
+
+const handleSave = async (record: any) => {
+  record._saving = true
+  try {
+    await payablesApi.update(record.payable_id, {
+      received_amount: record.received_amount,
+      balance_amount: record.balance_amount,
+      status: record.status,
+      due_date: record.due_date || null,
+    })
+    message.success('保存成功')
+  } catch (error: any) {
+    message.error(error.message || '保存失败')
+  } finally {
+    record._saving = false
+  }
 }
 
 const handleViewDetail = (record: Payable) => {
@@ -416,5 +476,28 @@ onMounted(() => {
 
 .search-bar {
   margin-bottom: 16px;
+
+  :deep(.ant-form-item) {
+    margin-bottom: 12px;
+
+    > .ant-form-item-label {
+      width: 80px;
+      text-align: right;
+      padding-right: 8px;
+    }
+  }
+
+  :deep(.ant-input),
+  :deep(.ant-input-affix-wrapper) {
+    width: 180px;
+  }
+
+  :deep(.ant-picker) {
+    width: 240px;
+  }
+
+  :deep(.ant-select) {
+    width: 180px;
+  }
 }
 </style>

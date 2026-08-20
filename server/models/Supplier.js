@@ -20,7 +20,8 @@ class Supplier extends BaseModel {
       bank_code: data.bank_code || null,
       contact: data.contact || null,
       contact_phone: data.contact_phone || null,
-      remarks: data.remarks || null
+      remarks: data.remarks || null,
+      created_by: data.created_by || null
     }
     return super.create(supplierData)
   }

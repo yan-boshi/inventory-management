@@ -6,7 +6,14 @@
       "Bash(npx vue-tsc *)",
       "Bash(node *)",
       "Bash(npm install *)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(python *)",
+      "Bash(echo \"test\")",
+      "Bash(rm \"C:/Users/86186/.claude/plans/test.md\")",
+      "Bash(dir *.xlsx)",
+      "Bash(npm list *)",
+      "Bash(xargs grep -l \"装箱\\\\|Packing\")",
+      "Bash(python3 *)"
     ]
   }
 }

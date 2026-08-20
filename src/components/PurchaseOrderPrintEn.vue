@@ -46,8 +46,9 @@
         <thead>
           <tr>
             <th>No.</th>
-            <th>Product Code</th>
-            <th>Specification</th>
+            <th>Product Name</th>
+            <th>Model</th>
+            <th>Description</th>
             <th>Quantity</th>
             <th>Unit</th>
             <th>Unit Price</th>
@@ -59,14 +60,12 @@
         <tbody>
           <tr v-for="item in JSON.parse(orderData?.purchase_items || '[]')" :key="item.no">
             <td>{{ item.no }}</td>
-            <td>{{ item.product_code || '-' }}</td>
-            <td>
-              <div>{{ item.product_name || '-' }}</div>
-              <div class="product-extra">{{ item.model || '' }}</div>
-            </td>
+            <td>{{ item.product_name || '-' }}</td>
+            <td>{{ item.model || '-' }}</td>
+            <td>{{ item.description || '-' }}</td>
             <td>{{ item.quantity || '-' }}</td>
             <td>{{ item.unit || '-' }}</td>
-            <td>{{ fitem.tax_included_price }}</td>
+            <td>{{ item.tax_included_price }}</td>
             <td>{{ item.tax_included_amount }}</td>
             <td>{{ formatDate(orderData.arrival_date) }}</td>
             <td>
@@ -75,7 +74,7 @@
           </tr>
           <!-- 金额总计行 -->
           <tr class="total-row">
-            <td colspan="8" class="total-label">Total Amount：</td>
+            <td colspan="9" class="total-label">Total Amount：</td>
             <td>{{ formatPrice(formData.total) }}</td>
           </tr>
         </tbody>
@@ -290,7 +289,7 @@ const initializeFormData = () => {
   const order = orderData.value
   const supplier = supplierData.value
   formData.orderDate = order.created_at || new Date().toISOString()
-  formData.taxRate = (order.tax_rate || 0) * 100
+  formData.taxRate = order.tax_rate || 0
   formData.remarks = ''
   formData.total = order.tax_included_amount || 0
   formData.buyerContact = user?.username || ''

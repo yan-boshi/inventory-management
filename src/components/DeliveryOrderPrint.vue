@@ -68,11 +68,11 @@
             <td>{{ item.product_name || '-' }}</td>
             <td>{{ item.model || '-' }}</td>
             <td>{{ item.specification || '-' }}</td>
-            <td class="editable-cell" @click="handleEdit('quantity')">
+            <td class="editable-cell" @click="handleEdit('quantity', item.no - 1)">
               {{ item.quantity || '-' }}
             </td>
             <td>{{ item.unit || '-' }}</td>
-            <td class="editable-cell" @click="handleEdit('remarks')">{{ item.remarks || '-' }}</td>
+            <td class="editable-cell" @click="handleEdit('remarks', item.no - 1)">{{ item.remarks || '-' }}</td>
           </tr>
         </tbody>
       </table>
@@ -144,16 +144,18 @@ const visible = computed({
 })
 
 const orderData = computed(() => props.order)
-const orderItems = computed(() => {
+const orderItems = ref<any[]>([])
+const userStore = useUserStore()
+
+const initOrderItems = () => {
   try {
-    return typeof props.order?.delivery_items === 'string'
+    orderItems.value = typeof props.order?.delivery_items === 'string'
       ? JSON.parse(props.order.delivery_items)
       : props.order?.delivery_items || []
   } catch {
-    return []
+    orderItems.value = []
   }
-})
-const userStore = useUserStore()
+}
 
 const formData = reactive({
   deliveryTime: '',
@@ -170,6 +172,7 @@ const formData = reactive({
 const editModalVisible = ref(false)
 const editField = ref('')
 const editValue = ref('')
+const editRowIndex = ref(-1)
 const editInputRef = ref<HTMLInputElement | null>(null)
 
 const editFieldTitle = computed(() => {
@@ -199,6 +202,7 @@ const initializeFormData = () => {
   formData.expressNumber = ''
   formData.deliveryPerson = order.delivery_person || user?.username || ''
   formData.contactPhone = order.contact_phone || user?.phone || ''
+  initOrderItems()
 }
 
 watch(
@@ -223,14 +227,17 @@ const formatDate = (date: string) => {
   return dayjs(date).format('YYYY-MM-DD')
 }
 
-const handleEdit = (field: string) => {
+const handleEdit = (field: string, rowIndex?: number) => {
   editField.value = field
+  editRowIndex.value = rowIndex ?? -1
   switch (field) {
     case 'deliveryTime':
       editValue.value = dayjs(formData.deliveryTime).format('YYYY-MM-DD')
       break
     case 'quantity':
-      editValue.value = String(formData.quantity)
+      if (rowIndex !== undefined && orderItems.value[rowIndex]) {
+        editValue.value = String(orderItems.value[rowIndex].quantity || 0)
+      }
       break
     case 'total':
       editValue.value = String(formData.total)
@@ -245,7 +252,9 @@ const handleEdit = (field: string) => {
       editValue.value = formData.packages
       break
     case 'remarks':
-      editValue.value = formData.remarks
+      if (rowIndex !== undefined && orderItems.value[rowIndex]) {
+        editValue.value = orderItems.value[rowIndex].remarks || ''
+      }
       break
   }
   editModalVisible.value = true
@@ -257,7 +266,9 @@ const handleEditConfirm = () => {
       formData.deliveryTime = dayjs(editValue.value).toISOString()
       break
     case 'quantity':
-      formData.quantity = parseInt(editValue.value) || 0
+      if (editRowIndex.value >= 0 && orderItems.value[editRowIndex.value]) {
+        orderItems.value[editRowIndex.value].quantity = parseInt(editValue.value) || 0
+      }
       break
     case 'total':
       formData.total = parseFloat(editValue.value) || 0
@@ -272,7 +283,9 @@ const handleEditConfirm = () => {
       formData.packages = editValue.value
       break
     case 'remarks':
-      formData.remarks = editValue.value
+      if (editRowIndex.value >= 0 && orderItems.value[editRowIndex.value]) {
+        orderItems.value[editRowIndex.value].remarks = editValue.value
+      }
       break
   }
   editModalVisible.value = false
@@ -307,7 +320,7 @@ const handlePrint = () => {
 
   .company-address {
     font-size: 16px;
-    margin: 0;
+    margin: 12px 0 0 0;
     color: #000;
   }
 }
@@ -316,9 +329,10 @@ const handlePrint = () => {
   margin-bottom: 30px;
 
   .order-number-row {
+    margin-top: 20px;
     margin-bottom: 20px;
     text-align: left;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: bold;
     color: #000;
   }
@@ -336,7 +350,7 @@ const handlePrint = () => {
   .row {
     display: flex;
     margin-bottom: 16px;
-    font-size: 16px;
+    font-size: 14px;
     color: #000;
   }
 
@@ -382,6 +396,7 @@ const handlePrint = () => {
         font-size: 14px;
         color: #262626;
         text-align: center;
+        white-space: nowrap;
       }
     }
   }
@@ -396,6 +411,16 @@ const handlePrint = () => {
         color: #000;
         vertical-align: middle;
         height: 50px;
+        word-wrap: break-word;
+        word-break: break-all;
+
+        &:nth-child(3),
+        &:nth-child(5) {
+          text-align: left;
+          white-space: normal;
+          min-width: 100px;
+          max-width: 200px;
+        }
       }
 
       .editable-cell {
@@ -412,6 +437,7 @@ const handlePrint = () => {
 
 .footer-section {
   margin-top: 40px;
+  font-size: 16px;
 
   .footer-label {
     display: inline-block;
@@ -524,6 +550,10 @@ const handlePrint = () => {
   .print-content {
     padding: 0;
     box-shadow: none !important;
+  }
+
+  .page-header {
+    margin-top: 30px;
   }
 }
 </style>

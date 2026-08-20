@@ -1,6 +1,7 @@
 import PurchaseOrder from '../models/PurchaseOrder.js'
 import SalesOrder from '../models/SalesOrder.js'
 import pool from '../config/database.js'
+import { generateFromPurchaseOrder } from './inboundPlanController.js'
 
 export const getAllPurchaseOrders = async (req, res) => {
   try {
@@ -9,6 +10,7 @@ export const getAllPurchaseOrders = async (req, res) => {
       pageSize = 10,
       supplierName,
       supplierCode,
+      contractNumber,
       orderNumber,
       productName,
       productCode,
@@ -33,6 +35,11 @@ export const getAllPurchaseOrders = async (req, res) => {
     if (supplierCode) {
       where.push('supplier_code LIKE ?')
       params.push(`%${supplierCode}%`)
+    }
+
+    if (contractNumber) {
+      where.push('contract_number LIKE ?')
+      params.push(`%${contractNumber}%`)
     }
 
     if (productName) {
@@ -132,6 +139,11 @@ export const createPurchaseOrder = async (req, res) => {
     }
 
     res.status(201).json({ success: true, data: order })
+
+    // 自动生成入库计划
+    generateFromPurchaseOrder(order).catch(err =>
+      console.error('Auto generate inbound plan failed:', err)
+    )
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
@@ -200,6 +212,11 @@ export const updatePurchaseOrder = async (req, res) => {
     }
 
     res.json({ success: true, data: order })
+
+    // 自动生成入库计划（更新时重新生成）
+    generateFromPurchaseOrder(order).catch(err =>
+      console.error('Auto regenerate inbound plan failed:', err)
+    )
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
@@ -234,8 +251,8 @@ export const updatePurchaseOrderStatus = async (req, res) => {
     const { id } = req.params
     const { status } = req.body
 
-    if (!status || ![1, 2, 3, 4].includes(parseInt(status))) {
-      return res.status(400).json({ success: false, message: 'Status must be 1 (not warehoused), 2 (fully warehoused), 3 (partially warehoused), or 4 (returned)' })
+    if (!status || ![1, 2, 3].includes(parseInt(status))) {
+      return res.status(400).json({ success: false, message: 'Status must be 1 (not warehoused), 2 (fully warehoused), or 3 (partially warehoused)' })
     }
 
     const existing = await PurchaseOrder.findById(id)
@@ -243,18 +260,8 @@ export const updatePurchaseOrderStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Purchase order not found' })
     }
 
-    // 退货时同步更新商品行状态
     const parsedStatus = parseInt(status)
-    let updateData = { status: parsedStatus }
-    if (parsedStatus === 4) {
-      const purchaseItems = JSON.parse(existing.purchase_items || '[]')
-      const resetItems = purchaseItems.map(item => ({
-        ...item,
-        inbound_quantity: 0,
-        status: 4
-      }))
-      updateData.purchase_items = JSON.stringify(resetItems)
-    }
+    const updateData = { status: parsedStatus }
 
     const updated = await PurchaseOrder.update(id, updateData)
     res.json({ success: true, data: updated })

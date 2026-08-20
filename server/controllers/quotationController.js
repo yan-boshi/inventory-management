@@ -88,6 +88,8 @@ export const createQuotation = async (req, res) => {
       delivery_method,
       tax_rate,
       currency,
+      payment_terms,
+      trade_terms,
       remarks,
       tax_included_amount,
       entry_date
@@ -105,6 +107,8 @@ export const createQuotation = async (req, res) => {
       delivery_method,
       tax_rate: parseFloat(tax_rate) || 13,
       currency,
+      payment_terms,
+      trade_terms,
       remarks,
       tax_included_amount,
       entry_date
@@ -127,6 +131,8 @@ export const updateQuotation = async (req, res) => {
       delivery_method,
       tax_rate,
       currency,
+      payment_terms,
+      trade_terms,
       remarks,
       tax_included_amount,
       entry_date
@@ -146,6 +152,8 @@ export const updateQuotation = async (req, res) => {
     if (delivery_method !== undefined) updateData.delivery_method = delivery_method
     if (tax_rate !== undefined) updateData.tax_rate = parseFloat(tax_rate)
     if (currency !== undefined) updateData.currency = currency
+    if (payment_terms !== undefined) updateData.payment_terms = payment_terms
+    if (trade_terms !== undefined) updateData.trade_terms = trade_terms
     if (remarks !== undefined) updateData.remarks = remarks
     if (tax_included_amount !== undefined) updateData.tax_included_amount = tax_included_amount
     if (entry_date !== undefined) updateData.entry_date = entry_date

@@ -8,6 +8,10 @@ export const getProfitReport = async (req, res) => {
     const conditions = []
     const params = []
 
+    // 过滤掉委外加工单（合同编号以Owork开头）
+    conditions.push('(do.contract_number IS NULL OR do.contract_number NOT LIKE ?)')
+    params.push('Owork%')
+
     if (startDate) {
       conditions.push('do.entry_date >= ?')
       params.push(startDate)
