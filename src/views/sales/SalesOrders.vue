@@ -1,21 +1,5 @@
 <template>
   <div class="sales-orders-container">
-    <div class="header">
-      <h1>{{ t.salesOrder.title }}</h1>
-      <a-space>
-        <a-radio-group v-model:value="lang" size="small" class="lang-switch">
-          <a-radio-button value="zh">中文</a-radio-button>
-          <a-radio-button value="en">English</a-radio-button>
-        </a-radio-group>
-        <a-button type="primary" @click="handleAdd">
-          <template #icon>
-            <PlusOutlined />
-          </template>
-          {{ t.salesOrder.newTitle }}
-        </a-button>
-      </a-space>
-    </div>
-
     <a-card>
       <div class="search-bar">
         <a-form layout="inline">
@@ -93,6 +77,10 @@
                 @update:columns="handleColumnConfigUpdate"
                 cacheKey="salesOrders"
               />
+              <a-button type="primary" @click="handleAdd" style="margin-left: 16px;">
+                <template #icon><PlusOutlined /></template>
+                新增销售订单
+              </a-button>
             </a-space>
           </a-form-item>
         </a-form>
@@ -173,19 +161,10 @@
 
           <template v-else-if="column.key === 'actions'">
             <a-space>
-              <a-button
-                type="link"
-                size="small"
-                @click="handleEdit(record)"
-              >
+              <a-button type="link" size="small" @click="handleEdit(record)">
                 {{ t.common.edit }}
               </a-button>
-              <a-button
-                type="link"
-                size="small"
-                danger
-                @click="handleDelete(record)"
-              >
+              <a-button type="link" size="small" danger @click="handleDelete(record)">
                 {{ t.common.delete }}
               </a-button>
               <a-dropdown>
@@ -1103,30 +1082,13 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .sales-orders-container {
-  padding: 24px;
-
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-
-    h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 500;
-    }
-
-    .lang-switch {
-      flex-shrink: 0;
-    }
-  }
+  padding: 16px;
 
   .search-bar {
-    margin-bottom: 16px;
+    margin-bottom: 8px;
 
     :deep(.ant-form-item) {
-      margin-bottom: 12px;
+      margin-bottom: 8px;
 
       > .ant-form-item-label {
         width: 80px;

@@ -814,24 +814,24 @@ const handleSaveAndPrint = async () => {
 
 <style scoped lang="scss">
 .print-content {
-  padding: 40px 20px;
+  padding: 35px 20px;
   background: white;
-  min-height: 800px;
+  min-height: 700px;
   position: relative;
 }
 
 .page-header {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 
   .title-en {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: bold;
-    margin: 0 0 5px 0;
+    margin: 0 0 4px 0;
     color: #000;
     cursor: pointer;
     display: block;
-    padding: 4px 8px;
+    padding: 3px 6px;
     border-radius: 4px;
 
     &:hover {
@@ -840,19 +840,19 @@ const handleSaveAndPrint = async () => {
 
     &::after {
       content: ' ✎';
-      font-size: 16px;
+      font-size: 15px;
       opacity: 0.5;
     }
   }
 
   .title-zh {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: bold;
     margin: 0;
     color: #000;
     cursor: pointer;
     display: block;
-    padding: 4px 8px;
+    padding: 3px 6px;
     border-radius: 4px;
 
     &:hover {
@@ -861,7 +861,7 @@ const handleSaveAndPrint = async () => {
 
     &::after {
       content: ' ✎';
-      font-size: 14px;
+      font-size: 13px;
       opacity: 0.5;
     }
   }
@@ -871,7 +871,7 @@ const handleSaveAndPrint = async () => {
   display: flex;
   justify-content: flex-end;
   align-items: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   padding-right: 10%;
 
   .middle-right {
@@ -881,25 +881,25 @@ const handleSaveAndPrint = async () => {
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      margin-bottom: 8px;
-      font-size: 14px;
+      margin-bottom: 6px;
+      font-size: 13px;
 
       .label {
         font-weight: bold;
         color: #000;
-        min-width: 100px;
+        min-width: 90px;
         text-align: right;
-        padding-right: 8px;
+        padding-right: 7px;
 
         .required {
           color: #ff4d4f;
-          margin-right: 4px;
+          margin-right: 3px;
         }
       }
 
       .value {
         color: #000;
-        min-width: 120px;
+        min-width: 110px;
         text-align: left;
 
         &.editable {
@@ -918,15 +918,15 @@ const handleSaveAndPrint = async () => {
 }
 
 .parties-container {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   width: 100%;
 
   .seller-section,
   .buyer-section {
-    padding: 16px;
+    padding: 14px;
     border: 1px solid #e8e8e8;
     background: #fafafa;
-    margin-bottom: 20px;
+    margin-bottom: 14px;
 
     &:last-child {
       margin-bottom: 0;
@@ -935,23 +935,23 @@ const handleSaveAndPrint = async () => {
     .info-item {
       display: flex;
       align-items: flex-start;
-      margin-bottom: 10px;
-      font-size: 14px;
+      margin-bottom: 8px;
+      font-size: 13px;
       color: #000;
 
       &.address {
         .value {
           display: inline-block;
-          max-width: 600px;
+          max-width: 550px;
           white-space: pre-wrap;
         }
       }
 
       .label {
         color: #595959;
-        min-width: 160px;
+        min-width: 150px;
         text-align: right;
-        padding-right: 12px;
+        padding-right: 11px;
         flex-shrink: 0;
       }
 
@@ -975,10 +975,10 @@ const handleSaveAndPrint = async () => {
 }
 
 .table-section {
-  margin-bottom: 30px;
+  margin-bottom: 25px;
 
   .table-header {
-    margin-bottom: 12px;
+    margin-bottom: 11px;
     text-align: right;
   }
 
@@ -987,20 +987,20 @@ const handleSaveAndPrint = async () => {
     border-collapse: collapse;
 
     th {
-      padding: 10px 8px;
+      padding: 9px 7px;
       background: #f5f5f5;
       border: 1px solid #d9d9d9;
       font-weight: 500;
-      font-size: 13px;
+      font-size: 12px;
       color: #262626;
       text-align: center;
     }
 
     td {
-      padding: 6px 4px;
+      padding: 7px 5px;
       border: 1px solid #e8e8e8;
       text-align: center;
-      font-size: 13px;
+      font-size: 12px;
       color: #000;
       vertical-align: middle;
     }
@@ -1008,19 +1008,19 @@ const handleSaveAndPrint = async () => {
 }
 
 .bottom-section {
-  margin-bottom: 30px;
-  padding: 16px;
+  margin-bottom: 25px;
+  padding: 14px;
   border: 1px solid #e8e8e8;
   background: #fafafa;
 
   .info-item {
-    margin-bottom: 10px;
-    font-size: 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
     color: #000;
 
     .label {
       color: #595959;
-      margin-right: 8px;
+      margin-right: 7px;
     }
 
     .value {
@@ -1041,13 +1041,13 @@ const handleSaveAndPrint = async () => {
 }
 
 .signature-section {
-  margin-top: 40px;
+  margin-top: 35px;
   display: flex;
   justify-content: flex-end;
 
   .signature-box {
-    width: 250px;
-    min-height: 120px;
+    width: 230px;
+    min-height: 110px;
     border: 1px dashed #d9d9d9;
     display: flex;
     flex-direction: column;
@@ -1058,13 +1058,13 @@ const handleSaveAndPrint = async () => {
 
     .signature-label {
       color: #595959;
-      font-size: 14px;
+      font-size: 13px;
     }
 
     .stamp-image {
-      max-width: 200px;
-      max-height: 100px;
-      margin-top: 10px;
+      max-width: 190px;
+      max-height: 90px;
+      margin-top: 9px;
       object-fit: contain;
     }
 
@@ -1073,12 +1073,12 @@ const handleSaveAndPrint = async () => {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      margin-top: 10px;
+      margin-top: 9px;
       color: #bfbfbf;
       font-size: 12px;
 
       .anticon {
-        font-size: 24px;
+        font-size: 22px;
         margin-bottom: 4px;
       }
     }
@@ -1135,19 +1135,75 @@ const handleSaveAndPrint = async () => {
 
 @media print {
   @page {
-    margin: 10mm;
+    size: A4 portrait;
+    margin: 8mm;
   }
 
-  .no-print {
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body > #app {
     display: none !important;
+  }
+
+  .ant-modal-mask {
+    display: none !important;
+  }
+
+  .ant-modal-wrap {
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  .ant-modal {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .ant-modal-content {
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .ant-modal-close,
+  .ant-modal-header {
+    display: none !important;
+  }
+
+  .ant-modal-body {
+    padding: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
   }
 
   .modal-footer {
     display: none !important;
   }
 
+  .no-print {
+    display: none !important;
+  }
+
   .table-header {
     display: none !important;
+  }
+
+  .print-content {
+    padding: 0 !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    page-break-inside: avoid;
+    font-size: 11px !important;
+    box-shadow: none !important;
   }
 
   // 隐藏标题后的编辑图标
@@ -1160,6 +1216,127 @@ const handleSaveAndPrint = async () => {
   .editable {
     border-bottom: none !important;
     color: #000 !important;
+  }
+
+  // 页面标题
+  .page-header {
+    margin-bottom: 8px !important;
+
+    .title-en {
+      font-size: 18px !important;
+      cursor: default !important;
+      padding: 0 !important;
+      margin: 0 !important;
+
+      &:hover {
+        background-color: transparent !important;
+      }
+    }
+
+    .title-zh {
+      font-size: 15px !important;
+      cursor: default !important;
+      padding: 0 !important;
+      margin: 0 !important;
+
+      &:hover {
+        background-color: transparent !important;
+      }
+    }
+  }
+
+  // 中间信息
+  .middle-info {
+    margin-bottom: 8px !important;
+
+    .middle-right {
+      .info-row {
+        margin-bottom: 3px !important;
+        font-size: 11px !important;
+
+        .label {
+          min-width: 80px !important;
+        }
+      }
+    }
+  }
+
+  // 卖方买方信息
+  .parties-container {
+    width: 100% !important;
+    margin-bottom: 8px !important;
+
+    .seller-section,
+    .buyer-section {
+      padding: 6px 8px !important;
+      box-shadow: none !important;
+      margin-bottom: 8px !important;
+
+      &:last-child {
+        margin-bottom: 0 !important;
+      }
+
+      .info-item {
+        margin-bottom: 3px !important;
+        font-size: 11px !important;
+      }
+    }
+  }
+
+  // 表格区域
+  .table-section {
+    margin-bottom: 8px !important;
+
+    .product-table {
+      border: 1px solid #000 !important;
+
+      th {
+        padding: 4px 5px !important;
+        font-size: 10px !important;
+        border: 1px solid #333 !important;
+      }
+
+      td {
+        padding: 4px 5px !important;
+        font-size: 10px !important;
+        border: 1px solid #333 !important;
+      }
+    }
+  }
+
+  // 底部信息
+  .bottom-section {
+    margin-bottom: 8px !important;
+    padding: 6px 8px !important;
+    box-shadow: none !important;
+
+    .info-item {
+      margin-bottom: 3px !important;
+      font-size: 11px !important;
+    }
+  }
+
+  // 签章区域
+  .signature-section {
+    margin-top: 15px !important;
+
+    .signature-box {
+      min-height: 70px !important;
+      border: none !important;
+
+      .signature-label {
+        font-size: 11px !important;
+      }
+
+      .stamp-image {
+        max-width: 160px !important;
+        max-height: 70px !important;
+      }
+
+      .stamp-placeholder {
+        display: none !important;
+      }
+    }
   }
 
   // 隐藏输入框边框，使其看起来像普通文本

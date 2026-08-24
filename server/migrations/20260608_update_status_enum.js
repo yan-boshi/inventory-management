@@ -1,8 +1,32 @@
-import pool from '../config/database.js'
+import mysql from 'mysql2/promise'
+import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
+
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '3306'),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'abc1234!',
+  database: process.env.DB_NAME || 'inventory_management',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+})
 
 async function up() {
-  const connection = await pool.getConnection()
+  let connection = null
   try {
+    console.log('Connecting to database...')
+    console.log(`Host: ${process.env.DB_HOST || 'localhost'}, Database: ${process.env.DB_NAME || 'inventory_management'}`)
+
+    connection = await pool.getConnection()
+    console.log('Database connected successfully')
+
     console.log('Starting migration: update status ENUM for sales_orders and purchase_orders...')
 
     // Update sales_orders status ENUM
@@ -30,18 +54,27 @@ async function up() {
     // Update existing status=2 (已到货) to status=2 (已全部入库) - same value, no change needed
     console.log('purchase_orders status=2 maps to 已全部入库, no data migration needed')
 
-    console.log('Migration completed successfully!')
+    console.log('✓ Migration completed successfully!')
   } catch (error) {
-    console.error('Migration failed:', error)
+    console.error('✗ Migration failed:', error.message)
+    console.error('Full error:', error)
     throw error
   } finally {
-    connection.release()
+    if (connection) {
+      connection.release()
+      console.log('Database connection released')
+    }
+    await pool.end()
   }
 }
 
 async function down() {
-  const connection = await pool.getConnection()
+  let connection = null
   try {
+    console.log('Connecting to database...')
+    connection = await pool.getConnection()
+    console.log('Database connected successfully')
+
     console.log('Rolling back migration: restore status ENUM...')
 
     // Rollback sales_orders
@@ -61,12 +94,17 @@ async function down() {
       COMMENT '1:采购中, 2:已到货'
     `)
 
-    console.log('Rollback completed!')
+    console.log('✓ Rollback completed!')
   } catch (error) {
-    console.error('Rollback failed:', error)
+    console.error('✗ Rollback failed:', error.message)
+    console.error('Full error:', error)
     throw error
   } finally {
-    connection.release()
+    if (connection) {
+      connection.release()
+      console.log('Database connection released')
+    }
+    await pool.end()
   }
 }
 
@@ -75,9 +113,25 @@ const isMainModule = process.argv[1] && process.argv[1].includes('20260608_updat
 if (isMainModule) {
   const action = process.argv[2]
   if (action === 'down') {
-    down().then(() => process.exit(0)).catch(() => process.exit(1))
+    down()
+      .then(() => {
+        console.log('Done')
+        process.exit(0)
+      })
+      .catch((err) => {
+        console.error('Failed:', err.message)
+        process.exit(1)
+      })
   } else {
-    up().then(() => process.exit(0)).catch(() => process.exit(1))
+    up()
+      .then(() => {
+        console.log('Done')
+        process.exit(0)
+      })
+      .catch((err) => {
+        console.error('Failed:', err.message)
+        process.exit(1)
+      })
   }
 }
 

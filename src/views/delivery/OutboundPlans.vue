@@ -588,26 +588,26 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .outbound-plans-container {
-  padding: 24px;
+  padding: 16px;
 
   .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 8px;
 
     h1 {
       margin: 0;
-      font-size: 24px;
+      font-size: 20px;
       font-weight: 500;
     }
   }
 
   .search-bar {
-    margin-bottom: 16px;
+    margin-bottom: 8px;
 
     :deep(.ant-form-item) {
-      margin-bottom: 12px;
+      margin-bottom: 8px;
 
       > .ant-form-item-label {
         width: 80px;

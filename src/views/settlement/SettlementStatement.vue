@@ -1,19 +1,5 @@
 <template>
   <div class="settlement-container">
-    <div class="header">
-      <h1>对账单</h1>
-      <a-space>
-        <a-button type="primary" @click="handleCreateReceivable">
-          <template #icon><PlusOutlined /></template>
-          新增应收对账单
-        </a-button>
-        <a-button type="primary" @click="handleCreatePayable" style="background-color: #fa8c16; border-color: #fa8c16;">
-          <template #icon><PlusOutlined /></template>
-          新增应付对账单
-        </a-button>
-      </a-space>
-    </div>
-
     <!-- 新增/编辑对账单弹窗 -->
     <SettlementFormModal
       v-model:visible="formModalVisible"
@@ -143,6 +129,14 @@
               <a-button @click="handleExport">
                 <template #icon><DownloadOutlined /></template>
                 导出Excel
+              </a-button>
+              <a-button type="primary" @click="handleCreateReceivable" style="margin-left: 16px;">
+                <template #icon><PlusOutlined /></template>
+                新增应收对账单
+              </a-button>
+              <a-button type="primary" @click="handleCreatePayable" style="background-color: #fa8c16; border-color: #fa8c16;">
+                <template #icon><PlusOutlined /></template>
+                新增应付对账单
               </a-button>
             </a-space>
           </a-form-item>
@@ -540,6 +534,7 @@ onMounted(() => {
 <style scoped>
 .settlement-container {
   padding: 0;
+
 }
 
 .header {

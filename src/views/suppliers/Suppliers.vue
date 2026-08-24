@@ -1,15 +1,5 @@
 <template>
   <div class="suppliers-container">
-    <div class="header">
-      <h1>供应商管理</h1>
-      <a-button type="primary" @click="handleAdd">
-        <template #icon>
-          <PlusOutlined />
-        </template>
-        新增供应商
-      </a-button>
-    </div>
-
     <a-card>
       <div class="search-bar">
         <a-form layout="inline">
@@ -35,6 +25,10 @@
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
               <a-button @click="handleExport"> <DownloadOutlined /> 导出Excel </a-button>
               <ColumnConfig :columns="allColumns" @update:columns="handleColumnConfigUpdate" cacheKey="suppliers" />
+              <a-button type="primary" @click="handleAdd" style="margin-left: 16px;">
+                <template #icon><PlusOutlined /></template>
+                新增供应商
+              </a-button>
             </a-space>
           </a-form-item>
         </a-form>
@@ -353,26 +347,26 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .suppliers-container {
-  padding: 24px;
+  padding: 16px;
 
   .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
 
     h1 {
       margin: 0;
-      font-size: 24px;
+      font-size: 20px;
       font-weight: 500;
     }
   }
 
   .search-bar {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 
     :deep(.ant-form-item) {
-      margin-bottom: 12px;
+      margin-bottom: 8px;
 
       > .ant-form-item-label {
         width: 80px;

@@ -603,45 +603,24 @@ const handleSaveAndPrint = async () => {
 
 <style scoped lang="scss">
 .print-content {
-  padding: 40px 20px;
+  padding: 30px 20px;
   background: white;
-  min-height: 800px;
+  min-height: 600px;
   position: relative;
 }
 
 .page-header {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 
   .title-en {
-    font-size: 28px;
-    font-weight: bold;
-    margin: 0 0 5px 0;
-    color: #000;
-    cursor: pointer;
-    display: block;
-    padding: 4px 8px;
-    border-radius: 4px;
-
-    &:hover {
-      background-color: #e6f7ff;
-    }
-
-    &::after {
-      content: ' ✎';
-      font-size: 16px;
-      opacity: 0.5;
-    }
-  }
-
-  .title-zh {
     font-size: 24px;
     font-weight: bold;
-    margin: 0;
+    margin: 0 0 3px 0;
     color: #000;
     cursor: pointer;
     display: block;
-    padding: 4px 8px;
+    padding: 3px 6px;
     border-radius: 4px;
 
     &:hover {
@@ -651,6 +630,27 @@ const handleSaveAndPrint = async () => {
     &::after {
       content: ' ✎';
       font-size: 14px;
+      opacity: 0.5;
+    }
+  }
+
+  .title-zh {
+    font-size: 20px;
+    font-weight: bold;
+    margin: 0;
+    color: #000;
+    cursor: pointer;
+    display: block;
+    padding: 3px 6px;
+    border-radius: 4px;
+
+    &:hover {
+      background-color: #e6f7ff;
+    }
+
+    &::after {
+      content: ' ✎';
+      font-size: 12px;
       opacity: 0.5;
     }
   }
@@ -660,7 +660,7 @@ const handleSaveAndPrint = async () => {
   display: flex;
   justify-content: flex-end;
   align-items: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   padding-right: 10%;
 
   .middle-right {
@@ -670,25 +670,25 @@ const handleSaveAndPrint = async () => {
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      margin-bottom: 8px;
-      font-size: 14px;
+      margin-bottom: 5px;
+      font-size: 12px;
 
       .label {
         font-weight: bold;
         color: #000;
-        min-width: 100px;
+        min-width: 80px;
         text-align: right;
-        padding-right: 8px;
+        padding-right: 6px;
 
         .required {
           color: #ff4d4f;
-          margin-right: 4px;
+          margin-right: 3px;
         }
       }
 
       .value {
         color: #000;
-        min-width: 120px;
+        min-width: 100px;
         text-align: left;
 
         &.editable {
@@ -707,36 +707,36 @@ const handleSaveAndPrint = async () => {
 }
 
 .parties-container {
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   width: 66.67%;
 
   .seller-section,
   .buyer-section {
-    padding: 16px;
+    padding: 12px;
     border: 1px solid #e8e8e8;
     background: #fafafa;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 
     &:last-child {
       margin-bottom: 0;
     }
 
     .info-item {
-      margin-bottom: 10px;
-      font-size: 14px;
+      margin-bottom: 6px;
+      font-size: 12px;
       color: #000;
 
       &.address {
         .value {
           display: inline-block;
-          max-width: 400px;
+          max-width: 350px;
           white-space: pre-wrap;
         }
       }
 
       .label {
         color: #595959;
-        margin-right: 8px;
+        margin-right: 6px;
       }
 
       .value {
@@ -758,33 +758,33 @@ const handleSaveAndPrint = async () => {
 }
 
 .table-section {
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 
   .product-table {
     width: 100%;
     border-collapse: collapse;
 
     th {
-      padding: 10px 8px;
+      padding: 8px 6px;
       background: #f5f5f5;
       border: 1px solid #d9d9d9;
       font-weight: 500;
-      font-size: 13px;
+      font-size: 11px;
       color: #262626;
       text-align: center;
     }
 
     td {
-      padding: 10px 8px;
+      padding: 8px 6px;
       border: 1px solid #e8e8e8;
       text-align: center;
-      font-size: 13px;
+      font-size: 11px;
       color: #000;
       vertical-align: middle;
     }
 
     .empty-row {
-      height: 30px;
+      height: 25px;
     }
 
     .editable {
@@ -801,19 +801,19 @@ const handleSaveAndPrint = async () => {
 }
 
 .bottom-section {
-  margin-bottom: 30px;
-  padding: 16px;
+  margin-bottom: 20px;
+  padding: 12px;
   border: 1px solid #e8e8e8;
   background: #fafafa;
 
   .info-item {
-    margin-bottom: 10px;
-    font-size: 14px;
+    margin-bottom: 6px;
+    font-size: 12px;
     color: #000;
 
     .label {
       color: #595959;
-      margin-right: 8px;
+      margin-right: 6px;
     }
 
     .value {
@@ -834,13 +834,13 @@ const handleSaveAndPrint = async () => {
 }
 
 .signature-section {
-  margin-top: 40px;
+  margin-top: 30px;
   display: flex;
   justify-content: flex-end;
 
   .signature-box {
-    width: 250px;
-    min-height: 120px;
+    width: 220px;
+    min-height: 100px;
     border: 1px dashed #d9d9d9;
     display: flex;
     flex-direction: column;
@@ -851,13 +851,13 @@ const handleSaveAndPrint = async () => {
 
     .signature-label {
       color: #595959;
-      font-size: 14px;
+      font-size: 12px;
     }
 
     .stamp-image {
-      max-width: 200px;
-      max-height: 100px;
-      margin-top: 10px;
+      max-width: 180px;
+      max-height: 80px;
+      margin-top: 8px;
       object-fit: contain;
     }
 
@@ -866,13 +866,13 @@ const handleSaveAndPrint = async () => {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      margin-top: 10px;
+      margin-top: 8px;
       color: #bfbfbf;
-      font-size: 12px;
+      font-size: 11px;
 
       .anticon {
-        font-size: 24px;
-        margin-bottom: 4px;
+        font-size: 20px;
+        margin-bottom: 3px;
       }
     }
 
@@ -930,7 +930,7 @@ const handleSaveAndPrint = async () => {
 <style lang="scss">
 @media print {
   @page {
-    size: portrait;
+    size: A4 portrait;
     margin: 5mm;
   }
 
@@ -992,19 +992,20 @@ const handleSaveAndPrint = async () => {
     padding: 0 !important;
     min-height: auto !important;
     overflow: visible !important;
-    page-break-inside: auto;
-    font-size: 11px !important;
+    page-break-inside: avoid;
+    font-size: 9px !important;
     box-shadow: none !important;
   }
 
   // 页面标题
   .page-header {
-    margin-bottom: 8px !important;
+    margin-bottom: 5px !important;
 
     .title-en {
-      font-size: 20px !important;
+      font-size: 16px !important;
       cursor: default !important;
       padding: 0 !important;
+      margin: 0 !important;
 
       &:hover {
         background-color: transparent !important;
@@ -1016,9 +1017,10 @@ const handleSaveAndPrint = async () => {
     }
 
     .title-zh {
-      font-size: 16px !important;
+      font-size: 13px !important;
       cursor: default !important;
       padding: 0 !important;
+      margin: 0 !important;
 
       &:hover {
         background-color: transparent !important;
@@ -1032,15 +1034,15 @@ const handleSaveAndPrint = async () => {
 
   // 中间信息
   .middle-info {
-    margin-bottom: 10px !important;
+    margin-bottom: 5px !important;
 
     .middle-right {
       .info-row {
-        margin-bottom: 4px !important;
-        font-size: 10px !important;
+        margin-bottom: 2px !important;
+        font-size: 9px !important;
 
         .label {
-          min-width: 80px !important;
+          min-width: 70px !important;
         }
 
         .editable {
@@ -1054,21 +1056,21 @@ const handleSaveAndPrint = async () => {
   // 卖方买方信息
   .parties-container {
     width: 66.67% !important;
-    margin-bottom: 8px !important;
+    margin-bottom: 5px !important;
 
     .seller-section,
     .buyer-section {
-      padding: 6px 8px !important;
+      padding: 4px 6px !important;
       box-shadow: none !important;
-      margin-bottom: 8px !important;
+      margin-bottom: 5px !important;
 
       &:last-child {
         margin-bottom: 0 !important;
       }
 
       .info-item {
-        margin-bottom: 3px !important;
-        font-size: 10px !important;
+        margin-bottom: 2px !important;
+        font-size: 9px !important;
 
         .editable {
           border-bottom: none !important;
@@ -1080,25 +1082,25 @@ const handleSaveAndPrint = async () => {
 
   // 表格区域
   .table-section {
-    margin-bottom: 8px !important;
+    margin-bottom: 5px !important;
 
     .product-table {
-      border: 1.5px solid #000 !important;
+      border: 1px solid #000 !important;
 
       th {
-        padding: 3px 4px !important;
-        font-size: 10px !important;
-        border: 1.5px solid #333 !important;
+        padding: 2px 3px !important;
+        font-size: 8px !important;
+        border: 1px solid #333 !important;
       }
 
       td {
-        padding: 3px 4px !important;
-        font-size: 10px !important;
-        border: 1.5px solid #333 !important;
+        padding: 2px 3px !important;
+        font-size: 8px !important;
+        border: 1px solid #333 !important;
       }
 
       .empty-row {
-        height: 20px !important;
+        height: 15px !important;
       }
 
       .editable {
@@ -1110,13 +1112,13 @@ const handleSaveAndPrint = async () => {
 
   // 底部信息
   .bottom-section {
-    margin-bottom: 8px !important;
-    padding: 6px 8px !important;
+    margin-bottom: 5px !important;
+    padding: 4px 6px !important;
     box-shadow: none !important;
 
     .info-item {
-      margin-bottom: 3px !important;
-      font-size: 10px !important;
+      margin-bottom: 2px !important;
+      font-size: 9px !important;
 
       .editable {
         border-bottom: none !important;
@@ -1127,14 +1129,19 @@ const handleSaveAndPrint = async () => {
 
   // 签章区域
   .signature-section {
-    margin-top: 20px !important;
+    margin-top: 10px !important;
 
     .signature-box {
-      min-height: 80px !important;
+      min-height: 60px !important;
       border: none !important;
 
       .signature-label {
-        font-size: 10px !important;
+        font-size: 9px !important;
+      }
+
+      .stamp-image {
+        max-width: 150px !important;
+        max-height: 60px !important;
       }
 
       .stamp-placeholder {

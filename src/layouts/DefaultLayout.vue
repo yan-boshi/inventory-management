@@ -1,16 +1,10 @@
 <template>
   <a-layout style="min-height: 100vh">
-    <a-layout-sider v-model:collapsed="collapsed" collapsible>
+    <a-layout-sider v-model:collapsed="collapsed" style="position: relative">
       <div class="logo">
         <h3>旭思达ERP系统</h3>
       </div>
       <a-menu v-model:selectedKeys="selectedKeys" theme="dark" mode="inline">
-        <!-- <a-menu-item key="Dashboard" @click="navigateTo('/')">
-          <template #icon>
-            <DashboardOutlined />
-          </template>
-          <span>仪表盘</span>
-        </a-menu-item> -->
         <a-menu-item key="Customers" @click="navigateTo('/customers')" v-if="userStore.isAdvanced">
           <template #icon>
             <TeamOutlined />
@@ -166,40 +160,52 @@
           <span>用户管理</span>
         </a-menu-item>
       </a-menu>
+      <div class="sidebar-footer">
+        <a-dropdown>
+          <div class="user-info-sidebar">
+            <a-avatar size="small">
+              <template #icon>
+                <UserOutlined />
+              </template>
+            </a-avatar>
+            <span v-if="!collapsed" class="username">{{ userStore.user?.username }}</span>
+          </div>
+          <template #overlay>
+            <a-menu>
+              <a-menu-item @click="handleLogout">
+                <LogoutOutlined />
+                <span>退出登录</span>
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
+      </div>
     </a-layout-sider>
     <a-layout>
-      <a-layout-header style="background: #fff; padding: 0">
-        <div class="header-content">
-          <div class="left">
-            <MenuUnfoldOutlined v-if="collapsed" class="trigger" @click="toggleCollapsed" />
-            <MenuFoldOutlined v-else class="trigger" @click="toggleCollapsed" />
-          </div>
-          <div class="right">
-            <a-dropdown>
-              <a-space class="user-info">
-                <a-avatar>
-                  <template #icon>
-                    <UserOutlined />
-                  </template>
-                </a-avatar>
-                <span>{{ userStore.user?.username }}</span>
-                <DownOutlined />
-              </a-space>
-              <template #overlay>
-                <a-menu>
-                  <a-menu-item @click="handleLogout">
-                    <LogoutOutlined />
-                    <span>退出登录</span>
-                  </a-menu-item>
-                </a-menu>
-              </template>
-            </a-dropdown>
-          </div>
-        </div>
-      </a-layout-header>
-      <a-layout-content style="margin: 16px">
-        <div style="padding: 24px; background: #fff; min-height: 360px">
-          <router-view />
+      <div class="tabs-container">
+        <a-tabs
+          v-model:activeKey="tabsStore.activeKey"
+          type="editable-card"
+          size="small"
+          hide-add
+          @edit="onTabEdit"
+          @change="onTabChange"
+        >
+          <a-tab-pane
+            v-for="tab in tabsStore.tabs"
+            :key="tab.key"
+            :tab="tab.title"
+            :closable="tab.closable"
+          />
+        </a-tabs>
+      </div>
+      <a-layout-content>
+        <div class="content-wrapper">
+          <router-view v-slot="{ Component }">
+            <keep-alive>
+              <component :is="Component" />
+            </keep-alive>
+          </router-view>
         </div>
       </a-layout-content>
     </a-layout>
@@ -211,8 +217,8 @@ import { ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useUserStore } from '@/stores/user'
+import { useTabsStore } from '@/stores/tabs'
 import {
-  DashboardOutlined,
   ShoppingCartOutlined,
   ShoppingOutlined,
   TeamOutlined,
@@ -225,10 +231,7 @@ import {
   FileTextOutlined,
   BarChartOutlined,
   AccountBookOutlined,
-  MenuUnfoldOutlined,
-  MenuFoldOutlined,
   UserOutlined,
-  DownOutlined,
   LogoutOutlined,
   FileSearchOutlined,
 } from '@ant-design/icons-vue'
@@ -236,13 +239,10 @@ import {
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const tabsStore = useTabsStore()
 
 const collapsed = ref(false)
 const selectedKeys = ref<string[]>([route.name as string])
-
-const toggleCollapsed = () => {
-  collapsed.value = !collapsed.value
-}
 
 const navigateTo = (path: string) => {
   router.push(path)
@@ -250,17 +250,44 @@ const navigateTo = (path: string) => {
 
 const handleLogout = () => {
   userStore.clearUser()
+  tabsStore.clearTabs()
   message.success('退出登录成功')
   router.push('/login')
 }
 
-watch(
-  () => route.name,
-  name => {
-    if (name) {
-      selectedKeys.value = [name as string]
+// 标签页编辑（关闭）
+const onTabEdit = (targetKey: any, action: string) => {
+  if (action === 'remove') {
+    const targetTab = tabsStore.tabs.find(t => t.key === targetKey)
+    if (targetTab) {
+      tabsStore.removeTab(targetKey as string)
+      // 如果关闭的是当前标签，导航到新的活跃标签
+      if (tabsStore.activeKey !== targetKey) {
+        router.push(tabsStore.activeTabPath)
+      }
     }
   }
+}
+
+// 标签页切换
+const onTabChange = (activeKey: string) => {
+  const tab = tabsStore.tabs.find(t => t.key === activeKey)
+  if (tab) {
+    router.push(tab.path)
+  }
+}
+
+// 监听路由变化，自动添加标签
+watch(
+  () => route.path,
+  () => {
+    if (route.name) {
+      const routeName = route.name as string
+      selectedKeys.value = [routeName]
+      tabsStore.addTab(routeName, route.path)
+    }
+  },
+  { immediate: true }
 )
 </script>
 
@@ -276,35 +303,55 @@ watch(
   margin: 0;
 }
 
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 24px;
+.sidebar-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.header-content .left {
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.header-content .right {
+.user-info-sidebar {
   display: flex;
   align-items: center;
-}
-
-.trigger:hover {
-  color: #1890ff;
-}
-
-.user-info {
+  gap: 8px;
   cursor: pointer;
-  padding: 8px 16px;
+  padding: 8px;
   border-radius: 4px;
+  color: white;
   transition: background-color 0.3s;
 }
 
-.user-info:hover {
-  background-color: #f5f5f5;
+.user-info-sidebar:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.username {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabs-container {
+  background: #fff;
+  padding: 8px 16px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.tabs-container :deep(.ant-tabs) {
+  margin-bottom: 0;
+}
+
+.tabs-container :deep(.ant-tabs-nav) {
+  margin-bottom: 0;
+}
+
+.content-wrapper {
+  padding: 16px;
+  background: #fff;
+  min-height: 360px;
+  margin: 16px;
 }
 </style>

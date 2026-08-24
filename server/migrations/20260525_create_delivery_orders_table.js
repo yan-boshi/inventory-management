@@ -1,10 +1,32 @@
-import pool from '../config/database.js'
+import mysql from 'mysql2/promise'
+import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-async function migrate() {
-  console.log('开始创建出库单表...')
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '3306'),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'abc1234!',
+  database: process.env.DB_NAME || 'inventory_management',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+})
+
+async function up() {
+  let connection = null
   try {
-    const connection = await pool.getConnection()
+    console.log('Connecting to database...')
+    console.log(`Host: ${process.env.DB_HOST || 'localhost'}, Database: ${process.env.DB_NAME || 'inventory_management'}`)
+
+    console.log('开始创建出库单表...')
+    connection = await pool.getConnection()
+    console.log('Database connected successfully')
 
     try {
       await connection.beginTransaction()
@@ -41,26 +63,74 @@ async function migrate() {
             INDEX idx_created_at (created_at)
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='出库单表'
         `)
-        console.log('delivery_orders 表创建成功')
+        console.log('✓ delivery_orders 表创建成功')
       } else {
-        console.log('delivery_orders 表已存在，跳过创建')
+        console.log('✓ delivery_orders 表已存在，跳过创建')
       }
 
       await connection.commit()
 
-      console.log('出库单表迁移完成！')
+      console.log('✓ 出库单表迁移完成！')
     } catch (error) {
       await connection.rollback()
       throw error
-    } finally {
-      connection.release()
     }
   } catch (error) {
-    console.error('迁移失败:', error)
-    process.exit(1)
+    console.error('✗ Migration failed:', error.message)
+    console.error('Full error:', error)
+    throw error
   } finally {
+    if (connection) {
+      connection.release()
+      console.log('Database connection released')
+    }
     await pool.end()
   }
 }
 
-migrate()
+async function down() {
+  let connection = null
+  try {
+    console.log('Connecting to database...')
+    connection = await pool.getConnection()
+    console.log('Database connected successfully')
+
+    console.log('Dropping delivery_orders table...')
+    await connection.query('DROP TABLE IF EXISTS delivery_orders')
+    console.log('✓ delivery_orders table dropped')
+  } catch (error) {
+    console.error('✗ Rollback failed:', error.message)
+    console.error('Full error:', error)
+    throw error
+  } finally {
+    if (connection) {
+      connection.release()
+      console.log('Database connection released')
+    }
+    await pool.end()
+  }
+}
+
+const action = process.argv[2]
+
+if (action === 'down') {
+  down()
+    .then(() => {
+      console.log('Done')
+      process.exit(0)
+    })
+    .catch((err) => {
+      console.error('Failed:', err.message)
+      process.exit(1)
+    })
+} else {
+  up()
+    .then(() => {
+      console.log('Done')
+      process.exit(0)
+    })
+    .catch((err) => {
+      console.error('Failed:', err.message)
+      process.exit(1)
+    })
+}

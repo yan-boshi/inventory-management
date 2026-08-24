@@ -503,7 +503,7 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .invoices-page {
-  padding: 20px;
+  padding: 16px;
   background: #fff;
   min-height: 100%;
 }
@@ -512,7 +512,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 
   h1 {
     margin: 0;
@@ -521,7 +521,7 @@ onMounted(() => {
 }
 
 .search-section {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   padding: 20px;
   background: #fafafa;
   border-radius: 4px;

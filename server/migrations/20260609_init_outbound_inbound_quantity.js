@@ -9,12 +9,35 @@
  * 使用方法：node server/migrations/20260609_init_outbound_inbound_quantity.js
  */
 
-import pool from '../config/database.js'
+import mysql from 'mysql2/promise'
+import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-async function migrate() {
-  const connection = await pool.getConnection()
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '3306'),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'abc1234!',
+  database: process.env.DB_NAME || 'inventory_management',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+})
+
+async function up() {
+  let connection = null
   try {
+    console.log('Connecting to database...')
+    console.log(`Host: ${process.env.DB_HOST || 'localhost'}, Database: ${process.env.DB_NAME || 'inventory_management'}`)
+
+    connection = await pool.getConnection()
+    console.log('Database connected successfully')
+
     console.log('开始迁移：初始化 outbound_quantity 和 inbound_quantity 字段...')
 
     // 1. 处理销售订单
@@ -275,20 +298,64 @@ async function migrate() {
     }
     console.log(`入库数量回填完成：更新了 ${inboundSynced} 条采购订单`)
 
-    console.log('\n迁移完成！')
+    console.log('\n✓ 迁移完成！')
     console.log(`- 销售订单初始化: ${salesUpdated} 条`)
     console.log(`- 采购订单初始化: ${purchaseUpdated} 条`)
     console.log(`- 出库数量回填: ${outboundSynced} 条`)
     console.log(`- 入库数量回填: ${inboundSynced} 条`)
-
   } catch (error) {
-    console.error('迁移失败:', error)
+    console.error('✗ Migration failed:', error.message)
+    console.error('Full error:', error)
     throw error
   } finally {
-    connection.release()
+    if (connection) {
+      connection.release()
+      console.log('Database connection released')
+    }
     await pool.end()
   }
 }
 
-// 执行迁移
-migrate().catch(console.error)
+async function down() {
+  let connection = null
+  try {
+    console.log('Connecting to database...')
+    connection = await pool.getConnection()
+    console.log('Database connected successfully')
+    console.log('✓ No down migration for data initialization')
+  } catch (error) {
+    console.error('✗ Rollback failed:', error.message)
+    console.error('Full error:', error)
+    throw error
+  } finally {
+    if (connection) {
+      connection.release()
+      console.log('Database connection released')
+    }
+    await pool.end()
+  }
+}
+
+const action = process.argv[2]
+
+if (action === 'down') {
+  down()
+    .then(() => {
+      console.log('Done')
+      process.exit(0)
+    })
+    .catch((err) => {
+      console.error('Failed:', err.message)
+      process.exit(1)
+    })
+} else {
+  up()
+    .then(() => {
+      console.log('Done')
+      process.exit(0)
+    })
+    .catch((err) => {
+      console.error('Failed:', err.message)
+      process.exit(1)
+    })
+}

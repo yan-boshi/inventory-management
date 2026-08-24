@@ -1,17 +1,9 @@
 <template>
   <div class="users-container">
-    <div class="header">
-      <h1>用户管理</h1>
-      <a-button
-        type="primary"
-        @click="showCreateModal"
-      >
-        <template #icon>
-          <PlusOutlined />
-        </template>
-        新增用户
-      </a-button>
-    </div>
+    <a-button type="primary" @click="showCreateModal" style="margin-bottom: 16px;">
+      <template #icon><PlusOutlined /></template>
+      新增用户
+    </a-button>
 
     <a-table
       :columns="columns"
@@ -322,19 +314,6 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .users-container {
-  padding: 24px;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-
-  h1 {
-    margin: 0;
-    font-size: 24px;
-    font-weight: bold;
-  }
+  padding: 16px;
 }
 </style>

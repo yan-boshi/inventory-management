@@ -72,7 +72,9 @@
               {{ item.quantity || '-' }}
             </td>
             <td>{{ item.unit || '-' }}</td>
-            <td class="editable-cell" @click="handleEdit('remarks', item.no - 1)">{{ item.remarks || '-' }}</td>
+            <td class="editable-cell" @click="handleEdit('remarks', item.no - 1)">
+              {{ item.remarks || '-' }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -149,9 +151,10 @@ const userStore = useUserStore()
 
 const initOrderItems = () => {
   try {
-    orderItems.value = typeof props.order?.delivery_items === 'string'
-      ? JSON.parse(props.order.delivery_items)
-      : props.order?.delivery_items || []
+    orderItems.value =
+      typeof props.order?.delivery_items === 'string'
+        ? JSON.parse(props.order.delivery_items)
+        : props.order?.delivery_items || []
   } catch {
     orderItems.value = []
   }

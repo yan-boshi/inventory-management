@@ -1,15 +1,5 @@
 <template>
   <div class="product-classifications-container">
-    <div class="header">
-      <h1>产品分类管理</h1>
-      <a-button type="primary" @click="handleAdd">
-        <template #icon>
-          <PlusOutlined />
-        </template>
-        新增产品分类
-      </a-button>
-    </div>
-
     <a-card>
       <div class="search-bar">
         <a-form layout="inline">
@@ -26,6 +16,10 @@
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
+              <a-button type="primary" @click="handleAdd" style="margin-left: 16px;">
+                <template #icon><PlusOutlined /></template>
+                新增产品分类
+              </a-button>
             </a-space>
           </a-form-item>
         </a-form>
@@ -362,23 +356,23 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .product-classifications-container {
-  padding: 24px;
+  padding: 16px;
 
   .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 8px;
 
     h1 {
       margin: 0;
-      font-size: 24px;
+      font-size: 20px;
       font-weight: 500;
     }
   }
 
   .search-bar {
-    margin-bottom: 16px;
+    margin-bottom: 8px;
   }
 
   .tree-overview {

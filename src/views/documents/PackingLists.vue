@@ -412,7 +412,7 @@ onMounted(() => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 
     h1 {
       margin: 0;
@@ -421,10 +421,10 @@ onMounted(() => {
   }
 
   .search-bar {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 
     :deep(.ant-form-item) {
-      margin-bottom: 12px;
+      margin-bottom: 8px;
 
       > .ant-form-item-label {
         width: 80px;

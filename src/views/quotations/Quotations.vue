@@ -1,15 +1,5 @@
 <template>
   <div class="quotations-container">
-    <div class="header">
-      <h1>报价单</h1>
-      <a-button type="primary" @click="handleAdd">
-        <template #icon>
-          <PlusOutlined />
-        </template>
-        新增报价单
-      </a-button>
-    </div>
-
     <a-card>
       <div class="search-bar">
         <a-form layout="inline">
@@ -17,7 +7,7 @@
             <a-input
               v-model:value="searchParams.quotationNumber"
               placeholder="请输入报价单号"
-              allow-clear
+              allow-clear
             />
           </a-form-item>
 
@@ -25,7 +15,7 @@
             <a-input
               v-model:value="searchParams.customerName"
               placeholder="请输入客户名称"
-              allow-clear
+              allow-clear
             />
           </a-form-item>
 
@@ -33,14 +23,14 @@
             <a-input
               v-model:value="searchParams.customerCode"
               placeholder="请输入客户代码"
-              allow-clear
+              allow-clear
             />
           </a-form-item>
 
           <a-form-item label="报价日期">
             <a-range-picker
               v-model:value="dateRange"
-              @change="handleDateRangeChange"
+              @change="handleDateRangeChange"
             />
           </a-form-item>
 
@@ -49,6 +39,10 @@
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
               <ColumnConfig v-model:columns="allColumns" cacheKey="quotations" />
+              <a-button type="primary" @click="handleAdd" style="margin-left: 16px;">
+                <template #icon><PlusOutlined /></template>
+                新增报价单
+              </a-button>
             </a-space>
           </a-form-item>
         </a-form>
@@ -522,26 +516,26 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .quotations-container {
-  padding: 24px;
+  padding: 16px;
 
   .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 8px;
 
     h1 {
       margin: 0;
-      font-size: 24px;
+      font-size: 20px;
       font-weight: 500;
     }
   }
 
   .search-bar {
-    margin-bottom: 16px;
+    margin-bottom: 8px;
 
     :deep(.ant-form-item) {
-      margin-bottom: 12px;
+      margin-bottom: 8px;
 
       > .ant-form-item-label {
         width: 80px;
