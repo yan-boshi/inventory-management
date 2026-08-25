@@ -988,6 +988,10 @@ const handleSaveAndPrint = async () => {
     display: none !important;
   }
 
+  .required {
+    display: none !important;
+  }
+
   .print-content {
     padding: 0 !important;
     min-height: auto !important;
