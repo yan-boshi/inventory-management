@@ -214,11 +214,23 @@
           </div>
           <div class="footer-item">
             <label class="footer-label">币种：</label>
-            <a-select v-model:value="formData.currency" style="width: 150px">
-              <a-select-option value="CNY">人民币</a-select-option>
-              <a-select-option value="USD">美元</a-select-option>
-              <a-select-option value="EUR">欧元</a-select-option>
+            <a-select v-model:value="formData.currency" style="width: 150px" @change="handleCurrencyChange">
+              <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
+                {{ cur.currency_name }}
+              </a-select-option>
             </a-select>
+          </div>
+          <div class="footer-item">
+            <label class="footer-label">汇率：</label>
+            <a-input-number
+              v-model:value="formData.exchange_rate"
+              :min="0"
+              :precision="6"
+              :step="0.0001"
+              disabled
+              placeholder="系统自动填入"
+              style="width: 150px"
+            />
           </div>
         </div>
 
@@ -341,13 +353,15 @@ import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { deliveryOrdersApi } from '@/api/deliveryOrders'
 import { salesOrdersApi } from '@/api/salesOrders'
-import type { CreateDeliveryOrderRequest, DeliveryItem, DeliveryExpenses } from '@/types'
+import type { CreateDeliveryOrderRequest, DeliveryItem, DeliveryExpenses, Currency } from '@/types'
 import { productsApi } from '@/api/products'
 import { customersApi } from '@/api/customers'
 import type { ProductOption, CustomerOption } from '@/types/index'
 import { useUserStore } from '@/stores/user'
 import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
 import { Modal } from 'ant-design-vue'
+import { getActiveCurrencies } from '@/api/currencies'
+import { getCurrentRate } from '@/api/exchangeRates'
 
 dayjs.locale('zh-cn')
 
@@ -429,6 +443,8 @@ const loading = reactive({
 const salesOrderOptions = ref<any[]>([])
 const productOptions = ref<ProductOption[]>([])
 const customerOptions = ref<CustomerOption[]>([])
+const currencyList = ref<Currency[]>([])
+const exchangeRateLoading = ref(false)
 
 const defaultExpenses: DeliveryExpenses = {
   expressDeliveryFee: 0,
@@ -448,6 +464,7 @@ const formData = reactive({
   customer_address: '',
   total_amount: 0,
   currency: 'CNY',
+  exchange_rate: 1.0,
   delivery_person: '',
   contact_phone: '',
   remarks: '',
@@ -754,6 +771,7 @@ const handleSave = async () => {
       customer_address: formData.customer_address,
       total_amount: formData.total_amount,
       currency: formData.currency,
+      exchange_rate: formData.exchange_rate,
       delivery_person: formData.delivery_person,
       contact_phone: formData.contact_phone,
       remarks: formData.remarks,
@@ -809,6 +827,10 @@ const handleCancel = () => {
   emit('update:open', false)
 }
 
+const handleCurrencyChange = (value: string) => {
+  fetchCurrentRate(value)
+}
+
 // 关闭对话框
 const handleClose = () => {
   emit('update:open', false)
@@ -825,6 +847,7 @@ const resetForm = () => {
   formData.customer_address = ''
   formData.total_amount = 0
   formData.currency = 'CNY'
+  formData.exchange_rate = 1.0
   formData.delivery_person = currentUser.value?.username || ''
   formData.contact_phone = currentUser.value?.phone || ''
   formData.remarks = ''
@@ -888,6 +911,7 @@ const restoreDraft = () => {
   formData.remarks = draft.data.remarks || ''
   formData.expenses = draft.data.expenses || { ...defaultExpenses }
   formData.tracking_number = draft.data.tracking_number || ''
+  fetchCurrentRate(formData.currency)
 }
 
 const checkDraft = () => {
@@ -934,12 +958,46 @@ const loadBasicData = async () => {
   }
 }
 
+// 加载币种列表
+const loadCurrencies = async () => {
+  try {
+    const res = await getActiveCurrencies()
+    currencyList.value = res.data || []
+  } catch (error) {
+    console.error('加载币种列表失败:', error)
+  }
+}
+
+// 获取当前周汇率
+const fetchCurrentRate = async (currency: string) => {
+  if (currency === 'CNY') {
+    formData.exchange_rate = 1.0
+    return
+  }
+  exchangeRateLoading.value = true
+  try {
+    const res = await getCurrentRate('CNY', currency)
+    if (res.data) {
+      formData.exchange_rate = Number(res.data.rate)
+    } else {
+      formData.exchange_rate = undefined
+      message.warning('本周尚未设置该币种的汇率，请先在汇率管理中维护')
+    }
+  } catch (error) {
+    console.error('获取汇率失败:', error)
+    formData.exchange_rate = undefined
+  } finally {
+    exchangeRateLoading.value = false
+  }
+}
+
 // 监听显示状态变化
 watch(
   () => props.open,
   async visible => {
     if (visible) {
-      loadBasicData()
+      await loadBasicData()
+      loadCurrencies()
       if (!props.isEdit) {
         getNewOrderNumber()
         getSalesOrdersForDelivery()
@@ -948,13 +1006,29 @@ watch(
           resetForm()
           formData.contract_number = props.deliveryOrderData.contract_number || ''
           formData.customer_name = props.deliveryOrderData.customer_name || ''
+          formData.customer_address = props.deliveryOrderData.customer_address || ''
           formData.currency = props.deliveryOrderData.currency || 'CNY'
           formData.remarks = props.deliveryOrderData.remarks || ''
+          fetchCurrentRate(formData.currency)
           if (props.deliveryOrderData.entry_date) {
             formData.entry_date = dayjs(props.deliveryOrderData.entry_date)
           }
           if (props.deliveryOrderData.delivery_items) {
             formData.delivery_items = props.deliveryOrderData.delivery_items
+            calculateTotal()
+          }
+          // 根据客户名称查找客户地址
+          if (formData.customer_name && !formData.customer_address) {
+            const customer = customerOptions.value.find(c => c.customer_name === formData.customer_name)
+            if (customer) {
+              try {
+                const response = await customersApi.getById(customer.customer_id)
+                const fullCustomer = response.data || response
+                formData.customer_address = fullCustomer.receiver_address || ''
+              } catch {
+                formData.customer_address = ''
+              }
+            }
           }
         } else {
           resetForm()
@@ -970,6 +1044,7 @@ watch(
         formData.customer_address = props.deliveryOrderData.customer_address || ''
         formData.total_amount = props.deliveryOrderData.total_amount || 0
         formData.currency = props.deliveryOrderData.currency || 'CNY'
+        fetchCurrentRate(formData.currency)
         formData.delivery_person = props.deliveryOrderData.delivery_person || ''
         formData.contact_phone = props.deliveryOrderData.contact_phone || ''
         formData.remarks = props.deliveryOrderData.remarks || ''

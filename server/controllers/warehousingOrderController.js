@@ -1,6 +1,5 @@
 import WarehousingOrder from '../models/WarehousingOrder.js'
 import PurchaseOrder from '../models/PurchaseOrder.js'
-import SalesOrder from '../models/SalesOrder.js'
 import Payable from '../models/Payable.js'
 import pool from '../config/database.js'
 
@@ -15,7 +14,8 @@ export const getAllWarehousingOrders = async (req, res) => {
       orderNumber,
       contractNumber,
       customerName,
-      warehousingDate
+      warehousingDate,
+      trackingNumber
     } = req.query
 
     const where = []
@@ -54,6 +54,11 @@ export const getAllWarehousingOrders = async (req, res) => {
     if (warehousingDate) {
       where.push('DATE(warehousing_time) >= ?')
       params.push(warehousingDate)
+    }
+
+    if (trackingNumber) {
+      where.push('tracking_number LIKE ?')
+      params.push(`%${trackingNumber}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
@@ -112,6 +117,45 @@ export const createWarehousingOrder = async (req, res) => {
       expenses
     } = req.body
 
+    // 如果关联了采购订单，先验证入库数量
+    if (contract_number) {
+      const purchaseOrder = await PurchaseOrder.findOne('contract_number = ?', [contract_number])
+      console.log('找到采购订单:', purchaseOrder ? purchaseOrder.order_number : '未找到')
+
+      if (purchaseOrder && warehousing_items) {
+        const purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]')
+        const parsedWarehousingItems = typeof warehousing_items === 'string'
+          ? JSON.parse(warehousing_items)
+          : warehousing_items
+
+        // 遍历入库项，验证数量
+        for (const warehousingItem of parsedWarehousingItems) {
+          const targetItem = purchaseItems.find(
+            pi => pi.product_code === warehousingItem.product_code
+          )
+
+          if (!targetItem) {
+            return res.status(400).json({
+              success: false,
+              message: `商品 ${warehousingItem.product_code} 不在采购订单中`
+            })
+          }
+
+          const currentInbound = targetItem.inbound_quantity || 0
+          const newInbound = currentInbound + warehousingItem.quantity
+
+          // 超量校验
+          if (newInbound > targetItem.quantity) {
+            return res.status(400).json({
+              success: false,
+              message: `商品 ${targetItem.product_name} 已超出采购数量，订单数量: ${targetItem.quantity}，已入库: ${currentInbound}，本次入库: ${warehousingItem.quantity}`
+            })
+          }
+        }
+      }
+    }
+
+    // 验证通过后，创建入库单
     const order = await WarehousingOrder.create({
       contract_number,
       warehousing_items,
@@ -179,49 +223,31 @@ export const createWarehousingOrder = async (req, res) => {
     }
 
     // 如果关联了采购订单，同步入库数量到采购订单
-    console.log('contract_number:', contract_number)
     if (contract_number) {
       const purchaseOrder = await PurchaseOrder.findOne('contract_number = ?', [contract_number])
-      console.log('找到采购订单:', purchaseOrder ? purchaseOrder.order_number : '未找到')
 
-      if (purchaseOrder) {
+      if (purchaseOrder && warehousing_items) {
         const purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]')
         const parsedWarehousingItems = typeof warehousing_items === 'string'
           ? JSON.parse(warehousing_items)
           : warehousing_items
 
-        // 遍历入库项，同步数量并校验
+        // 遍历入库项，同步数量
         for (const warehousingItem of parsedWarehousingItems) {
           const targetItem = purchaseItems.find(
             pi => pi.product_code === warehousingItem.product_code
           )
 
-          if (!targetItem) {
-            return res.status(400).json({
-              success: false,
-              message: `商品 ${warehousingItem.product_code} 不在采购订单中`
-            })
-          }
+          if (targetItem) {
+            // 更新入库数量
+            targetItem.inbound_quantity = (targetItem.inbound_quantity || 0) + warehousingItem.quantity
 
-          const currentInbound = targetItem.inbound_quantity || 0
-          const newInbound = currentInbound + warehousingItem.quantity
-
-          // 超量校验
-          if (newInbound > targetItem.quantity) {
-            return res.status(400).json({
-              success: false,
-              message: `商品 ${targetItem.product_name} 已超出采购数量，订单数量: ${targetItem.quantity}，已入库: ${currentInbound}，本次入库: ${warehousingItem.quantity}`
-            })
-          }
-
-          // 更新入库数量
-          targetItem.inbound_quantity = newInbound
-
-          // 更新行状态
-          if (newInbound === targetItem.quantity) {
-            targetItem.status = 2 // 已全部入库
-          } else if (newInbound > 0) {
-            targetItem.status = 3 // 已部分入库
+            // 更新行状态
+            if (targetItem.inbound_quantity === targetItem.quantity) {
+              targetItem.status = 2 // 已全部入库
+            } else if (targetItem.inbound_quantity > 0) {
+              targetItem.status = 3 // 已部分入库
+            }
           }
         }
 
@@ -235,36 +261,18 @@ export const createWarehousingOrder = async (req, res) => {
         }
 
         // 更新采购订单
-        await PurchaseOrder.update(purchaseOrder.purchase_order_id, {
-          purchase_items: JSON.stringify(purchaseItems),
-          status: orderStatus
-        })
+        try {
+          await PurchaseOrder.update(purchaseOrder.purchase_order_id, {
+            purchase_items: JSON.stringify(purchaseItems),
+            status: orderStatus
+          })
+        } catch (syncErr) {
+          console.error('同步采购订单入库数量失败（不影响入库单创建）:', syncErr.message)
+        }
 
         // 创建应付账款记录
         try {
-          let paymentMethod = ''
-          // 通过关联的销售订单获取结算方式
-          if (purchaseOrder.related_sales_order_id) {
-            const salesOrder = await SalesOrder.findById(purchaseOrder.related_sales_order_id)
-            if (salesOrder) {
-              paymentMethod = salesOrder.payment_method || ''
-            }
-          }
-
           const totalAmount = parseFloat(order.total_amount) || 0
-          // 预付100%和TT都已全部结算
-          const receivedAmount = totalAmount
-          const balanceAmount = 0
-          let dueDate = null
-
-          // 根据结算方式设置结算日期
-          if (paymentMethod.includes('预付100%') || paymentMethod.includes('预付')) {
-            // 预付100%：生成销售订单时就已结算，结算日期为采购订单录入时间
-            dueDate = purchaseOrder.entry_date || purchaseOrder.created_at
-          } else {
-            // TT或其他：生成入库单时结算，结算日期为入库时间
-            dueDate = warehousing_time || new Date().toISOString().slice(0, 10)
-          }
 
           // 获取供应商名称
           const supplierName = purchaseOrder.supplier_name
@@ -275,10 +283,10 @@ export const createWarehousingOrder = async (req, res) => {
             source_bill_type: 1, // 入库单
             source_bill_id: order.order_number,
             amount: totalAmount,
-            received_amount: receivedAmount,
-            balance_amount: balanceAmount,
-            due_date: dueDate,
-            status: 2, // 已核销
+            received_amount: 0,
+            balance_amount: totalAmount,
+            due_date: null,
+            status: 0, // 未结算
             warehousing_time: warehousing_time || null
           })
         } catch (payableError) {

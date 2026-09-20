@@ -14,7 +14,8 @@ export const getAllDeliveryOrders = async (req, res) => {
       orderNumber,
       contractNumber,
       customerName,
-      deliveryDate
+      deliveryDate,
+      trackingNumber
     } = req.query
 
     const where = []
@@ -53,6 +54,11 @@ export const getAllDeliveryOrders = async (req, res) => {
     if (deliveryDate) {
       where.push('delivery_time >= ?')
       params.push(deliveryDate)
+    }
+
+    if (trackingNumber) {
+      where.push('tracking_number LIKE ?')
+      params.push(`%${trackingNumber}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
@@ -254,28 +260,18 @@ export const createDeliveryOrder = async (req, res) => {
         const orderStatus = SalesOrder.deriveOrderStatus(salesItems)
 
         // 更新销售订单
-        await SalesOrder.update(salesOrder.sales_order_id, {
-          sales_items: JSON.stringify(salesItems),
-          status: orderStatus
-        })
+        try {
+          await SalesOrder.update(salesOrder.sales_order_id, {
+            sales_items: JSON.stringify(salesItems),
+            status: orderStatus
+          })
+        } catch (syncErr) {
+          console.error('同步销售订单出库数量失败（不影响出库单创建）:', syncErr.message)
+        }
 
         // 创建应收账款记录
         try {
-          const paymentMethod = salesOrder.payment_method || ''
           const totalAmount = parseFloat(order.total_amount) || 0
-          // TT和预付100%都已全部结算
-          const receivedAmount = totalAmount
-          const balanceAmount = 0
-          let dueDate = null
-
-          // 根据结算方式设置结算日期
-          if (paymentMethod.includes('预付100%') || paymentMethod.includes('预付')) {
-            // 预付100%：生成销售订单时就已结算，结算日期为销售订单录入时间
-            dueDate = salesOrder.entry_date || salesOrder.created_at
-          } else {
-            // TT或其他：生成出库单时结算，结算日期为出库时间
-            dueDate = delivery_time || new Date().toISOString().slice(0, 10)
-          }
 
           // 获取客户名称
           const customerName = customer_name || salesOrder.customer_name
@@ -286,10 +282,11 @@ export const createDeliveryOrder = async (req, res) => {
             source_bill_type: 1, // 出库单
             source_bill_id: order.order_number,
             amount: totalAmount,
-            received_amount: receivedAmount,
-            balance_amount: balanceAmount,
-            due_date: dueDate,
-            status: 2, // 已核销
+            received_amount: 0,
+            balance_amount: totalAmount,
+            due_date: null,
+            status: 0, // 未结算
+            payment_method: salesOrder.payment_method || null,
             delivery_time: delivery_time || null
           })
         } catch (receivableError) {

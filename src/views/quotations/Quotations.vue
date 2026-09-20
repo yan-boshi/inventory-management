@@ -146,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { PlusOutlined, SearchOutlined, ReloadOutlined, DownOutlined } from '@ant-design/icons-vue'
 import { quotationsApi } from '@/api/quotations'
@@ -186,6 +186,30 @@ const pagination = reactive({
   total: 0,
 })
 
+// 动态生成筛选选项的辅助函数
+const generateFilters = (dataKey: string) => {
+  return computed(() => {
+    const values = [...new Set(quotations.value.map((item: any) => item[dataKey]).filter(Boolean))]
+    return values.map(value => ({ text: String(value), value: String(value) }))
+  })
+}
+
+// 报价编号筛选选项
+const quotationNumberFilters = generateFilters('quotation_number')
+// 客户名称筛选选项
+const customerNameFilters = generateFilters('customer_name')
+// 客户代码筛选选项
+const customerCodeFilters = generateFilters('customer_code')
+// 币种筛选选项
+const currencyFilters = generateFilters('currency')
+// 状态筛选选项
+const statusFilters = computed(() => [
+  { text: '报价中', value: 1 },
+  { text: '全部销售', value: 2 },
+  { text: '部分销售', value: 3 },
+  { text: '已取消', value: 4 },
+])
+
 const allColumns = ref([
   {
     title: '序号',
@@ -201,18 +225,27 @@ const allColumns = ref([
     dataIndex: 'quotation_number',
     key: 'quotation_number',
     width: 180,
+    filters: quotationNumberFilters.value,
+    onFilter: (value: string, record: any) => String(record.quotation_number) === value,
+    filterMultiple: true,
   },
   {
     title: '客户名称',
     dataIndex: 'customer_name',
     key: 'customer_name',
     width: 150,
+    filters: customerNameFilters.value,
+    onFilter: (value: string, record: any) => String(record.customer_name) === value,
+    filterMultiple: true,
   },
   {
     title: '客户代码',
     dataIndex: 'customer_code',
     key: 'customer_code',
     width: 120,
+    filters: customerCodeFilters.value,
+    onFilter: (value: string, record: any) => String(record.customer_code) === value,
+    filterMultiple: true,
   },
   {
     title: '状态',
@@ -220,6 +253,9 @@ const allColumns = ref([
     key: 'status',
     width: 100,
     align: 'center',
+    filters: statusFilters.value,
+    onFilter: (value: number, record: any) => record.status === value,
+    filterMultiple: true,
   },
   {
     title: '录入日期',
@@ -239,6 +275,9 @@ const allColumns = ref([
     key: 'currency',
     width: 100,
     align: 'center',
+    filters: currencyFilters.value,
+    onFilter: (value: string, record: any) => String(record.currency) === value,
+    filterMultiple: true,
   },
   {
     title: '操作',
@@ -247,6 +286,30 @@ const allColumns = ref([
     fixed: 'right',
   },
 ])
+
+// 标记是否正在从 ColumnConfig 更新，防止 watcher 覆盖
+let isUpdatingFromConfig = false
+
+// 当动态筛选数据变化时，更新 allColumns 中对应列的 filters
+watch(
+  [quotationNumberFilters, customerNameFilters, customerCodeFilters, currencyFilters, statusFilters],
+  () => {
+    if (isUpdatingFromConfig) return
+    const cols = allColumns.value
+    const filterMap: Record<string, any> = {
+      quotation_number: quotationNumberFilters.value,
+      customer_name: customerNameFilters.value,
+      customer_code: customerCodeFilters.value,
+      currency: currencyFilters.value,
+      status: statusFilters.value,
+    }
+    cols.forEach((col: any) => {
+      if (col.dataIndex && filterMap[col.dataIndex]) {
+        col.filters = filterMap[col.dataIndex]
+      }
+    })
+  }
+)
 
 const visibleColumns = computed(() => {
   return allColumns.value.filter(col => col.visible !== false)

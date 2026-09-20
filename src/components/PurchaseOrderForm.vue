@@ -74,32 +74,31 @@
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-item">
-            <label class="form-label">{{ t.purchaseOrder.relatedSalesOrder }}</label>
-            <a-select
-              v-model:value="form.related_sales_order_id"
-              :placeholder="t.purchaseOrder.selectRelatedSalesOrder"
-              :loading="loading.salesOrders"
-              show-search
-              :filter-option="filterSalesOrderOption"
-              allow-clear
-              class="invisible-select supplier-name-input"
-              @change="handleSalesOrderChange"
-            >
-              <a-select-option
-                v-for="order in salesOrderOptions"
-                :key="order.sales_order_id"
-                :value="order.sales_order_id"
-              >
-                {{ order.contract_number || order.order_number }}
-              </a-select-option>
-            </a-select>
-          </div>
-          <div class="form-item"></div>
-        </div>
-
         <div class="table-container">
+          <div v-if="form.related_sales_orders.length > 0" class="related-sales-orders-section">
+            <label class="related-sales-orders-label">{{ t.purchaseOrder.relatedSalesOrder }}</label>
+            <div class="related-sales-orders-table-wrapper">
+              <a-table
+                :columns="relatedSalesOrderColumns"
+                :data-source="form.related_sales_orders"
+                :pagination="false"
+                bordered
+                size="small"
+              >
+                <template #bodyCell="{ column, record }">
+                  <template v-if="column.key === 'order_number'">
+                    <span>{{ record.order_number }}</span>
+                  </template>
+                  <template v-else-if="column.key === 'product_code'">
+                    <span>{{ record.product_code }}</span>
+                  </template>
+                  <template v-else-if="column.key === 'quantity'">
+                    <span>{{ record.quantity }}</span>
+                  </template>
+                </template>
+              </a-table>
+            </div>
+          </div>
           <a-table
             v-scroll-topbar
             :columns="itemColumns"
@@ -107,7 +106,7 @@
             :pagination="false"
             bordered
             size="small"
-            :scroll="{ x: 2380, y: 400 }"
+            :scroll="{ x: 2040, y: 400 }"
           >
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'no'">
@@ -279,35 +278,6 @@
                 />
               </template>
 
-              <template v-else-if="column.key === 'invoice_date'">
-                <a-date-picker
-                  v-model:value="record.invoice_date"
-                  format="YYYY-MM-DD"
-                  style="width: 100%"
-                  class="invisible-input"
-                />
-              </template>
-
-              <template v-else-if="column.key === 'invoice_number'">
-                <a-input
-                  v-model:value="record.invoice_number"
-                  style="width: 100%"
-                  class="invisible-input"
-                />
-              </template>
-
-              <template v-else-if="column.key === 'invoice_received'">
-                <a-select
-                  v-model:value="record.invoice_received"
-                  :placeholder="t.common.pleaseSelect"
-                  style="width: 100%"
-                  class="invisible-select"
-                >
-                  <a-select-option value="是">{{ t.purchaseOrder.yes }}</a-select-option>
-                  <a-select-option value="否">{{ t.purchaseOrder.noOption }}</a-select-option>
-                </a-select>
-              </template>
-
               <template v-else-if="column.key === 'settlement_date'">
                 <a-date-picker
                   v-model:value="record.settlement_date"
@@ -421,22 +391,25 @@
         <div class="purchase-order-note">
           <div class="note-row">
             <label class="note-label">{{ t.purchaseOrder.currency }}</label>
-            <a-select v-model:value="form.currency" style="width: 100%">
-              <a-select-option value="CNY">{{ t.purchaseOrder.cny }}</a-select-option>
-              <a-select-option value="USD">{{ t.purchaseOrder.usd }}</a-select-option>
-              <a-select-option value="EUR">{{ t.purchaseOrder.eur }}</a-select-option>
+            <a-select v-model:value="form.currency" style="width: 100%" @change="handleCurrencyChange">
+              <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
+                {{ cur.currency_name }}
+              </a-select-option>
             </a-select>
           </div>
-          <!-- <div class="note-row">
+          <div class="note-row">
             <label class="note-label">汇率：</label>
             <a-input-number
               v-model:value="form.exchange_rate"
               :min="0"
-              :precision="4"
+              :precision="6"
+              :step="0.0001"
+              disabled
+              placeholder="系统自动填入"
               style="width: 100%"
               class="invisible-input"
             />
-          </div> -->
+          </div>
 
           <!-- 采购费用登记 -->
           <div class="expenses-section" style="grid-column: span 2">
@@ -535,7 +508,10 @@ import type {
   ProductOption,
   BusinessCategoryOption,
   SalesOrder,
+  Currency,
 } from '@/types'
+import { getActiveCurrencies } from '@/api/currencies'
+import { getCurrentRate } from '@/api/exchangeRates'
 
 const userStore = useUserStore()
 
@@ -622,9 +598,11 @@ const supplierOptions = ref<SupplierOption[]>([])
 const productOptions = ref<ProductOption[]>([])
 const businessCategoryOptions = ref<BusinessCategoryOption[]>([])
 const salesOrderOptions = ref<SalesOrder[]>([])
+const currencyList = ref<Currency[]>([])
+const exchangeRateLoading = ref(false)
 
 const form = reactive<
-  CreatePurchaseOrderRequest & { purchase_items: PurchaseItem[]; expenses: any }
+  CreatePurchaseOrderRequest & { purchase_items: PurchaseItem[]; expenses: any; related_sales_orders: any[] }
 >({
   contract_number: '',
   supplier_name: '',
@@ -636,6 +614,7 @@ const form = reactive<
   remarks: '',
   purchase_person: '',
   related_sales_order_id: undefined,
+  related_sales_orders: [],
   expenses: {
     transportationFee: 0,
     valueAddedTax: 0,
@@ -719,9 +698,6 @@ const itemColumns = computed(() => [
   },
   { title: t.value.purchaseOrder.status, key: 'status', width: 100 },
   { title: t.value.purchaseOrder.deliveryDate, key: 'delivery_date', width: 120 },
-  { title: t.value.purchaseOrder.invoiceDate, key: 'invoice_date', width: 130 },
-  { title: t.value.purchaseOrder.invoiceNumber, key: 'invoice_number', width: 120 },
-  { title: t.value.purchaseOrder.invoiceReceived, key: 'invoice_received', width: 90 },
   { title: t.value.purchaseOrder.settlementDate, key: 'settlement_date', width: 130 },
   {
     title: t.value.purchaseOrder.settlementAmount,
@@ -739,6 +715,23 @@ const itemColumns = computed(() => [
   { title: t.value.common.remarks, key: 'remarks', width: 150 },
   { title: t.value.purchaseOrder.totalPrice, key: 'total_price', width: 110 },
   { title: t.value.common.action, key: 'actions', width: 70, fixed: 'right' as const },
+])
+
+const relatedSalesOrderColumns = computed(() => [
+  {
+    title: t.value.purchaseOrder.orderNumber,
+    key: 'order_number',
+  },
+  {
+    title: t.value.purchaseOrder.productCode,
+    key: 'product_code',
+    width: 120,
+  },
+  {
+    title: t.value.purchaseOrder.quantity,
+    key: 'quantity',
+    width: 80,
+  },
 ])
 
 const totalAmount = computed(() => {
@@ -779,13 +772,6 @@ const handleSupplierChange = (value: string) => {
   if (supplier) {
     form.supplier_code = supplier.supplier_code
   }
-}
-
-const filterSalesOrderOption = (input: string, option: any) => {
-  const order = salesOrderOptions.value.find(o => o.sales_order_id === option.value)
-  if (!order) return false
-  const searchText = (order.contract_number || order.order_number || '').toLowerCase()
-  return searchText.includes(input.toLowerCase())
 }
 
 const loadSalesOrders = async () => {
@@ -1013,6 +999,7 @@ const handleSubmit = async () => {
       expenses: form.expenses,
       purchase_person: userStore.user?.username || '',
       related_sales_order_id: form.related_sales_order_id,
+      related_sales_orders: form.related_sales_orders.filter(item => item.sales_order_id),
     }
 
     if (props.isEdit && props.purchaseOrderData?.purchase_order_id) {
@@ -1037,11 +1024,49 @@ const handleCancel = () => {
   emit('update:visible', false)
 }
 
+const handleCurrencyChange = (value: string) => {
+  fetchCurrentRate(value)
+}
+
+// 加载币种列表
+const loadCurrencies = async () => {
+  try {
+    const res = await getActiveCurrencies()
+    currencyList.value = res.data || []
+  } catch (error) {
+    console.error('加载币种列表失败:', error)
+  }
+}
+
+// 获取当前周汇率
+const fetchCurrentRate = async (currency: string) => {
+  if (currency === 'CNY') {
+    form.exchange_rate = 1.0
+    return
+  }
+  exchangeRateLoading.value = true
+  try {
+    const res = await getCurrentRate('CNY', currency)
+    if (res.data) {
+      form.exchange_rate = Number(res.data.rate)
+    } else {
+      form.exchange_rate = undefined
+      message.warning('本周尚未设置该币种的汇率，请先在汇率管理中维护')
+    }
+  } catch (error) {
+    console.error('获取汇率失败:', error)
+    form.exchange_rate = undefined
+  } finally {
+    exchangeRateLoading.value = false
+  }
+}
+
 watch(
   () => props.visible,
   visible => {
     if (visible) {
       loadBasicData()
+      loadCurrencies()
       if (!props.isEdit && props.purchaseOrderData) {
         // 预填充模式（从采购计划生成）
         getNewOrderNumber()
@@ -1054,6 +1079,15 @@ watch(
         form.related_sales_order_id = props.purchaseOrderData.related_sales_order_id || undefined
         form.entry_date = props.purchaseOrderData.entry_date ? dayjs(props.purchaseOrderData.entry_date) : dayjs()
         form.remarks = props.purchaseOrderData.remarks || ''
+        fetchCurrentRate(form.currency)
+        if (props.purchaseOrderData.related_sales_orders && Array.isArray(props.purchaseOrderData.related_sales_orders)) {
+          form.related_sales_orders = props.purchaseOrderData.related_sales_orders.map((item: any) => ({
+            sales_order_id: item.sales_order_id || undefined,
+            order_number: item.order_number || '',
+            product_code: item.product_code || '',
+            quantity: item.quantity || 1,
+          }))
+        }
         if (props.purchaseOrderData.purchase_items && Array.isArray(props.purchaseOrderData.purchase_items)) {
           form.purchase_items = props.purchaseOrderData.purchase_items.map((item: any) => ({
             ...item,
@@ -1074,7 +1108,7 @@ watch(
         form.currency = props.purchaseOrderData.currency || 'CNY'
         form.purchase_person = props.purchaseOrderData.purchase_person || ''
         form.related_sales_order_id = props.purchaseOrderData.related_sales_order_id || undefined
-        form.exchange_rate = props.purchaseOrderData.exchange_rate || 1.0
+        fetchCurrentRate(form.currency)
         if (props.purchaseOrderData.entry_date) {
           form.entry_date = dayjs(props.purchaseOrderData.entry_date)
         } else {
@@ -1095,15 +1129,32 @@ watch(
           form.purchase_items = []
         }
         try {
-          form.expenses = props.purchaseOrderData.expenses
-            ? JSON.parse(props.purchaseOrderData.expenses)
-            : {
-                transportationFee: 0,
-                valueAddedTax: 0,
-                handlingFee: 0,
-                operatingExpenses: 0,
-                otherFee: 0,
-              }
+          const relatedSalesOrdersRaw = props.purchaseOrderData.related_sales_orders
+          if (relatedSalesOrdersRaw) {
+            form.related_sales_orders = typeof relatedSalesOrdersRaw === 'string'
+              ? JSON.parse(relatedSalesOrdersRaw)
+              : relatedSalesOrdersRaw
+          } else {
+            form.related_sales_orders = []
+          }
+        } catch {
+          form.related_sales_orders = []
+        }
+        try {
+          const expensesRaw = props.purchaseOrderData.expenses
+          if (expensesRaw) {
+            form.expenses = typeof expensesRaw === 'string'
+              ? JSON.parse(expensesRaw)
+              : expensesRaw
+          } else {
+            form.expenses = {
+              transportationFee: 0,
+              valueAddedTax: 0,
+              handlingFee: 0,
+              operatingExpenses: 0,
+              otherFee: 0,
+            }
+          }
         } catch {
           form.expenses = {
             transportationFee: 0,
@@ -1156,6 +1207,7 @@ const resetForm = () => {
   form.remarks = ''
   form.purchase_person = ''
   form.related_sales_order_id = undefined
+  form.related_sales_orders = []
   form.expenses = {
     transportationFee: 0,
     valueAddedTax: 0,
@@ -1185,6 +1237,7 @@ const handleSaveDraft = () => {
     remarks: form.remarks,
     expenses: form.expenses,
     related_sales_order_id: form.related_sales_order_id,
+    related_sales_orders: form.related_sales_orders,
   }
   const summary = form.supplier_name
     ? `${form.supplier_name} - ${form.purchase_items.length}个商品`
@@ -1206,11 +1259,11 @@ const restoreDraft = () => {
     delivery_date: item.delivery_date ? dayjs(item.delivery_date) : undefined,
   }))
   form.currency = draft.data.currency || 'CNY'
-  form.exchange_rate = draft.data.exchange_rate || 1.0
   // 将日期字符串转换为 dayjs 对象
   form.entry_date = draft.data.entry_date ? dayjs(draft.data.entry_date) : dayjs()
   form.remarks = draft.data.remarks || ''
   form.related_sales_order_id = draft.data.related_sales_order_id || undefined
+  form.related_sales_orders = draft.data.related_sales_orders || []
   form.expenses = draft.data.expenses || {
     transportationFee: 0,
     valueAddedTax: 0,
@@ -1218,6 +1271,7 @@ const restoreDraft = () => {
     operatingExpenses: 0,
     otherFee: 0,
   }
+  fetchCurrentRate(form.currency)
 }
 
 const checkDraft = () => {
@@ -1340,6 +1394,35 @@ const getSettlementStatusText = (status: string) => {
 
 .table-container {
   margin-bottom: 20px;
+
+  .related-sales-orders-section {
+    margin-bottom: 12px;
+    padding: 8px;
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
+    border-radius: 4px;
+
+    .related-sales-orders-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .related-sales-orders-table-wrapper {
+      width: 50%;
+    }
+
+    :deep(.ant-table) {
+      .ant-table-tbody > tr > td,
+      .ant-table-thead > tr > th {
+        padding: 2px 8px;
+        font-size: 12px;
+        line-height: 1.2;
+      }
+    }
+  }
 
   :deep(.ant-table) {
     .ant-table-tbody > tr > td {

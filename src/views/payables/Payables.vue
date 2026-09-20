@@ -5,6 +5,28 @@
     </div>
 
     <a-card>
+      <div class="action-bar">
+        <a-button
+          type="primary"
+          :disabled="selectedRowKeys.length === 0"
+          @click="handleGenerateStatement"
+        >
+          <template #icon><FileTextOutlined /></template>
+          生成应付对账单
+        </a-button>
+        <a-button
+          style="margin-left: 8px"
+          :disabled="selectedRowKeys.length === 0"
+          @click="handleGenerateWriteOff"
+        >
+          <template #icon><AuditOutlined /></template>
+          生成应付核销单
+        </a-button>
+        <span v-if="selectedRowKeys.length > 0" class="selected-count">
+          已选择 {{ selectedRowKeys.length }} 项
+        </span>
+      </div>
+
       <div class="search-bar">
         <a-form layout="inline">
           <a-form-item label="供应商名称">
@@ -20,6 +42,8 @@
               v-model:value="searchParams.status"
               placeholder="请选择状态"
               allow-clear
+              mode="multiple"
+              :max-tag-count="2"
             >
               <a-select-option :value="0">未结算</a-select-option>
               <a-select-option :value="1">部分结算</a-select-option>
@@ -32,6 +56,8 @@
               v-model:value="searchParams.billing_status"
               placeholder="请选择状态"
               allow-clear
+              mode="multiple"
+              :max-tag-count="2"
             >
               <a-select-option :value="0">未开票</a-select-option>
               <a-select-option :value="1">已开票</a-select-option>
@@ -69,6 +95,7 @@
         :pagination="false"
         rowKey="payable_id"
         :scroll="{ y: 'calc(100vh - 300px)' }"
+        :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
         bordered
         size="small"
       >
@@ -157,7 +184,15 @@
               <a-button type="primary" size="small" @click="handleSave(record)" :loading="record._saving">
                 保存
               </a-button>
-              <a-button type="link" size="small" @click="handleViewDetail(record)"> 详情 </a-button>
+              <a-popconfirm
+                v-if="userStore.isAdmin"
+                title="确定删除该记录吗？"
+                ok-text="确定"
+                cancel-text="取消"
+                @confirm="handleDeleteRecord(record)"
+              >
+                <a-button type="link" danger size="small"> 删除 </a-button>
+              </a-popconfirm>
             </a-space>
           </template>
         </template>
@@ -176,28 +211,50 @@
         @showSizeChange="handlePageChange"
       />
     </a-card>
+
+    <SettlementFormModal
+      v-model:visible="statementModalVisible"
+      :type="2"
+      :pre-selected-records="selectedRecords"
+      @success="handleStatementSuccess"
+    />
+
+    <WriteOffFormModal
+      v-model:visible="writeOffModalVisible"
+      :type="2"
+      :pre-selected-records="selectedRecords"
+      @success="handleWriteOffSuccess"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, ReloadOutlined, FileTextOutlined, AuditOutlined } from '@ant-design/icons-vue'
 import { payablesApi } from '@/api/payables'
+import { useUserStore } from '@/stores/user'
+import SettlementFormModal from '@/views/settlement/SettlementFormModal.vue'
+import WriteOffFormModal from '@/views/write-off/WriteOffFormModal.vue'
 import type { Payable, PayableQueryParams } from '@/types'
 import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
 
 const payables = ref<Payable[]>([])
 const loading = ref(false)
+const userStore = useUserStore()
 const dateRange = ref<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
+const selectedRowKeys = ref<string[]>([])
+const selectedRecords = ref<Payable[]>([])
+const statementModalVisible = ref(false)
+const writeOffModalVisible = ref(false)
 
 const searchParams = reactive<PayableQueryParams>({
   page: 1,
   pageSize: 100,
   supplier_name: '',
   status: undefined,
-  billing_status: undefined,
+  billing_status: [0, 2], // 默认查询未开票和部分开票
   start_date: '',
   end_date: '',
 })
@@ -402,7 +459,7 @@ const handleSearch = () => {
 const handleReset = () => {
   searchParams.supplier_name = ''
   searchParams.status = undefined
-  searchParams.billing_status = undefined
+  searchParams.billing_status = [0, 2] // 默认查询未开票和部分开票
   searchParams.start_date = ''
   searchParams.end_date = ''
   dateRange.value = null
@@ -437,7 +494,7 @@ const handleSave = async (record: any) => {
       received_amount: record.received_amount,
       balance_amount: record.balance_amount,
       status: record.status,
-      due_date: record.due_date || null,
+      due_date: record._due_date ? record._due_date.format('YYYY-MM-DD') : null,
     })
     message.success('保存成功')
   } catch (error: any) {
@@ -447,9 +504,79 @@ const handleSave = async (record: any) => {
   }
 }
 
-const handleViewDetail = (record: Payable) => {
-  // TODO: 实现详情查看功能
-  message.info('详情功能开发中')
+const onSelectChange = (keys: string[], rows: Payable[]) => {
+  selectedRowKeys.value = keys
+  selectedRecords.value = rows
+}
+
+const handleGenerateStatement = () => {
+  if (selectedRecords.value.length === 0) {
+    message.warning('请先选择要生成对账单的记录')
+    return
+  }
+
+  // 检查是否都是同一供应商
+  const supplierIds = [...new Set(selectedRecords.value.map(r => r.supplier_id))]
+  if (supplierIds.length > 1) {
+    message.warning('请选择同一供应商的记录生成对账单')
+    return
+  }
+
+  // 检查是否包含入库单类型的记录
+  const hasWarehousingOrders = selectedRecords.value.some(r => r.source_bill_type === 1)
+  if (!hasWarehousingOrders) {
+    message.warning('请选择包含入库单的记录')
+    return
+  }
+
+  statementModalVisible.value = true
+}
+
+const handleStatementSuccess = () => {
+  statementModalVisible.value = false
+  selectedRowKeys.value = []
+  selectedRecords.value = []
+  fetchPayables()
+}
+
+const handleGenerateWriteOff = () => {
+  if (selectedRecords.value.length === 0) {
+    message.warning('请先选择要生成核销单的记录')
+    return
+  }
+
+  // 检查是否都是同一供应商
+  const supplierIds = [...new Set(selectedRecords.value.map(r => r.supplier_id))]
+  if (supplierIds.length > 1) {
+    message.warning('请选择同一供应商的记录生成核销单')
+    return
+  }
+
+  // 检查是否全部已结算
+  const unsettledRecords = selectedRecords.value.filter(r => r.status !== 2)
+  if (unsettledRecords.length === 0) {
+    message.warning('所选记录均已结算，无法核销')
+    return
+  }
+
+  writeOffModalVisible.value = true
+}
+
+const handleWriteOffSuccess = () => {
+  writeOffModalVisible.value = false
+  selectedRowKeys.value = []
+  selectedRecords.value = []
+  fetchPayables()
+}
+
+const handleDeleteRecord = async (record: Payable) => {
+  try {
+    await payablesApi.delete(record.payable_id)
+    message.success('删除成功')
+    fetchPayables()
+  } catch (error: any) {
+    message.error(error.message || '删除失败')
+  }
 }
 
 onMounted(() => {
@@ -472,6 +599,18 @@ onMounted(() => {
 .header h1 {
   margin: 0;
   font-size: 20px;
+}
+
+.action-bar {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.selected-count {
+  color: #666;
+  font-size: 14px;
 }
 
 .search-bar {
@@ -498,6 +637,10 @@ onMounted(() => {
 
   :deep(.ant-select) {
     width: 180px;
+  }
+
+  :deep(.ant-select-multiple) {
+    width: 240px;
   }
 }
 </style>

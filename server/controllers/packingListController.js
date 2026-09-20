@@ -115,7 +115,7 @@ export const getPackingListByPackingNo = async (req, res) => {
 
 export const getAllPackingLists = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, packingNo, startDate, endDate } = req.query
+    const { page = 1, pageSize = 10, packingNo, buyerName, tradeTerms, startDate, endDate } = req.query
 
     const where = []
     const params = []
@@ -123,6 +123,16 @@ export const getAllPackingLists = async (req, res) => {
     if (packingNo) {
       where.push('packing_no LIKE ?')
       params.push(`%${packingNo}%`)
+    }
+
+    if (buyerName) {
+      where.push('buyer_name LIKE ?')
+      params.push(`%${buyerName}%`)
+    }
+
+    if (tradeTerms) {
+      where.push('trade_terms LIKE ?')
+      params.push(`%${tradeTerms}%`)
     }
 
     if (startDate && endDate) {

@@ -95,6 +95,9 @@
           <a-menu-item key="SettlementStatement" @click="navigateTo('/settlement-statement')">
             <span>对账单</span>
           </a-menu-item>
+          <a-menu-item key="WriteOffDocuments" @click="navigateTo('/write-off')">
+            <span>核销单</span>
+          </a-menu-item>
         </a-sub-menu>
         <a-sub-menu key="Reports">
           <template #icon>
@@ -143,6 +146,21 @@
           </template>
           <span>业务分类</span>
         </a-menu-item>
+        <a-sub-menu key="ExchangeRateManagement" v-if="userStore.isAdvanced">
+          <template #icon>
+            <SwapOutlined />
+          </template>
+          <template #title>汇率管理</template>
+          <a-menu-item key="Currencies" @click="navigateTo('/currencies')">
+            <span>币种管理</span>
+          </a-menu-item>
+          <a-menu-item key="ExchangeRates" @click="navigateTo('/exchange-rates')">
+            <span>银行汇率</span>
+          </a-menu-item>
+          <a-menu-item key="CustomsExchangeRates" @click="navigateTo('/customs-exchange-rates')">
+            <span>海关汇率</span>
+          </a-menu-item>
+        </a-sub-menu>
         <a-menu-item
           key="ProductClassifications"
           @click="navigateTo('/product-classifications')"
@@ -234,6 +252,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   FileSearchOutlined,
+  SwapOutlined,
 } from '@ant-design/icons-vue'
 
 const router = useRouter()

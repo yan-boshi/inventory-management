@@ -214,7 +214,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { SearchOutlined, ReloadOutlined, PrinterOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { warehousingExpenseReportApi } from '@/api/warehousingExpenseReport'
@@ -244,6 +244,21 @@ const pagination = reactive({
   total: 0,
 })
 
+// 动态生成筛选选项的辅助函数
+const generateFilters = (dataKey: string) => {
+  return computed(() => {
+    const values = [...new Set(reportData.value.map((item: any) => item[dataKey]).filter(Boolean))]
+    return values.map(value => ({ text: String(value), value: String(value) }))
+  })
+}
+
+// 商品编码筛选选项
+const productCodeFilters = generateFilters('product_code')
+// 商品名称筛选选项
+const productNameFilters = generateFilters('product_name')
+// 规格型号筛选选项
+const modelFilters = generateFilters('model')
+
 const columns = [
   {
     title: '单据类型',
@@ -272,9 +287,9 @@ const columns = [
     key: 'contract_number',
     width: 160,
   },
-  { title: '商品编码', dataIndex: 'product_code', key: 'product_code', width: 120 },
-  { title: '商品名称', dataIndex: 'product_name', key: 'product_name', width: 150 },
-  { title: '规格型号', dataIndex: 'model', key: 'model', width: 100 },
+  { title: '商品编码', dataIndex: 'product_code', key: 'product_code', width: 120, filters: productCodeFilters.value, onFilter: (value: string, record: any) => String(record.product_code) === value, filterMultiple: true },
+  { title: '商品名称', dataIndex: 'product_name', key: 'product_name', width: 150, filters: productNameFilters.value, onFilter: (value: string, record: any) => String(record.product_name) === value, filterMultiple: true },
+  { title: '规格型号', dataIndex: 'model', key: 'model', width: 100, filters: modelFilters.value, onFilter: (value: string, record: any) => String(record.model) === value, filterMultiple: true },
   { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' as const },
   { title: '入库数量', dataIndex: 'quantity', key: 'quantity', width: 90, align: 'right' as const },
   {
@@ -414,6 +429,24 @@ const allColumns = ref([
     visible: true,
   })),
 ])
+
+// 当动态筛选数据变化时，更新 allColumns 中对应列的 filters
+watch(
+  [productCodeFilters, productNameFilters, modelFilters],
+  () => {
+    const cols = allColumns.value
+    const filterMap: Record<string, any> = {
+      product_code: productCodeFilters.value,
+      product_name: productNameFilters.value,
+      model: modelFilters.value,
+    }
+    cols.forEach((col: any) => {
+      if (col.dataIndex && filterMap[col.dataIndex]) {
+        col.filters = filterMap[col.dataIndex]
+      }
+    })
+  }
+)
 
 // 获取可见的列（带分组）
 const visibleColumns = computed(() => {

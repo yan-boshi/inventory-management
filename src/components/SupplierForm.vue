@@ -39,6 +39,22 @@
           <a-input v-model:value="form.supplier_email" placeholder="请输入联系邮箱" />
         </a-form-item>
 
+        <a-form-item label="币种" name="currency" style="margin-bottom: 8px;">
+          <a-select v-model:value="form.currency" placeholder="请选择币种" allow-clear>
+            <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
+              {{ cur.currency_name }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+
+        <a-form-item label="国家" name="country" style="margin-bottom: 8px;">
+          <a-input v-model:value="form.country" placeholder="请输入国家" />
+        </a-form-item>
+
+        <a-form-item label="地区" name="region" style="margin-bottom: 8px;">
+          <a-input v-model:value="form.region" placeholder="请输入地区" />
+        </a-form-item>
+
         <a-form-item label="注册地址" name="register_address" style="grid-column: 1 / -1; margin-bottom: 8px;">
           <a-textarea v-model:value="form.register_address" :rows="1" placeholder="请输入注册地址" />
         </a-form-item>
@@ -85,7 +101,8 @@
 import { ref, reactive, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { suppliersApi } from '@/api/suppliers'
-import type { Supplier, CreateSupplierRequest } from '@/types'
+import type { Supplier, CreateSupplierRequest, Currency } from '@/types'
+import { getActiveCurrencies } from '@/api/currencies'
 
 const props = defineProps<{
   visible: boolean
@@ -100,6 +117,7 @@ const emit = defineEmits<{
 
 const formRef = ref()
 const loading = ref(false)
+const currencyList = ref<Currency[]>([])
 
 const form = reactive<CreateSupplierRequest>({
   supplier_name: '',
@@ -113,6 +131,9 @@ const form = reactive<CreateSupplierRequest>({
   bank_code: '',
   contact: '',
   contact_phone: '',
+  currency: undefined,
+  country: '',
+  region: '',
   remarks: ''
 })
 
@@ -152,7 +173,20 @@ const handleCancel = () => {
   emit('update:visible', false)
 }
 
+// 加载币种列表
+const loadCurrencies = async () => {
+  try {
+    const res = await getActiveCurrencies()
+    currencyList.value = res.data || []
+  } catch (error) {
+    console.error('加载币种列表失败:', error)
+  }
+}
+
 watch(() => props.visible, (visible) => {
+  if (visible) {
+    loadCurrencies()
+  }
   if (visible && props.isEdit && props.supplierData) {
     Object.assign(form, {
       supplier_name: props.supplierData.supplier_name || '',
@@ -166,6 +200,9 @@ watch(() => props.visible, (visible) => {
       bank_code: props.supplierData.bank_code || '',
       contact: props.supplierData.contact || '',
       contact_phone: props.supplierData.contact_phone || '',
+      currency: props.supplierData.currency || undefined,
+      country: props.supplierData.country || '',
+      region: props.supplierData.region || '',
       remarks: props.supplierData.remarks || ''
     })
   } else if (visible && !props.isEdit) {
@@ -186,6 +223,9 @@ const resetForm = () => {
     bank_code: '',
     contact: '',
     contact_phone: '',
+    currency: undefined,
+    country: '',
+    region: '',
     remarks: ''
   })
 }

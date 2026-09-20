@@ -39,6 +39,7 @@
               style="width: 120px"
             >
               <a-select-option value="pending">待出库</a-select-option>
+              <a-select-option value="partial">部分出库</a-select-option>
               <a-select-option value="completed">已完成</a-select-option>
               <a-select-option value="cancelled">已取消</a-select-option>
             </a-select>
@@ -57,6 +58,9 @@
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
               <a-button @click="handleExport"> <DownloadOutlined /> 导出Excel </a-button>
               <ColumnConfig :columns="allColumns" @update:columns="handleColumnConfigUpdate" cacheKey="outboundPlans" />
+              <a-button type="primary" @click="handleBatchGenerateDeliveryOrder" :disabled="selectedRowKeys.length === 0">
+                生成出库单
+              </a-button>
             </a-space>
           </a-form-item>
         </a-form>
@@ -69,6 +73,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="row_key"
+        :row-selection="rowSelection"
         :scroll="{ x: 3000, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
@@ -85,7 +90,7 @@
           </template>
 
           <template v-else-if="column.key === 'status'">
-            <a-tag :color="record.status === 'completed' ? 'green' : record.status === 'cancelled' ? 'red' : 'orange'">
+            <a-tag :color="record.status === 'completed' ? 'green' : record.status === 'cancelled' ? 'red' : record.status === 'partial' ? 'blue' : 'orange'">
               {{ statusTextMap[record.status] || '待出库' }}
             </a-tag>
           </template>
@@ -106,9 +111,6 @@
 
           <template v-else-if="column.key === 'actions'">
             <a-space>
-              <a-button type="link" size="small" @click="handleGenerateDeliveryOrder(record)">
-                生成出库单
-              </a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record)">
                 删除
               </a-button>
@@ -141,10 +143,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { outboundPlansApi } from '@/api/outboundPlans'
+import { productsApi } from '@/api/products'
 import type { OutboundPlan, OutboundPlanQueryParams } from '@/types'
 import DeliveryOrderForm from '@/components/DeliveryOrderForm.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
@@ -156,6 +159,37 @@ const loading = ref(false)
 const deliveryOrderFormVisible = ref(false)
 const deliveryOrderPrefill = ref<any>(undefined)
 const dateRange = ref<[any, any] | undefined>(undefined)
+const selectedRowKeys = ref<string[]>([])
+
+// 产品库存映射（用于生成出库单时填入库存数）
+const productStockMap = ref<Map<string, number>>(new Map())
+
+const loadProducts = async () => {
+  try {
+    const res = await productsApi.getAllList()
+    const products = res.data || []
+    if (products.length > 0) {
+      const map = new Map<string, number>()
+      products.forEach((p: any) => {
+        map.set(p.product_code, Math.floor(p.stock || 0))
+      })
+      productStockMap.value = map
+    }
+  } catch {
+    // 加载失败不影响其他功能
+  }
+}
+
+// 行选择配置
+const rowSelection = {
+  selectedRowKeys,
+  onChange: (keys: string[]) => {
+    selectedRowKeys.value = keys
+  },
+  getCheckboxProps: (record: any) => ({
+    disabled: record.status === 'completed' || record.status === 'cancelled',
+  }),
+}
 
 // 展开计划数据，每个明细项一行
 const expandedPlans = computed(() => {
@@ -221,6 +255,7 @@ const searchParams = reactive<OutboundPlanQueryParams>({
   status: undefined,
   startDate: '',
   endDate: '',
+  statusList: ['pending', 'partial'],
 })
 
 const pagination = reactive({
@@ -231,6 +266,7 @@ const pagination = reactive({
 
 const statusTextMap: Record<string, string> = {
   pending: '待出库',
+  partial: '部分出库',
   completed: '已完成',
   cancelled: '已取消',
 }
@@ -240,6 +276,25 @@ const outboundStatusTextMap: Record<string, string> = {
   partial: '部分出库',
   completed: '已完成',
 }
+
+// 动态生成筛选选项的辅助函数
+const generateFilters = (dataKey: string) => {
+  return computed(() => {
+    const values = [...new Set(expandedPlans.value.map((item: any) => item[dataKey]).filter(Boolean))]
+    return values.map(value => ({ text: String(value), value: String(value) }))
+  })
+}
+
+// 客户名称筛选选项
+const customerNameFilters = generateFilters('customer_name')
+// 产品代码筛选选项
+const productCodeFilters = generateFilters('product_code')
+// 产品名称筛选选项
+const productNameFilters = generateFilters('product_name')
+// 产品型号筛选选项
+const modelFilters = generateFilters('model')
+// 产品描述筛选选项
+const descriptionFilters = generateFilters('description')
 
 // 使用 ref 使列配置可通过 ColumnConfig 组件更新
 const allColumns = ref([
@@ -271,30 +326,45 @@ const allColumns = ref([
     dataIndex: 'customer_name',
     key: 'customer_name',
     width: 200,
+    filters: customerNameFilters.value,
+    onFilter: (value: string, record: any) => String(record.customer_name) === value,
+    filterMultiple: true,
   },
   {
     title: '产品代码',
     dataIndex: 'product_code',
     key: 'product_code',
     width: 120,
+    filters: productCodeFilters.value,
+    onFilter: (value: string, record: any) => String(record.product_code) === value,
+    filterMultiple: true,
   },
   {
     title: '产品名称',
     dataIndex: 'product_name',
     key: 'product_name',
     width: 150,
+    filters: productNameFilters.value,
+    onFilter: (value: string, record: any) => String(record.product_name) === value,
+    filterMultiple: true,
   },
   {
     title: '产品型号',
     dataIndex: 'model',
     key: 'model',
     width: 120,
+    filters: modelFilters.value,
+    onFilter: (value: string, record: any) => String(record.model) === value,
+    filterMultiple: true,
   },
   {
     title: '产品描述',
     dataIndex: 'description',
     key: 'description',
     width: 150,
+    filters: descriptionFilters.value,
+    onFilter: (value: string, record: any) => String(record.description) === value,
+    filterMultiple: true,
   },
   {
     title: '数量',
@@ -377,6 +447,27 @@ const handleColumnConfigUpdate = (newColumns: any[]) => {
   isUpdatingFromConfig = false
 }
 
+// 当动态筛选数据变化时，更新 allColumns 中对应列的 filters
+watch(
+  [customerNameFilters, productCodeFilters, productNameFilters, modelFilters, descriptionFilters],
+  () => {
+    if (isUpdatingFromConfig) return
+    const cols = allColumns.value
+    const filterMap: Record<string, any> = {
+      customer_name: customerNameFilters.value,
+      product_code: productCodeFilters.value,
+      product_name: productNameFilters.value,
+      model: modelFilters.value,
+      description: descriptionFilters.value,
+    }
+    cols.forEach((col: any) => {
+      if (col.dataIndex && filterMap[col.dataIndex]) {
+        col.filters = filterMap[col.dataIndex]
+      }
+    })
+  }
+)
+
 const visibleColumns = computed(() => {
   return allColumns.value.filter((col: any) => col.visible !== false)
 })
@@ -391,7 +482,11 @@ const loadPlans = async () => {
     if (searchParams.planNumber) params.planNumber = searchParams.planNumber
     if (searchParams.contractNumber) params.contractNumber = searchParams.contractNumber
     if (searchParams.customerName) params.customerName = searchParams.customerName
-    if (searchParams.status) params.status = searchParams.status
+    if (searchParams.status) {
+      params.status = searchParams.status
+    } else if (searchParams.statusList && searchParams.statusList.length > 0) {
+      params.statusList = searchParams.statusList.join(',')
+    }
     if (searchParams.startDate) params.startDate = searchParams.startDate
     if (searchParams.endDate) params.endDate = searchParams.endDate
 
@@ -422,6 +517,7 @@ const handleReset = () => {
   searchParams.status = undefined
   searchParams.startDate = ''
   searchParams.endDate = ''
+  searchParams.statusList = ['pending', 'partial']
   dateRange.value = undefined
   handleSearch()
 }
@@ -442,7 +538,7 @@ const handlePageChange = (page: number, pageSize: number) => {
   loadPlans()
 }
 
-// 生成出库单
+// 生成出库单（单行）
 const handleGenerateDeliveryOrder = (record: any) => {
   const plan = plans.value.find(p => p.outbound_plan_id === record.outbound_plan_id)
   if (!plan) return
@@ -464,6 +560,7 @@ const handleGenerateDeliveryOrder = (record: any) => {
     unit: item.unit || '',
     quantity: item.quantity || 0,
     max_quantity: item.quantity || 0,
+    stock: productStockMap.value.get(item.product_code) || 0,
     tax_included_price: item.tax_included_price || 0,
     tax_rate: item.tax_rate || 0,
     remarks: item.remarks || '',
@@ -481,10 +578,125 @@ const handleGenerateDeliveryOrder = (record: any) => {
   deliveryOrderFormVisible.value = true
 }
 
-const handleDeliveryOrderSuccess = () => {
+// 批量生成出库单
+const handleBatchGenerateDeliveryOrder = () => {
+  if (selectedRowKeys.value.length === 0) {
+    message.warning('请先选择要生成出库单的计划')
+    return
+  }
+
+  // 获取选中的行数据（去重，因为同一计划可能有多行明细）
+  const selectedPlanIds = new Set<string>()
+  const selectedRows = expandedPlans.value.filter(row => selectedRowKeys.value.includes(row.row_key))
+  selectedRows.forEach(row => selectedPlanIds.add(row.outbound_plan_id))
+
+  // 判断选中的出库计划是否属于同一个客户
+  const customerNames = new Set<string>()
+  selectedPlanIds.forEach(planId => {
+    const plan = plans.value.find(p => p.outbound_plan_id === planId)
+    if (plan?.customer_name) {
+      customerNames.add(plan.customer_name)
+    }
+  })
+
+  if (customerNames.size > 1) {
+    message.warning('选中的出库计划包含多个客户，请选择同一客户的出库计划')
+    return
+  }
+
+  // 收集所有选中计划的明细
+  const allItems: any[] = []
+  let firstPlan: any = null
+
+  selectedPlanIds.forEach(planId => {
+    const plan = plans.value.find(p => p.outbound_plan_id === planId)
+    if (!plan) return
+
+    if (!firstPlan) firstPlan = plan
+
+    let items: any[] = []
+    try {
+      items = typeof plan.plan_items === 'string' ? JSON.parse(plan.plan_items) : plan.plan_items || []
+    } catch {
+      items = []
+    }
+
+    items.forEach((item: any) => {
+      allItems.push({
+        product_code: item.product_code || '',
+        product_name: item.product_name || '',
+        model: item.model || '',
+        specification: item.description || '',
+        unit: item.unit || '',
+        quantity: item.quantity || 0,
+        stock: productStockMap.value.get(item.product_code) || 0,
+        tax_included_price: item.tax_included_price || 0,
+        tax_rate: item.tax_rate || 0,
+        remarks: item.remarks || '',
+      })
+    })
+  })
+
+  if (!firstPlan || allItems.length === 0) {
+    message.warning('选中的计划没有可生成的明细')
+    return
+  }
+
+  // 合并相同产品代码和含税单价的行
+  const mergedMap = new Map<string, any>()
+  allItems.forEach(item => {
+    const key = `${item.product_code}_${item.tax_included_price}`
+    if (mergedMap.has(key)) {
+      const existing = mergedMap.get(key)
+      existing.quantity += item.quantity
+      existing.max_quantity += item.quantity
+    } else {
+      mergedMap.set(key, {
+        ...item,
+        max_quantity: item.quantity,
+      })
+    }
+  })
+
+  // 重新编号
+  const deliveryItems = Array.from(mergedMap.values()).map((item, index) => ({
+    ...item,
+    no: index + 1,
+  }))
+
+  deliveryOrderPrefill.value = {
+    contract_number: firstPlan.contract_number || '',
+    customer_name: firstPlan.customer_name || '',
+    currency: firstPlan.currency || 'CNY',
+    delivery_items: deliveryItems,
+    entry_date: firstPlan.entry_date,
+    remarks: firstPlan.remarks || '',
+  }
+
+  deliveryOrderFormVisible.value = true
+}
+
+const handleDeliveryOrderSuccess = async () => {
   deliveryOrderFormVisible.value = false
   deliveryOrderPrefill.value = undefined
   message.success('出库单创建成功')
+
+  // 更新选中计划的状态为已完成
+  if (selectedRowKeys.value.length > 0) {
+    const selectedPlanIds = new Set<string>()
+    const selectedRows = expandedPlans.value.filter(row => selectedRowKeys.value.includes(row.row_key))
+    selectedRows.forEach(row => selectedPlanIds.add(row.outbound_plan_id))
+
+    try {
+      await Promise.all(Array.from(selectedPlanIds).map(planId =>
+        outboundPlansApi.update(planId, { status: 'completed' })
+      ))
+      selectedRowKeys.value = []
+      loadPlans()
+    } catch (error) {
+      console.error('更新出库计划状态失败:', error)
+    }
+  }
 }
 
 const handleDelete = (record: any) => {
@@ -583,6 +795,7 @@ const handleExport = async () => {
 
 onMounted(() => {
   loadPlans()
+  loadProducts()
 })
 </script>
 

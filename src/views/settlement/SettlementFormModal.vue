@@ -37,6 +37,7 @@
                 :filter-option="filterOption"
                 @change="handleEntityCodeChange"
                 size="small"
+                :disabled="hasPreSelected"
               >
                 <a-select-option v-for="item in entityOptions" :key="item.id" :value="item.code">
                   {{ item.code }}
@@ -48,8 +49,9 @@
             <a-form-item label="账单编号" name="statement_number" class="mb-2">
               <a-input
                 v-model:value="formData.statement_number"
-                placeholder="请输入账单编号"
+                placeholder="自动生成"
                 size="small"
+                disabled
               />
             </a-form-item>
           </a-col>
@@ -73,24 +75,10 @@
                 @search="handleEntityNameSearch"
                 size="small"
                 :options="entityNameOptions"
+                :disabled="hasPreSelected"
               />
             </a-form-item>
           </a-col>
-          <a-col :span="12">
-            <a-form-item label="销售额" name="sales_amount" class="mb-2">
-              <a-input-number
-                v-model:value="formData.sales_amount"
-                :min="0"
-                :precision="2"
-                style="width: 100%"
-                placeholder="请输入销售额"
-                size="small"
-              />
-            </a-form-item>
-          </a-col>
-        </a-row>
-
-        <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="结算方式" name="payment_method" class="mb-2">
               <a-select
@@ -108,34 +96,25 @@
               </a-select>
             </a-form-item>
           </a-col>
+        </a-row>
+
+        <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="开票日期" name="invoice_date" class="mb-2">
+            <a-form-item label="制单日期" name="document_date" class="mb-2">
               <a-date-picker
-                v-model:value="formData.invoice_date"
+                v-model:value="formData.document_date"
                 format="YYYY-MM-DD"
                 style="width: 100%"
-                placeholder="请选择开票日期"
+                placeholder="请选择制单日期"
                 size="small"
               />
             </a-form-item>
           </a-col>
-        </a-row>
-
-        <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="开票状态" class="mb-2">
               <a-tag :color="billingStatusColor" style="font-size: 14px; padding: 4px 12px;">
                 {{ billingStatusText }}
               </a-tag>
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="发票号" name="invoice_number" class="mb-2">
-              <a-input
-                v-model:value="formData.invoice_number"
-                placeholder="请输入发票号"
-                size="small"
-              />
             </a-form-item>
           </a-col>
         </a-row>
@@ -226,45 +205,66 @@
         </a-table>
       </a-card>
 
-      <!-- 页面下部分 -->
-      <a-card class="form-card" size="small">
-        <a-row :gutter="16">
-          <a-col :span="8">
-            <a-form-item label="制单日期" name="document_date" class="mb-2">
+      <!-- 页面下部分：开票记录 -->
+      <a-card title="开票记录" class="form-card" size="small">
+        <a-table
+          :columns="invoiceRecordColumns"
+          :data-source="formData.invoice_records"
+          :pagination="false"
+          bordered
+          size="small"
+          rowKey="_key"
+        >
+          <template #bodyCell="{ column, record, index }">
+            <template v-if="column.key === 'no'">
+              {{ index + 1 }}
+            </template>
+            <template v-else-if="column.key === 'invoice_date'">
               <a-date-picker
-                v-model:value="formData.document_date"
+                v-model:value="record._invoice_date"
                 format="YYYY-MM-DD"
                 style="width: 100%"
-                placeholder="请选择制单日期"
+                placeholder="请选择开票日期"
+                size="small"
+                @change="(date: any) => { record.invoice_date = date ? date.format('YYYY-MM-DD') : null }"
+              />
+            </template>
+            <template v-else-if="column.key === 'invoice_number'">
+              <a-input
+                v-model:value="record.invoice_number"
+                placeholder="请输入发票号"
                 size="small"
               />
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="已开票金额" name="invoiced_amount" class="mb-2">
+            </template>
+            <template v-else-if="column.key === 'invoiced_amount'">
               <a-input-number
-                v-model:value="formData.invoiced_amount"
+                v-model:value="record.invoiced_amount"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 style="width: 100%"
-                placeholder="请输入已开票金额"
+                placeholder="开票金额"
                 size="small"
               />
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="未开票金额" name="uninvoiced_amount" class="mb-2">
-              <a-input-number
-                v-model:value="formData.uninvoiced_amount"
-                :min="0"
-                :precision="2"
-                style="width: 100%"
-                placeholder="请输入未开票金额"
-                size="small"
-              />
-            </a-form-item>
-          </a-col>
-        </a-row>
+            </template>
+            <template v-else-if="column.key === 'uninvoiced_amount'">
+              <span>{{ formatMoney4(computedInvoiceRecords[index]?.uninvoiced_amount) }}</span>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <a-button type="link" danger size="small" :disabled="formData.invoice_records.length <= 1" @click="removeInvoiceRecord(index)">
+                删除
+              </a-button>
+            </template>
+          </template>
+        </a-table>
+        <div style="margin-top: 8px; text-align: center;">
+          <a-button type="dashed" size="small" @click="addInvoiceRecord" style="width: 200px;">
+            + 添加开票记录
+          </a-button>
+        </div>
+      </a-card>
+
+      <!-- 备注 -->
+      <a-card class="form-card" size="small">
         <a-row :gutter="16">
           <a-col :span="24">
             <a-form-item label="备注" name="remarks" class="mb-0">
@@ -298,7 +298,6 @@ import { settlementApi } from '@/api/settlement'
 import { customersApi } from '@/api/customers'
 import { suppliersApi } from '@/api/suppliers'
 import { paymentMethodsApi } from '@/api/paymentMethods'
-import type { SettlementStatementItem } from '@/types'
 import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
 
@@ -306,6 +305,7 @@ const props = defineProps<{
   visible: boolean
   type: 1 | 2 // 1=应收, 2=应付
   settlementId?: string
+  preSelectedRecords?: any[] // 从应收账款/应付账款页面预选的记录
 }>()
 
 const emit = defineEmits<{
@@ -321,6 +321,21 @@ const searchText = ref('')
 
 const isEdit = computed(() => !!props.settlementId)
 
+// 是否有预选记录（从应收账款/应付账款页面选择行后生成对账单）
+const hasPreSelected = computed(() => !!props.preSelectedRecords && props.preSelectedRecords.length > 0)
+
+// 开票记录行的类型
+interface InvoiceRecordRow {
+  _key: string
+  invoice_date: string | null
+  _invoice_date: dayjs.Dayjs | null
+  invoice_number: string
+  invoiced_amount: number
+  uninvoiced_amount: number
+}
+
+let invoiceRecordKeyCounter = 0
+
 const formData = reactive({
   type: props.type as 1 | 2,
   entity_id: '',
@@ -329,25 +344,25 @@ const formData = reactive({
   settlement_date_start: null as dayjs.Dayjs | null,
   settlement_date_end: null as dayjs.Dayjs | null,
   payment_method: '',
-  sales_amount: 0,
-  invoice_date: null as dayjs.Dayjs | null,
-  invoice_number: '',
   handling_fee: 0,
   document_date: dayjs() as dayjs.Dayjs | null,
   total_amount: 0,
-  invoiced_amount: 0,
-  uninvoiced_amount: 0,
   billing_status: 0 as 0 | 1 | 2,
   remarks: '',
   items: [] as any[],
+  invoice_records: [{
+    _key: `inv_${++invoiceRecordKeyCounter}`,
+    invoice_date: null,
+    _invoice_date: null,
+    invoice_number: '',
+    invoiced_amount: 0,
+    uninvoiced_amount: 0,
+  }] as InvoiceRecordRow[],
 })
 
 const rules = {
   entity_id: [{ required: true, message: '请选择客户/供应商代码' }],
   entity_name: [{ required: true, message: '请输入客户/供应商名称' }],
-  statement_number: [{ required: true, message: '请输入账单编号' }],
-  settlement_date_start: [{ required: true, message: '请选择开始月份' }],
-  settlement_date_end: [{ required: true, message: '请选择结束月份' }],
 }
 
 const itemColumns = computed(() => {
@@ -375,10 +390,61 @@ const totalAmount = computed(() => {
   return formData.items.reduce((sum, item) => sum + (item.amount_with_tax || 0), 0)
 })
 
+const invoiceRecordColumns = [
+  { title: '序号', key: 'no', width: 60, align: 'center' as const },
+  { title: '开票日期', key: 'invoice_date', width: 160 },
+  { title: '发票号', key: 'invoice_number', width: 160 },
+  { title: '开票金额', key: 'invoiced_amount', width: 140, align: 'right' as const },
+  { title: '未开票金额', key: 'uninvoiced_amount', width: 140, align: 'right' as const },
+  { title: '操作', key: 'actions', width: 80, align: 'center' as const },
+]
+
+const addInvoiceRecord = () => {
+  formData.invoice_records.push({
+    _key: `inv_${++invoiceRecordKeyCounter}`,
+    invoice_date: null,
+    _invoice_date: null,
+    invoice_number: '',
+    invoiced_amount: 0,
+    uninvoiced_amount: 0,
+  })
+}
+
+const removeInvoiceRecord = (index: number) => {
+  formData.invoice_records.splice(index, 1)
+}
+
+// 格式化金额（4位小数）
+const formatMoney4 = (value: number | undefined | null) => {
+  if (value === undefined || value === null) return '0.0000'
+  return Number(value).toLocaleString('zh-CN', {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  })
+}
+
+// 计算每行未开票金额：总额 - 累计已开票金额
+const computedInvoiceRecords = computed(() => {
+  const total = totalAmount.value || 0
+  let cumulativeInvoiced = 0
+  return formData.invoice_records.map(record => {
+    cumulativeInvoiced += record.invoiced_amount || 0
+    return {
+      ...record,
+      uninvoiced_amount: Math.max(0, total - cumulativeInvoiced),
+    }
+  })
+})
+
+// 根据开票记录计算总已开票金额
+const totalInvoicedAmount = computed(() => {
+  return formData.invoice_records.reduce((sum, r) => sum + (r.invoiced_amount || 0), 0)
+})
+
 // 根据已开票金额和总金额计算开票状态
 // 0=未开票, 1=已开票, 2=部分开票
 const computedBillingStatus = computed(() => {
-  const invoiced = formData.invoiced_amount || 0
+  const invoiced = totalInvoicedAmount.value
   const total = totalAmount.value || 0
   if (total <= 0) return 0
   if (invoiced >= total) return 1
@@ -567,17 +633,30 @@ const fetchDetail = async () => {
       formData.settlement_date_end = date.endOf('month')
     }
     formData.payment_method = data.payment_method || ''
-    formData.sales_amount = data.sales_amount
-    formData.invoice_date = data.invoice_date ? dayjs(data.invoice_date) : null
-    formData.invoice_number = data.invoice_number || ''
     formData.handling_fee = data.handling_fee || 0
     formData.document_date = data.document_date ? dayjs(data.document_date) : null
     formData.total_amount = data.total_amount
-    formData.invoiced_amount = data.invoiced_amount
-    formData.uninvoiced_amount = data.uninvoiced_amount
     formData.billing_status = data.billing_status
     formData.remarks = data.remarks || ''
     formData.items = data.items || []
+
+    // 加载开票记录
+    const loadedRecords = (data.invoice_records || []).map((r: any) => ({
+      _key: `inv_${++invoiceRecordKeyCounter}`,
+      invoice_date: r.invoice_date || null,
+      _invoice_date: r.invoice_date ? dayjs(r.invoice_date) : null,
+      invoice_number: r.invoice_number || '',
+      invoiced_amount: Number(r.invoiced_amount) || 0,
+      uninvoiced_amount: Number(r.uninvoiced_amount) || 0,
+    }))
+    formData.invoice_records = loadedRecords.length > 0 ? loadedRecords : [{
+      _key: `inv_${++invoiceRecordKeyCounter}`,
+      invoice_date: null,
+      _invoice_date: null,
+      invoice_number: '',
+      invoiced_amount: 0,
+      uninvoiced_amount: 0,
+    }]
 
     await fetchEntityOptions()
   } catch (error: any) {
@@ -589,12 +668,6 @@ const handleSubmit = async () => {
   try {
     await formRef.value.validateFields()
   } catch {
-    return
-  }
-
-  // 验证账单编号唯一性（创建时）
-  if (!isEdit.value && !formData.statement_number) {
-    message.error('请输入账单编号')
     return
   }
 
@@ -618,18 +691,20 @@ const handleSubmit = async () => {
       settlement_date: settlementDateStart,
       settlement_date_end: settlementDateEnd,
       payment_method: formData.payment_method,
-      sales_amount: formData.sales_amount,
       is_invoiced: computedBillingStatus.value === 1 ? 1 : 0,
-      invoice_date: formData.invoice_date ? formData.invoice_date.format('YYYY-MM-DD') : null,
-      invoice_number: formData.invoice_number,
       handling_fee: formData.handling_fee,
       document_date: formData.document_date ? formData.document_date.format('YYYY-MM-DD') : null,
       total_amount: totalAmount.value,
-      invoiced_amount: formData.invoiced_amount,
-      uninvoiced_amount: formData.uninvoiced_amount,
+      invoiced_amount: totalInvoicedAmount.value,
       billing_status: computedBillingStatus.value,
       remarks: formData.remarks,
       items: formData.items,
+      invoice_records: computedInvoiceRecords.value.map(r => ({
+        invoice_date: r.invoice_date,
+        invoice_number: r.invoice_number,
+        invoiced_amount: r.invoiced_amount,
+        uninvoiced_amount: r.uninvoiced_amount,
+      })),
     }
 
     if (isEdit.value && props.settlementId) {
@@ -661,17 +736,83 @@ const resetForm = () => {
   formData.settlement_date_start = null
   formData.settlement_date_end = null
   formData.payment_method = ''
-  formData.sales_amount = 0
-  formData.invoice_date = null
-  formData.invoice_number = ''
   formData.handling_fee = 0
   formData.document_date = dayjs()
   formData.total_amount = 0
-  formData.invoiced_amount = 0
-  formData.uninvoiced_amount = 0
   formData.billing_status = 0
   formData.remarks = ''
   formData.items = []
+  invoiceRecordKeyCounter = 0
+  formData.invoice_records = [{
+    _key: `inv_${++invoiceRecordKeyCounter}`,
+    invoice_date: null,
+    _invoice_date: null,
+    invoice_number: '',
+    invoiced_amount: 0,
+    uninvoiced_amount: 0,
+  }]
+}
+
+// 从预选记录中加载数据
+const loadFromPreSelectedRecords = async () => {
+  if (!props.preSelectedRecords || props.preSelectedRecords.length === 0) return
+
+  const firstRecord = props.preSelectedRecords[0]
+
+  // 自动填充实体信息
+  if (formData.type === 1) {
+    // 应收：客户信息
+    formData.entity_id = firstRecord.customer_id || ''
+    formData.entity_name = firstRecord.customer_name || ''
+  } else {
+    // 应付：供应商信息
+    formData.entity_id = firstRecord.supplier_id || ''
+    formData.entity_name = firstRecord.supplier_name || ''
+  }
+
+  // 同步结算方式：取第一个有结算方式的记录
+  const paymentMethodRecord = props.preSelectedRecords.find(r => r.payment_method)
+  if (paymentMethodRecord) {
+    formData.payment_method = paymentMethodRecord.payment_method
+  }
+
+  // 获取每个记录的商品信息
+  const allItems: any[] = []
+  for (const record of props.preSelectedRecords) {
+    const orderNumber = record.source_bill_id
+    if (orderNumber) {
+      try {
+        const itemsRes = await settlementApi.getOrderItems({
+          type: formData.type,
+          order_number: orderNumber,
+        })
+        const items = (itemsRes.data || []).map((item: any) => ({
+          ...item,
+          delivery_date: dayjs(formData.type === 1 ? record.delivery_time : record.warehousing_time).format('YYYY-MM-DD'),
+          delivery_number: orderNumber,
+          source_type: formData.type,
+          source_id: record.receivable_id || record.payable_id,
+          currency: 'CNY',
+        }))
+        allItems.push(...items)
+      } catch (error: any) {
+        console.error(`获取单据 ${orderNumber} 商品信息失败:`, error)
+      }
+    }
+  }
+
+  formData.items = allItems
+  formData.total_amount = totalAmount.value
+}
+
+// 获取下一个账单编号
+const fetchNextStatementNumber = async () => {
+  try {
+    const res = await settlementApi.getNextStatementNumber()
+    formData.statement_number = res.data.statement_number
+  } catch (error: any) {
+    console.error('获取账单编号失败:', error)
+  }
 }
 
 // 监听 visible 变化
@@ -684,8 +825,14 @@ watch(
       await fetchPaymentMethods()
       if (isEdit.value) {
         await fetchDetail()
+      } else if (props.preSelectedRecords && props.preSelectedRecords.length > 0) {
+        resetForm()
+        formData.type = props.type
+        await fetchNextStatementNumber()
+        await loadFromPreSelectedRecords()
       } else {
         resetForm()
+        await fetchNextStatementNumber()
       }
     }
   }

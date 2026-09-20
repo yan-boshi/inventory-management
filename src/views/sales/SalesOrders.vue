@@ -383,6 +383,15 @@ const paymentMethodFilters = generateFilters('payment_method')
 const currencyFilters = generateFilters('currency')
 // 销售员筛选选项
 const salesPersonFilters = generateFilters('sales_person')
+// 客户名称筛选选项
+const customerNameFilters = generateFilters('customer_name')
+// 客户代码筛选选项
+const customerCodeFilters = generateFilters('customer_code')
+// 收到发票筛选选项
+const invoiceReceivedFilters = computed(() => [
+  { text: '是', value: '是' },
+  { text: '否', value: '否' },
+])
 // 状态筛选选项
 const statusFilters = computed(() => [
   { text: t.value.salesOrder.notShipped, value: '1' },
@@ -427,12 +436,18 @@ const allColumns = ref([
     dataIndex: 'customer_name',
     key: 'customer_name',
     width: 250,
+    filters: customerNameFilters.value,
+    onFilter: (value: string, record: any) => String(record.customer_name) === value,
+    filterMultiple: true,
   },
   {
     title: t.value.salesOrder.customerCode,
     dataIndex: 'customer_code',
     key: 'customer_code',
     width: 120,
+    filters: customerCodeFilters.value,
+    onFilter: (value: string, record: any) => String(record.customer_code) === value,
+    filterMultiple: true,
   },
   {
     title: t.value.salesOrder.productCode,
@@ -631,6 +646,9 @@ const allColumns = ref([
     key: 'invoice_received',
     width: 90,
     align: 'center',
+    filters: invoiceReceivedFilters.value,
+    onFilter: (value: string, record: any) => String(record.invoice_received) === value,
+    filterMultiple: true,
   },
   {
     title: '结算日期',
@@ -701,6 +719,9 @@ watch(
     salesPersonFilters,
     statusFilters,
     purchaseStatusFilters,
+    customerNameFilters,
+    customerCodeFilters,
+    invoiceReceivedFilters,
   ],
   () => {
     if (isUpdatingFromConfig) return
@@ -715,6 +736,9 @@ watch(
       sales_person: salesPersonFilters.value,
       status: statusFilters.value,
       purchase_status: purchaseStatusFilters.value,
+      customer_name: customerNameFilters.value,
+      customer_code: customerCodeFilters.value,
+      invoice_received: invoiceReceivedFilters.value,
     }
     cols.forEach((col: any) => {
       if (col.dataIndex && filterMap[col.dataIndex]) {

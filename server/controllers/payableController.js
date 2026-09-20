@@ -11,14 +11,28 @@ export const getAllPayables = async (req, res) => {
       params.push(`%${supplier_name}%`)
     }
 
+    // 支持多选状态查询
     if (status !== undefined && status !== '' && status !== null) {
-      where.push('status = ?')
-      params.push(parseInt(status))
+      const statusList = Array.isArray(status) ? status.map(Number) : [parseInt(status)]
+      if (statusList.length === 1) {
+        where.push('status = ?')
+        params.push(statusList[0])
+      } else if (statusList.length > 1) {
+        where.push(`status IN (${statusList.map(() => '?').join(',')})`)
+        params.push(...statusList)
+      }
     }
 
+    // 支持多选开票状态查询
     if (billing_status !== undefined && billing_status !== '' && billing_status !== null) {
-      where.push('billing_status = ?')
-      params.push(parseInt(billing_status))
+      const billingStatusList = Array.isArray(billing_status) ? billing_status.map(Number) : [parseInt(billing_status)]
+      if (billingStatusList.length === 1) {
+        where.push('billing_status = ?')
+        params.push(billingStatusList[0])
+      } else if (billingStatusList.length > 1) {
+        where.push(`billing_status IN (${billingStatusList.map(() => '?').join(',')})`)
+        params.push(...billingStatusList)
+      }
     }
 
     if (start_date) {

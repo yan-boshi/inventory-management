@@ -1,8 +1,20 @@
 import pool from '../config/database.js'
 import SettlementStatement from '../models/SettlementStatement.js'
 import SettlementStatementItem from '../models/SettlementStatementItem.js'
+import SettlementInvoiceRecord from '../models/SettlementInvoiceRecord.js'
 import Receivable from '../models/Receivable.js'
 import Payable from '../models/Payable.js'
+
+// 获取下一个对账单编号
+export const getNextStatementNumber = async (req, res) => {
+  try {
+    const statement_number = await SettlementStatement.generateStatementNumber()
+    res.json({ success: true, data: { statement_number } })
+  } catch (error) {
+    console.error('获取对账单编号失败:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+}
 
 // 根据已开票金额更新关联的应收/应付单的开票状态
 const updateItemBillingStatus = async (items, invoicedAmount) => {
@@ -179,12 +191,16 @@ export const getSettlementById = async (req, res) => {
     // 获取关联的明细
     const items = await SettlementStatementItem.findByStatementId(id)
 
+    // 获取开票记录
+    const invoice_records = await SettlementInvoiceRecord.findByStatementId(id)
+
     res.json({
       success: true,
       data: {
         ...statement,
         settlement_date: statement.billing_month || null,
-        items
+        items,
+        invoice_records
       }
     })
   } catch (error) {
@@ -195,18 +211,22 @@ export const getSettlementById = async (req, res) => {
 
 // 创建对账单
 export const createSettlement = async (req, res) => {
+  const connection = await pool.getConnection()
   try {
+    await connection.beginTransaction()
+
     const {
       type, entity_id, entity_name, billing_month, settlement_date, payment_method,
       sales_amount, is_invoiced, invoice_date, invoice_number,
       handling_fee, document_date, total_amount, invoiced_amount, uninvoiced_amount,
-      billing_status, remarks, items
+      billing_status, remarks, items, invoice_records
     } = req.body
 
     // 兼容前端发送的 settlement_date，映射到 billing_month
     const resolvedBillingMonth = billing_month || (settlement_date ? settlement_date.substring(0, 7) : null)
 
     if (!type || !entity_id) {
+      await connection.rollback()
       return res.status(400).json({ success: false, message: '缺少必要参数' })
     }
 
@@ -214,47 +234,38 @@ export const createSettlement = async (req, res) => {
     const statement_number = await SettlementStatement.generateStatementNumber()
 
     // 创建对账单
-    const statement = await SettlementStatement.create({
-      statement_number,
-      type,
-      entity_id,
-      entity_name,
-      billing_month: resolvedBillingMonth,
-      payment_method,
-      sales_amount,
-      is_invoiced,
-      invoice_date,
-      invoice_number,
-      handling_fee,
-      document_date,
-      total_amount,
-      invoiced_amount,
-      uninvoiced_amount,
-      billing_status,
-      remarks
-    })
+    const [result] = await connection.query(
+      `INSERT INTO settlement_statements (
+        statement_number, type, entity_id, entity_name, billing_month, payment_method,
+        sales_amount, is_invoiced, invoice_date, invoice_number,
+        handling_fee, document_date, total_amount, invoiced_amount, uninvoiced_amount,
+        billing_status, remarks
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        statement_number, type, entity_id, entity_name, resolvedBillingMonth, payment_method,
+        sales_amount, is_invoiced, invoice_date, invoice_number,
+        handling_fee, document_date, total_amount, invoiced_amount, uninvoiced_amount,
+        billing_status, remarks
+      ]
+    )
+
+    const statementId = result.insertId
 
     // 创建明细
     if (items && items.length > 0) {
       for (const item of items) {
-        await SettlementStatementItem.create({
-          statement_id: statement.statement_id,
-          source_type: item.source_type,
-          source_id: item.source_id,
-          amount: item.amount,
-          delivery_date: item.delivery_date,
-          delivery_number: item.delivery_number,
-          product_code: item.product_code,
-          product_name: item.product_name,
-          product_model: item.product_model,
-          product_description: item.product_description,
-          quantity: item.quantity,
-          currency: item.currency,
-          unit: item.unit,
-          unit_price: item.unit_price,
-          amount_with_tax: item.amount_with_tax,
-          remarks: item.remarks
-        })
+        await connection.query(
+          `INSERT INTO settlement_statement_items (
+            statement_id, source_type, source_id, amount, delivery_date, delivery_number,
+            product_code, product_name, product_model, product_description,
+            quantity, currency, unit, unit_price, amount_with_tax, remarks
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            statementId, item.source_type, item.source_id, item.amount, item.delivery_date, item.delivery_number,
+            item.product_code, item.product_name, item.product_model, item.product_description,
+            item.quantity, item.currency, item.unit, item.unit_price, item.amount_with_tax, item.remarks
+          ]
+        )
       }
 
       // 将手续费均分给每个应收/应付单
@@ -264,10 +275,16 @@ export const createSettlement = async (req, res) => {
         for (const item of items) {
           if (item.source_type === 1) {
             // 应收单
-            await Receivable.update(item.source_id, { handling_fee: feePerItem })
+            await connection.query(
+              'UPDATE receivables SET handling_fee = ? WHERE receivable_id = ?',
+              [feePerItem, item.source_id]
+            )
           } else if (item.source_type === 2) {
             // 应付单
-            await Payable.update(item.source_id, { handling_fee: feePerItem })
+            await connection.query(
+              'UPDATE payables SET handling_fee = ? WHERE payable_id = ?',
+              [feePerItem, item.source_id]
+            )
           }
         }
       }
@@ -276,10 +293,28 @@ export const createSettlement = async (req, res) => {
       await updateItemBillingStatus(items, invoiced_amount)
     }
 
+    // 创建开票记录
+    if (invoice_records && invoice_records.length > 0) {
+      for (const record of invoice_records) {
+        await connection.query(
+          `INSERT INTO settlement_invoice_records (
+            statement_id, invoice_date, invoice_number, invoiced_amount, uninvoiced_amount
+          ) VALUES (?, ?, ?, ?, ?)`,
+          [statementId, record.invoice_date, record.invoice_number, record.invoiced_amount, record.uninvoiced_amount]
+        )
+      }
+    }
+
+    await connection.commit()
+
+    const statement = await SettlementStatement.findById(statementId)
     res.status(201).json({ success: true, data: statement })
   } catch (error) {
+    await connection.rollback()
     console.error('创建对账单失败:', error)
     res.status(500).json({ success: false, message: error.message })
+  } finally {
+    connection.release()
   }
 }
 
@@ -291,7 +326,7 @@ export const updateSettlement = async (req, res) => {
       type, entity_id, entity_name, billing_month, settlement_date, payment_method,
       sales_amount, is_invoiced, invoice_date, invoice_number, document_date,
       total_amount, invoiced_amount, uninvoiced_amount, billing_status,
-      handling_fee, remarks, items
+      handling_fee, remarks, items, invoice_records
     } = req.body
 
     // 兼容前端发送的 settlement_date，映射到 billing_month
@@ -367,6 +402,25 @@ export const updateSettlement = async (req, res) => {
 
       // 根据已开票金额更新关联的应收/应付单的开票状态
       await updateItemBillingStatus(items, invoiced_amount)
+    }
+
+    // 更新开票记录
+    if (invoice_records !== undefined) {
+      // 删除旧的开票记录
+      await SettlementInvoiceRecord.deleteByStatementId(id)
+
+      // 创建新的开票记录
+      if (invoice_records && invoice_records.length > 0) {
+        for (const record of invoice_records) {
+          await SettlementInvoiceRecord.create({
+            statement_id: id,
+            invoice_date: record.invoice_date,
+            invoice_number: record.invoice_number,
+            invoiced_amount: record.invoiced_amount,
+            uninvoiced_amount: record.uninvoiced_amount
+          })
+        }
+      }
     }
 
     res.json({ success: true, data: statement })
@@ -495,8 +549,8 @@ export const getOrderItems = async (req, res) => {
           product_description: item.specification,
           quantity: item.quantity,
           unit: item.unit,
-          unit_price: item.unit_price,
-          amount_with_tax: item.amount,
+          unit_price: item.tax_included_price,
+          amount_with_tax: (item.quantity || 0) * (item.tax_included_price || 0),
           remarks: item.remarks
         }))
       }

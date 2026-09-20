@@ -83,9 +83,9 @@
             <div class="form-item">
               <label class="form-label">{{ t.salesOrder.currency }}</label>
               <a-select v-model:value="form.currency" class="invisible-select customer-name-input">
-                <a-select-option value="CNY">{{ t.salesOrder.cny }}</a-select-option>
-                <a-select-option value="USD">{{ t.salesOrder.usd }}</a-select-option>
-                <a-select-option value="EUR">{{ t.salesOrder.eur }}</a-select-option>
+                <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
+                  {{ cur.currency_name }}
+                </a-select-option>
               </a-select>
             </div>
             <div class="form-item">
@@ -291,35 +291,6 @@
                   />
                 </template>
 
-                <template v-else-if="column.key === 'invoice_date'">
-                  <a-date-picker
-                    v-model:value="record.invoice_date"
-                    format="YYYY-MM-DD"
-                    style="width: 100%"
-                    class="invisible-input"
-                  />
-                </template>
-
-                <template v-else-if="column.key === 'invoice_number'">
-                  <a-input
-                    v-model:value="record.invoice_number"
-                    style="width: 100%"
-                    class="invisible-input"
-                  />
-                </template>
-
-                <template v-else-if="column.key === 'invoice_received'">
-                  <a-select
-                    v-model:value="record.invoice_received"
-                    :placeholder="t.common.pleaseSelect"
-                    style="width: 100%"
-                    class="invisible-select"
-                  >
-                    <a-select-option value="是">{{ t.salesOrder.yes }}</a-select-option>
-                    <a-select-option value="否">{{ t.salesOrder.noOption }}</a-select-option>
-                  </a-select>
-                </template>
-
                 <template v-else-if="column.key === 'settlement_date'">
                   <a-date-picker
                     v-model:value="record.settlement_date"
@@ -506,7 +477,9 @@ import type {
   ProductOption,
   PaymentMethodOption,
   BusinessCategoryOption,
+  Currency,
 } from '@/types'
+import { getActiveCurrencies } from '@/api/currencies'
 
 const userStore = useUserStore()
 
@@ -584,6 +557,7 @@ const loading = reactive({
   customers: false,
   products: false,
 })
+const currencyList = ref<Currency[]>([])
 
 const getStatusColor = (status: number) => {
   const colorMap: Record<number, string> = {
@@ -662,9 +636,6 @@ const itemColumns = computed(() => [
   { title: t.value.salesOrder.outboundStatus, key: 'status', width: 80 },
   { title: t.value.salesOrder.purchaseStatus, key: 'purchase_status', width: 100 },
   { title: t.value.salesOrder.deliveryDate, key: 'delivery_date', width: 130 },
-  { title: t.value.salesOrder.invoiceDate, key: 'invoice_date', width: 130 },
-  { title: t.value.salesOrder.invoiceNumber, key: 'invoice_number', width: 120 },
-  { title: t.value.salesOrder.invoiceReceived, key: 'invoice_received', width: 90 },
   { title: t.value.salesOrder.settlementDate, key: 'settlement_date', width: 130 },
   { title: t.value.salesOrder.settlementAmount, key: 'settlement_amount', width: 100, align: 'right' as const },
   { title: t.value.salesOrder.unsettledAmount, key: 'unsettled_amount', width: 100, align: 'right' as const },
@@ -1044,11 +1015,22 @@ const handleCancel = () => {
   emit('update:visible', false)
 }
 
+// 加载币种列表
+const loadCurrencies = async () => {
+  try {
+    const res = await getActiveCurrencies()
+    currencyList.value = res.data || []
+  } catch (error) {
+    console.error('加载币种列表失败:', error)
+  }
+}
+
 // 监听显示状态变化
 watch(
   () => props.visible,
   visible => {
     if (visible) {
+      loadCurrencies()
       if (!props.isEdit) {
         // 从报价单转换的情况
         if (props.salesOrderData?.quotation_number) {

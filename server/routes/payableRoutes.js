@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, adminOnly } from '../middleware/auth.js'
 import {
   getAllPayables,
   getPayableById,
@@ -12,6 +12,6 @@ const router = express.Router()
 router.get('/', authMiddleware, getAllPayables)
 router.get('/:id', authMiddleware, getPayableById)
 router.put('/:id', authMiddleware, updatePayable)
-router.delete('/:id', authMiddleware, deletePayable)
+router.delete('/:id', authMiddleware, adminOnly, deletePayable)
 
 export default router

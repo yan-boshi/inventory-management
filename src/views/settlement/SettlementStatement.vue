@@ -130,14 +130,6 @@
                 <template #icon><DownloadOutlined /></template>
                 导出Excel
               </a-button>
-              <a-button type="primary" @click="handleCreateReceivable" style="margin-left: 16px;">
-                <template #icon><PlusOutlined /></template>
-                新增应收对账单
-              </a-button>
-              <a-button type="primary" @click="handleCreatePayable" style="background-color: #fa8c16; border-color: #fa8c16;">
-                <template #icon><PlusOutlined /></template>
-                新增应付对账单
-              </a-button>
             </a-space>
           </a-form-item>
         </a-form>
@@ -155,8 +147,12 @@
         bordered
         size="small"
       >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'type'">
+        <template #bodyCell="{ column, record, index }">
+          <template v-if="column.key === 'no'">
+            {{ index + 1 }}
+          </template>
+
+          <template v-else-if="column.key === 'type'">
             <a-tag :color="record.type === 1 ? 'blue' : 'orange'">
               {{ record.type === 1 ? '应收' : '应付' }}
             </a-tag>
@@ -239,7 +235,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined, PlusOutlined, DownloadOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { settlementApi } from '@/api/settlement'
 import type { SettlementStatement, SettlementSummary, SettlementQueryParams } from '@/types'
 import { formatDate } from '@/utils/date'
@@ -284,6 +280,12 @@ const pagination = reactive({
 })
 
 const columns = [
+  {
+    title: '序号',
+    key: 'no',
+    width: 60,
+    align: 'center' as const,
+  },
   {
     title: '账单编号',
     dataIndex: 'statement_number',
@@ -449,18 +451,6 @@ const handlePageChange = (page: number, pageSize: number) => {
   pagination.current = page
   pagination.pageSize = pageSize
   fetchSettlementList()
-}
-
-const handleCreateReceivable = () => {
-  formModalType.value = 1
-  formModalSettlementId.value = undefined
-  formModalVisible.value = true
-}
-
-const handleCreatePayable = () => {
-  formModalType.value = 2
-  formModalSettlementId.value = undefined
-  formModalVisible.value = true
 }
 
 const handleViewDetail = (record: SettlementStatement) => {

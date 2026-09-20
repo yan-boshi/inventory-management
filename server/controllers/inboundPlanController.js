@@ -11,6 +11,7 @@ export const getAllInboundPlans = async (req, res) => {
       supplierName,
       purchasePerson,
       status,
+      statusList,
       startDate,
       endDate
     } = req.query
@@ -41,6 +42,12 @@ export const getAllInboundPlans = async (req, res) => {
     if (status) {
       where.push('status = ?')
       params.push(status)
+    } else if (statusList) {
+      const statuses = Array.isArray(statusList) ? statusList : statusList.split(',')
+      if (statuses.length > 0) {
+        where.push(`status IN (${statuses.map(() => '?').join(',')})`)
+        params.push(...statuses)
+      }
     }
 
     if (startDate && endDate) {

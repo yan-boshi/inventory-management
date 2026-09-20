@@ -109,7 +109,7 @@ export const getPurchaseOrderById = async (req, res) => {
 
 export const createPurchaseOrder = async (req, res) => {
   try {
-    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person, related_sales_order_id } = req.body
+    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person, related_sales_order_id, related_sales_orders } = req.body
 
     if (!supplier_name || !supplier_code) {
       return res.status(400).json({ success: false, message: 'Supplier name and code are required' })
@@ -130,12 +130,20 @@ export const createPurchaseOrder = async (req, res) => {
       contract_number,
       expenses,
       purchase_person,
-      related_sales_order_id
+      related_sales_order_id,
+      related_sales_orders
     })
 
     // 更新关联销售订单商品的采购状态
     if (related_sales_order_id) {
       await updateSalesOrderPurchaseStatus(related_sales_order_id)
+    }
+    // 更新 related_sales_orders 中每个销售订单的采购状态
+    if (related_sales_orders && Array.isArray(related_sales_orders)) {
+      const salesOrderIds = [...new Set(related_sales_orders.map(item => item.sales_order_id).filter(Boolean))]
+      for (const soId of salesOrderIds) {
+        await updateSalesOrderPurchaseStatus(soId)
+      }
     }
 
     res.status(201).json({ success: true, data: order })
@@ -152,7 +160,7 @@ export const createPurchaseOrder = async (req, res) => {
 export const updatePurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params
-    const { order_number, supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person, related_sales_order_id } = req.body
+    const { order_number, supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person, related_sales_order_id, related_sales_orders } = req.body
 
     const existing = await PurchaseOrder.findById(id)
     if (!existing) {
@@ -171,6 +179,7 @@ export const updatePurchaseOrder = async (req, res) => {
     if (expenses !== undefined) updateData.expenses = expenses
     if (purchase_person !== undefined) updateData.purchase_person = purchase_person
     if (related_sales_order_id !== undefined) updateData.related_sales_order_id = related_sales_order_id || null
+    if (related_sales_orders !== undefined) updateData.related_sales_orders = related_sales_orders ? JSON.stringify(related_sales_orders) : null
 
     if (purchase_items !== undefined) {
       if (!Array.isArray(purchase_items) || purchase_items.length === 0) {
@@ -205,10 +214,39 @@ export const updatePurchaseOrder = async (req, res) => {
     const newSalesOrderId = related_sales_order_id !== undefined ? (related_sales_order_id || null) : oldSalesOrderId
 
     if (oldSalesOrderId && oldSalesOrderId !== newSalesOrderId) {
-      await updateSalesOrderPurchaseStatus(oldSalesOrderId)
+      try {
+        await updateSalesOrderPurchaseStatus(oldSalesOrderId)
+      } catch (syncErr) {
+        console.error('同步旧销售订单采购状态失败（不影响采购订单更新）:', syncErr.message)
+      }
     }
     if (newSalesOrderId) {
-      await updateSalesOrderPurchaseStatus(newSalesOrderId)
+      try {
+        await updateSalesOrderPurchaseStatus(newSalesOrderId)
+      } catch (syncErr) {
+        console.error('同步新销售订单采购状态失败（不影响采购订单更新）:', syncErr.message)
+      }
+    }
+
+    // 更新 related_sales_orders 中每个销售订单的采购状态
+    if (related_sales_orders !== undefined) {
+      // 收集旧的 related_sales_orders 中的销售订单ID
+      let oldRelatedSalesOrderIds = []
+      try {
+        const oldRelatedSalesOrders = existing.related_sales_orders ? JSON.parse(existing.related_sales_orders) : []
+        oldRelatedSalesOrderIds = [...new Set(oldRelatedSalesOrders.map(item => item.sales_order_id).filter(Boolean))]
+      } catch {}
+
+      // 收集新的 related_sales_orders 中的销售订单ID
+      const newRelatedSalesOrderIds = related_sales_orders
+        ? [...new Set(related_sales_orders.map(item => item.sales_order_id).filter(Boolean))]
+        : []
+
+      // 合并需要更新的销售订单ID（去重）
+      const allSalesOrderIds = [...new Set([...oldRelatedSalesOrderIds, ...newRelatedSalesOrderIds])]
+      for (const soId of allSalesOrderIds) {
+        await updateSalesOrderPurchaseStatus(soId)
+      }
     }
 
     res.json({ success: true, data: order })

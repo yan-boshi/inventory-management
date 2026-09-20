@@ -248,6 +248,8 @@ export interface LocaleMessages {
     entryDate: string
     relatedSalesOrder: string
     selectRelatedSalesOrder: string
+    orderNumber: string
+    addRelatedSalesOrder: string
     currency: string
     cny: string
     usd: string
@@ -630,6 +632,8 @@ const locales: Record<Lang, LocaleMessages> = {
       entryDate: '录入日期：',
       relatedSalesOrder: '关联销售订单：',
       selectRelatedSalesOrder: '请选择关联销售订单',
+      orderNumber: '订单编号',
+      addRelatedSalesOrder: '添加关联销售订单',
       currency: '币种：',
       cny: '人民币',
       usd: '美元',
@@ -699,7 +703,6 @@ const locales: Record<Lang, LocaleMessages> = {
       salesOrderLoaded: '已加载销售订单 {orderNumber} 的 {count} 个商品',
       salesOrderParseFail: '解析销售订单商品失败',
       noProductsInSalesOrder: '该销售订单没有商品',
-      orderNumber: '订单号',
       contractNumberLabel: '合同编号',
       supplierName: '供应商名称',
       supplierCode: '供应商代码',
@@ -1008,6 +1011,8 @@ const locales: Record<Lang, LocaleMessages> = {
       entryDate: 'Entry Date:',
       relatedSalesOrder: 'Related Sales Order:',
       selectRelatedSalesOrder: 'Select Sales Order',
+      orderNumber: 'Order Number',
+      addRelatedSalesOrder: 'Add Related Sales Order',
       currency: 'Currency:',
       cny: 'CNY',
       usd: 'USD',
@@ -1077,7 +1082,6 @@ const locales: Record<Lang, LocaleMessages> = {
       salesOrderLoaded: 'Loaded {count} items from sales order {orderNumber}',
       salesOrderParseFail: 'Failed to parse sales order items',
       noProductsInSalesOrder: 'No items in this sales order',
-      orderNumber: 'Order No.',
       contractNumberLabel: 'Contract No.',
       supplierName: 'Supplier',
       supplierCode: 'Supplier Code',

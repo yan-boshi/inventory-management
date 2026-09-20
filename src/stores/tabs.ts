@@ -41,6 +41,9 @@ const routeTitleMap: Record<string, string> = {
   PaymentMethods: '结算方式',
   BusinessCategories: '业务分类',
   ProductClassifications: '产品分类',
+  Currencies: '币种管理',
+  ExchangeRates: '银行汇率',
+  CustomsExchangeRates: '海关汇率',
   Users: '用户管理'
 }
 

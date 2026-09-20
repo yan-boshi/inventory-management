@@ -145,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { SearchOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { packingListsApi } from '@/api/packingLists'
@@ -171,7 +171,17 @@ const pagination = reactive({
   total: 0,
 })
 
-const columns = [
+// 筛选条件
+const filterParams = reactive({
+  buyerName: [] as string[],
+  tradeTerms: [] as string[],
+})
+
+// 动态生成筛选选项
+const buyerNameFilters = ref<{ text: string; value: string }[]>([])
+const tradeTermsFilters = ref<{ text: string; value: string }[]>([])
+
+const columns = computed(() => [
   {
     title: '装箱单号',
     dataIndex: 'packing_no',
@@ -203,6 +213,9 @@ const columns = [
     key: 'buyer_name',
     width: 200,
     ellipsis: true,
+    filters: buyerNameFilters.value,
+    filterMultiple: true,
+    onFilter: (value: string, record: any) => record.buyer_name === value,
   },
   {
     title: '商品数量',
@@ -220,6 +233,9 @@ const columns = [
     dataIndex: 'trade_terms',
     key: 'trade_terms',
     width: 100,
+    filters: tradeTermsFilters.value,
+    filterMultiple: true,
+    onFilter: (value: string, record: any) => record.trade_terms === value,
   },
   {
     title: '创建时间',
@@ -233,7 +249,7 @@ const columns = [
     width: 180,
     fixed: 'right',
   },
-]
+])
 
 const itemColumns = [
   {
@@ -311,6 +327,31 @@ const parseItems = (items: string) => {
   }
 }
 
+// 从数据中提取筛选选项
+const extractFilterOptions = (data: any[]) => {
+  const buyerNames = new Set<string>()
+  const tradeTerms = new Set<string>()
+
+  data.forEach((item) => {
+    if (item.buyer_name) {
+      buyerNames.add(item.buyer_name)
+    }
+    if (item.trade_terms) {
+      tradeTerms.add(item.trade_terms)
+    }
+  })
+
+  buyerNameFilters.value = Array.from(buyerNames).map((name) => ({
+    text: name,
+    value: name,
+  }))
+
+  tradeTermsFilters.value = Array.from(tradeTerms).map((term) => ({
+    text: term,
+    value: term,
+  }))
+}
+
 const loadPackingLists = async () => {
   loading.value = true
   try {
@@ -332,6 +373,9 @@ const loadPackingLists = async () => {
     const response = await packingListsApi.getAll(params)
     packingLists.value = response.data || []
     pagination.total = response.total || 0
+
+    // 提取筛选选项
+    extractFilterOptions(packingLists.value)
   } catch (error) {
     console.error('加载装箱单列表失败:', error)
     message.error('加载装箱单列表失败')
@@ -352,6 +396,11 @@ const handleReset = () => {
   searchParams.startDate = ''
   searchParams.endDate = ''
   dateRange.value = undefined
+
+  // 清除筛选条件
+  filterParams.buyerName = []
+  filterParams.tradeTerms = []
+
   handleSearch()
 }
 
@@ -365,9 +414,14 @@ const handleDateRangeChange = (dates: [any, any]) => {
   }
 }
 
-const handleTableChange = (pag: any) => {
+const handleTableChange = (pag: any, filters: any) => {
   pagination.current = pag.current
   pagination.pageSize = pag.pageSize
+
+  // 更新筛选条件
+  filterParams.buyerName = filters.buyer_name || []
+  filterParams.tradeTerms = filters.trade_terms || []
+
   loadPackingLists()
 }
 

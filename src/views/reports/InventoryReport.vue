@@ -114,7 +114,7 @@
         rowKey="product_id"
         bordered
         size="small"
-        :scroll="{ x: 2800, y: 'calc(100vh - 300px)' }"
+        :scroll="{ x: 3500, y: 'calc(100vh - 300px)' }"
       >
         <template #bodyCell="{ column, record }">
           <!-- 数量列 -->
@@ -210,9 +210,7 @@ const allColumns = [
 ]
 
 const visibleColumnKeys = ref<string[]>(
-  allColumns
-    .filter(col => !col.key.includes('_excluded_'))
-    .map(col => col.key)
+  allColumns.map(col => col.key)
 )
 
 // 分组列配置

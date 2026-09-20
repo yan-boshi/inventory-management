@@ -121,7 +121,7 @@ export const getInventoryReport = async (req, res) => {
       const closingStock = openingStock + inbound - outbound
       const taxIncludedPrice = parseFloat(product.tax_included_price) || 0
       // 如果未税单价为空，则根据含税单价和默认税率(13%)计算
-      const taxExcludedPrice = parseFloat(product.tax_excluded_price) || (taxIncludedPrice > 0 ? Math.round(taxIncludedPrice / 1.13 * 100) / 100 : 0)
+      const taxExcludedPrice = parseFloat(product.tax_excluded_price) || (taxIncludedPrice > 0 ? Math.round(taxIncludedPrice / 1.13 * 10000) / 10000 : 0)
 
       // 计算各项目的金额
       const openingStockIncludedAmount = Math.round(openingStock * taxIncludedPrice * 100) / 100

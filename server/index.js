@@ -30,6 +30,10 @@ import inboundReturnRoutes from './routes/inboundReturnRoutes.js'
 import outboundReturnRoutes from './routes/outboundReturnRoutes.js'
 import packingListRoutes from './routes/packingListRoutes.js'
 import invoiceRoutes from './routes/invoiceRoutes.js'
+import currencyRoutes from './routes/currencyRoutes.js'
+import exchangeRateRoutes from './routes/exchangeRateRoutes.js'
+import customsExchangeRateRoutes from './routes/customsExchangeRateRoutes.js'
+import writeOffRoutes from './routes/writeOffRoutes.js'
 
 dotenv.config()
 
@@ -73,6 +77,10 @@ app.use('/api/inbound-returns', inboundReturnRoutes)
 app.use('/api/outbound-returns', outboundReturnRoutes)
 app.use('/api/packing-lists', packingListRoutes)
 app.use('/api/invoices', invoiceRoutes)
+app.use('/api/currencies', currencyRoutes)
+app.use('/api/exchange-rates', exchangeRateRoutes)
+app.use('/api/customs-exchange-rates', customsExchangeRateRoutes)
+app.use('/api/write-off', writeOffRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -8,13 +8,15 @@ import {
   updateSettlement,
   deleteSettlement,
   getUninvoicedRecords,
-  getOrderItems
+  getOrderItems,
+  getNextStatementNumber
 } from '../controllers/settlementController.js'
 
 const router = express.Router()
 
 router.get('/', authMiddleware, getSettlementList)
 router.get('/summary', authMiddleware, getSettlementSummary)
+router.get('/next-statement-number', authMiddleware, getNextStatementNumber)
 router.get('/uninvoiced', authMiddleware, getUninvoicedRecords)
 router.get('/order-items', authMiddleware, getOrderItems)
 router.get('/:id', authMiddleware, getSettlementById)

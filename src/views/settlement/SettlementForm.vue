@@ -54,7 +54,7 @@
         </a-row>
 
         <a-row :gutter="16">
-          <a-col :span="12">
+          <a-col :span="24">
             <a-form-item
               :label="formData.type === 1 ? '客户名称' : '供应商名称'"
               name="entity_name"
@@ -71,18 +71,6 @@
                 @search="handleEntityNameSearch"
                 size="small"
                 :options="entityNameOptions"
-              />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="销售额" name="sales_amount" class="mb-2">
-              <a-input-number
-                v-model:value="formData.sales_amount"
-                :min="0"
-                :precision="2"
-                style="width: 100%"
-                placeholder="请输入销售额"
-                size="small"
               />
             </a-form-item>
           </a-col>
@@ -331,7 +319,6 @@ const formData = reactive({
   settlement_date_start: null as dayjs.Dayjs | null,
   settlement_date_end: null as dayjs.Dayjs | null,
   payment_method: '',
-  sales_amount: 0,
   is_invoiced: 0 as 0 | 1,
   invoice_date: null as dayjs.Dayjs | null,
   invoice_number: '',
@@ -545,7 +532,6 @@ const fetchDetail = async () => {
       formData.settlement_date_end = date.endOf('month')
     }
     formData.payment_method = data.payment_method || ''
-    formData.sales_amount = data.sales_amount
     formData.is_invoiced = data.is_invoiced
     formData.invoice_date = data.invoice_date ? dayjs(data.invoice_date) : null
     formData.invoice_number = data.invoice_number || ''
@@ -597,7 +583,6 @@ const handleSubmit = async () => {
       settlement_date: settlementDateStart,
       settlement_date_end: settlementDateEnd,
       payment_method: formData.payment_method,
-      sales_amount: formData.sales_amount,
       is_invoiced: formData.is_invoiced,
       invoice_date: formData.invoice_date ? formData.invoice_date.format('YYYY-MM-DD') : null,
       invoice_number: formData.invoice_number,

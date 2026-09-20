@@ -37,7 +37,7 @@ class SettlementStatement extends BaseModel {
     const year = today.getFullYear()
     const month = String(today.getMonth() + 1).padStart(2, '0')
     const day = String(today.getDate()).padStart(2, '0')
-    const prefix = `DZ${year}${month}${day}`
+    const prefix = `pr${year}${month}${day}`
 
     // 查询当天最大的编号
     const sql = `
@@ -52,13 +52,13 @@ class SettlementStatement extends BaseModel {
     let sequence = 1
     if (rows.length > 0) {
       const lastNumber = rows[0].statement_number
-      const lastSequence = parseInt(lastNumber.slice(-4))
+      const lastSequence = parseInt(lastNumber.slice(-3))
       if (!isNaN(lastSequence)) {
         sequence = lastSequence + 1
       }
     }
 
-    return `${prefix}${String(sequence).padStart(4, '0')}`
+    return `${prefix}${String(sequence).padStart(3, '0')}`
   }
 }
 

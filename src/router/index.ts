@@ -88,6 +88,24 @@ const router = createRouter({
           meta: { roles: ['advanced', 'admin'] as UserRole[] }
         },
         {
+          path: 'currencies',
+          name: 'Currencies',
+          component: () => import('@/views/settings/Currencies.vue'),
+          meta: { roles: ['advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'exchange-rates',
+          name: 'ExchangeRates',
+          component: () => import('@/views/settings/ExchangeRates.vue'),
+          meta: { roles: ['advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'customs-exchange-rates',
+          name: 'CustomsExchangeRates',
+          component: () => import('@/views/settings/CustomsExchangeRates.vue'),
+          meta: { roles: ['advanced', 'admin'] as UserRole[] }
+        },
+        {
           path: 'product-classifications',
           name: 'ProductClassifications',
           component: () => import('@/views/products/ProductClassifications.vue'),
@@ -163,6 +181,18 @@ const router = createRouter({
           path: 'settlement-statement/:id/edit',
           name: 'SettlementEdit',
           component: () => import('@/views/settlement/SettlementForm.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'write-off',
+          name: 'WriteOffDocuments',
+          component: () => import('@/views/write-off/WriteOffDocuments.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
+          path: 'write-off/:id',
+          name: 'WriteOffDetail',
+          component: () => import('@/views/write-off/WriteOffDetail.vue'),
           meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
         },
         {

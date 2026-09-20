@@ -20,7 +20,13 @@ export interface Customer {
   contact: string
   contact_phone: string
   receiver: string
+  receiver_phone?: string
   receiver_address: string
+  zip_code?: string
+  express_account?: string
+  currency?: string
+  country?: string
+  region?: string
   remarks?: string
   created_at: string
   updated_at: string
@@ -39,7 +45,13 @@ export interface CreateCustomerRequest {
   contact?: string
   contact_phone?: string
   receiver?: string
+  receiver_phone?: string
   receiver_address?: string
+  zip_code?: string
+  express_account?: string
+  currency?: string
+  country?: string
+  region?: string
   remarks?: string
 }
 
@@ -65,6 +77,9 @@ export interface Supplier {
   bank_code: string
   contact: string
   contact_phone: string
+  currency?: string
+  country?: string
+  region?: string
   remarks?: string
   created_at: string
   updated_at: string
@@ -82,6 +97,9 @@ export interface CreateSupplierRequest {
   bank_code?: string
   contact?: string
   contact_phone?: string
+  currency?: string
+  country?: string
+  region?: string
   remarks?: string
 }
 
@@ -471,6 +489,13 @@ export interface PurchaseItem {
   total_price?: number
 }
 
+export interface RelatedSalesOrderItem {
+  sales_order_id: string
+  order_number: string
+  product_code: string
+  quantity: number
+}
+
 export interface PurchaseOrder {
   purchase_order_id: string
   order_number: string
@@ -486,6 +511,7 @@ export interface PurchaseOrder {
   expenses?: string
   purchase_person?: string
   related_sales_order_id?: string
+  related_sales_orders?: string
   created_at: string
   updated_at: string
 }
@@ -502,6 +528,7 @@ export interface CreatePurchaseOrderRequest {
   expenses?: Expenses
   purchase_person?: string
   related_sales_order_id?: string
+  related_sales_orders?: RelatedSalesOrderItem[]
 }
 
 export interface UpdatePurchaseOrderRequest extends Partial<CreatePurchaseOrderRequest> { }
@@ -540,7 +567,7 @@ export interface PurchasePlan {
   currency: string
   entry_date?: string
   sales_person?: string
-  status: 'pending' | 'completed' | 'cancelled'
+  status: 'pending' | 'partial' | 'purchased' | 'cancelled'
   remarks?: string
   created_by?: string
   created_at: string
@@ -585,7 +612,7 @@ export interface InboundPlan {
   currency: string
   entry_date?: string
   purchase_person?: string
-  status: 'pending' | 'completed' | 'cancelled'
+  status: 'pending' | 'partial' | 'completed' | 'cancelled'
   remarks?: string
   created_by?: string
   created_at: string
@@ -600,6 +627,7 @@ export interface InboundPlanQueryParams {
   supplierName?: string
   purchasePerson?: string
   status?: string
+  statusList?: string[]
   startDate?: string
   endDate?: string
 }
@@ -630,7 +658,7 @@ export interface OutboundPlan {
   currency: string
   entry_date?: string
   sales_person?: string
-  status: 'pending' | 'completed' | 'cancelled'
+  status: 'pending' | 'partial' | 'completed' | 'cancelled'
   remarks?: string
   created_by?: string
   created_at: string
@@ -645,6 +673,7 @@ export interface OutboundPlanQueryParams {
   customerName?: string
   salesPerson?: string
   status?: string
+  statusList?: string[]
   startDate?: string
   endDate?: string
 }
@@ -854,6 +883,7 @@ export interface WarehousingOrderQueryParams {
   contractNumber?: string
   customerName?: string
   warehousingDate?: string
+  trackingNumber?: string
 }
 
 export interface DeliveryExpenses {
@@ -890,6 +920,7 @@ export interface DeliveryOrder {
   delivery_date?: string
   entry_date?: string
   currency: string
+  exchange_rate?: number
   total_amount: number
   expenses?: string
   tracking_number?: string
@@ -909,6 +940,7 @@ export interface CreateDeliveryOrderRequest {
   delivery_date?: string
   entry_date?: string
   currency?: string
+  exchange_rate?: number
   total_amount?: number
   tracking_number?: string
   delivery_person?: string
@@ -929,6 +961,7 @@ export interface DeliveryOrderQueryParams {
   contractNumber?: string
   customerName?: string
   deliveryDate?: string
+  trackingNumber?: string
 }
 
 export interface UndeliveredSalesOrder {
@@ -956,6 +989,7 @@ export interface Receivable {
   status: 0 | 1 | 2  // 0=未结算, 1=部分结算, 2=已结算
   billing_status: 0 | 1 | 2  // 0=未开票, 1=已开票, 2=部分开票
   handling_fee: number
+  payment_method?: string  // 结算方式
   delivery_time?: string  // 出库时间
   create_time: string
   update_time: string
@@ -965,8 +999,8 @@ export interface ReceivableQueryParams {
   page?: number
   pageSize?: number
   customer_name?: string
-  status?: 0 | 1 | 2
-  billing_status?: 0 | 1 | 2
+  status?: number | number[]
+  billing_status?: number | number[]
   start_date?: string
   end_date?: string
 }
@@ -985,6 +1019,7 @@ export interface Payable {
   status: 0 | 1 | 2  // 0=未结算, 1=部分结算, 2=已结算
   billing_status: 0 | 1 | 2  // 0=未开票, 1=已开票, 2=部分开票
   handling_fee: number
+  payment_method?: string  // 结算方式
   warehousing_time?: string  // 入库时间
   create_time: string
   update_time: string
@@ -994,8 +1029,8 @@ export interface PayableQueryParams {
   page?: number
   pageSize?: number
   supplier_name?: string
-  status?: 0 | 1 | 2
-  billing_status?: 0 | 1 | 2
+  status?: number | number[]
+  billing_status?: number | number[]
   start_date?: string
   end_date?: string
 }
@@ -1045,6 +1080,18 @@ export interface SettlementStatementItem {
   create_time: string
 }
 
+// 对账单开票记录
+export interface SettlementInvoiceRecord {
+  invoice_record_id: string
+  statement_id: string
+  invoice_date: string | null
+  invoice_number: string | null
+  invoiced_amount: number
+  uninvoiced_amount: number
+  create_time: string
+  update_time: string
+}
+
 export interface SettlementDetail extends SettlementStatement {
   items: SettlementStatementItem[]
 }
@@ -1067,6 +1114,76 @@ export interface SettlementQueryParams {
   settlement_date_start?: string
   settlement_date_end?: string
   entity_name?: string
+}
+
+// 核销单
+export interface WriteOffDocument {
+  write_off_id: string
+  write_off_number: string
+  type: 1 | 2  // 1=应收核销, 2=应付核销
+  entity_id: string
+  entity_name: string
+  write_off_date: string
+  total_amount: number
+  payment_method: string
+  bank_reference: string
+  remarks: string
+  status: 0 | 1  // 1=已核销, 0=已作废
+  document_date: string
+  create_time: string
+  update_time: string
+}
+
+export interface WriteOffItem {
+  item_id: string
+  write_off_id: string
+  source_type: 1 | 2
+  source_id: string
+  source_bill_id: string
+  target_amount: number
+  write_off_amount: number
+  before_received: number
+  after_received: number
+  remarks: string
+  create_time: string
+}
+
+export interface WriteOffDetail extends WriteOffDocument {
+  items: WriteOffItem[]
+}
+
+export interface WriteOffSummary {
+  total_receivable_write_off: number
+  total_payable_write_off: number
+  net_write_off: number
+  total_count: number
+  active_total: number
+  voided_total: number
+}
+
+export interface WriteOffQueryParams {
+  page?: number
+  pageSize?: number
+  type?: 1 | 2
+  status?: 0 | 1
+  entity_name?: string
+  write_off_date_start?: string
+  write_off_date_end?: string
+}
+
+export interface PendingRecord {
+  record_id: string
+  source_bill_id: string
+  source_bill_type: number
+  amount: number
+  handling_fee: number
+  receivable_total: number
+  received_amount: number
+  balance_amount: number
+  status: number
+  payment_method: string
+  delivery_time?: string
+  warehousing_time?: string
 }
 
 // 入库退货单接口
@@ -1149,4 +1266,68 @@ export interface OutboundReturnQueryParams {
   customerName?: string
   startDate?: string
   endDate?: string
+}
+
+// 币种
+export interface Currency {
+  currency_id: string
+  currency_code: string
+  currency_name: string
+  currency_symbol: string
+  decimal_places: number
+  is_base_currency: number
+  is_active: number
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CurrencyQueryParams {
+  page?: number
+  pageSize?: number
+  currency_code?: string
+  currency_name?: string
+  is_active?: number
+}
+
+// 汇率
+export interface ExchangeRate {
+  exchange_rate_id: string
+  source_currency: string
+  target_currency: string
+  rate: number
+  effective_week: string
+  remarks?: string
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ExchangeRateQueryParams {
+  page?: number
+  pageSize?: number
+  source_currency?: string
+  target_currency?: string
+  effective_week?: string
+}
+
+// 海关汇率
+export interface CustomsExchangeRate {
+  customs_exchange_rate_id: string
+  source_currency: string
+  target_currency: string
+  rate: number
+  effective_month: string
+  remarks?: string
+  created_by?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomsExchangeRateQueryParams {
+  page?: number
+  pageSize?: number
+  source_currency?: string
+  target_currency?: string
+  effective_month?: string
 }

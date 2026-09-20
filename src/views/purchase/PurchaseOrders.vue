@@ -321,6 +321,15 @@ const modelFilters = generateFilters('model')
 const descriptionFilters = generateFilters('description')
 // 采购人筛选选项
 const purchasePersonFilters = generateFilters('purchase_person')
+// 供应商名称筛选选项
+const supplierNameFilters = generateFilters('supplier_name')
+// 供应商代码筛选选项
+const supplierCodeFilters = generateFilters('supplier_code')
+// 发票已收筛选选项
+const invoiceReceivedFilters = computed(() => [
+  { text: '是', value: '是' },
+  { text: '否', value: '否' },
+])
 // 状态筛选选项
 const statusFilters = computed(() => [
   { text: '未入库', value: '1' },
@@ -358,12 +367,18 @@ const allColumns = ref([
     dataIndex: 'supplier_name',
     key: 'supplier_name',
     width: 250,
+    filters: supplierNameFilters.value,
+    onFilter: (value: string, record: any) => String(record.supplier_name) === value,
+    filterMultiple: true,
   },
   {
     title: '供应商代码',
     dataIndex: 'supplier_code',
     key: 'supplier_code',
     width: 120,
+    filters: supplierCodeFilters.value,
+    onFilter: (value: string, record: any) => String(record.supplier_code) === value,
+    filterMultiple: true,
   },
   {
     title: '产品代码',
@@ -529,6 +544,9 @@ const allColumns = ref([
     key: 'invoice_received',
     width: 90,
     align: 'center',
+    filters: invoiceReceivedFilters.value,
+    onFilter: (value: string, record: any) => String(record.invoice_received) === value,
+    filterMultiple: true,
   },
   {
     title: '结算日期',
@@ -596,6 +614,9 @@ watch(
     descriptionFilters,
     purchasePersonFilters,
     statusFilters,
+    supplierNameFilters,
+    supplierCodeFilters,
+    invoiceReceivedFilters,
   ],
   () => {
     if (isUpdatingFromConfig) return
@@ -607,6 +628,9 @@ watch(
       description: descriptionFilters.value,
       purchase_person: purchasePersonFilters.value,
       status: statusFilters.value,
+      supplier_name: supplierNameFilters.value,
+      supplier_code: supplierCodeFilters.value,
+      invoice_received: invoiceReceivedFilters.value,
     }
     cols.forEach((col: any) => {
       if (col.dataIndex && filterMap[col.dataIndex]) {

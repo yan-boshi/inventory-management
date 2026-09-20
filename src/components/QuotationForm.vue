@@ -203,10 +203,9 @@
             <div class="note-row">
               <label class="note-label">{{ t.quotation.currency }}</label>
               <a-select v-model:value="form.currency" class="invisible-select note-input">
-                <a-select-option value="CNY">CNY</a-select-option>
-                <a-select-option value="USD">USD</a-select-option>
-                <a-select-option value="EUR">EUR</a-select-option>
-                <a-select-option value="HKD">HKD</a-select-option>
+                <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
+                  {{ cur.currency_code }}
+                </a-select-option>
               </a-select>
             </div>
             <div class="note-row">
@@ -305,10 +304,11 @@ import { PlusOutlined } from '@ant-design/icons-vue'
 import { quotationsApi } from '@/api/quotations'
 import { customersApi } from '@/api/customers'
 import { productsApi } from '@/api/products'
-import type { CreateQuotationRequest, QuotationItem, CustomerOption, ProductOption } from '@/types'
+import type { CreateQuotationRequest, QuotationItem, CustomerOption, ProductOption, Currency } from '@/types'
 import type { Quotation } from '@/types'
 import { getLocale, type Lang } from '@/locales'
 import { scrollTopbar } from '@/directives/scrollTopbar'
+import { getActiveCurrencies } from '@/api/currencies'
 
 const props = defineProps<{
   visible: boolean
@@ -333,6 +333,7 @@ const loading = reactive({
 
 const customerOptions = ref<CustomerOption[]>([])
 const productOptions = ref<ProductOption[]>([])
+const currencyList = ref<Currency[]>([])
 
 // 获取当前语言的翻译
 const t = computed(() => getLocale(lang.value))
@@ -566,11 +567,22 @@ const handleCancel = () => {
   emit('update:visible', false)
 }
 
+// 加载币种列表
+const loadCurrencies = async () => {
+  try {
+    const res = await getActiveCurrencies()
+    currencyList.value = res.data || []
+  } catch (error) {
+    console.error('加载币种列表失败:', error)
+  }
+}
+
 // 监听显示状态变化
 watch(
   () => props.visible,
   visible => {
     if (visible) {
+      loadCurrencies()
       if (!props.isEdit) {
         getNewQuotationNumber()
         resetForm()

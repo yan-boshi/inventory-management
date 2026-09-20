@@ -222,27 +222,67 @@ const getReturnItems = (order: InboundReturnOrder) => {
   }
 }
 
+// 动态生成筛选选项的辅助函数
+const generateFilters = (dataKey: string) => {
+  return computed(() => {
+    const values = [...new Set(expandedOrders.value.map((item: any) => item[dataKey]).filter(Boolean))]
+    return values.map(value => ({ text: String(value), value: String(value) }))
+  })
+}
+
+// 供应商名称筛选选项
+const supplierNameFilters = generateFilters('supplier_name')
+// 产品代码筛选选项
+const productCodeFilters = generateFilters('product_code')
+// 产品名称筛选选项
+const productNameFilters = generateFilters('product_name')
+// 规格型号筛选选项
+const specificationsFilters = generateFilters('specifications')
+// 退货人筛选选项
+const returnPersonFilters = generateFilters('return_person')
+
 // 列配置
 const defaultColumns = [
   { title: '退货单号', key: 'order_number', dataIndex: 'order_number', width: '12%', visible: true },
   { title: '原入库单号', key: 'source_order_number', dataIndex: 'source_order_number', width: '10%', visible: true },
   { title: '采购合同编号', key: 'contract_number', dataIndex: 'contract_number', width: '10%', visible: true },
-  { title: '供应商名称', key: 'supplier_name', dataIndex: 'supplier_name', width: '10%', visible: true },
-  { title: '产品代码', key: 'product_code', dataIndex: 'product_code', width: '8%', visible: true },
-  { title: '产品名称', key: 'product_name', dataIndex: 'product_name', width: '10%', visible: true },
-  { title: '规格型号', key: 'specifications', dataIndex: 'specifications', width: '8%', visible: true },
+  { title: '供应商名称', key: 'supplier_name', dataIndex: 'supplier_name', width: '10%', visible: true, filters: supplierNameFilters.value, onFilter: (value: string, record: any) => String(record.supplier_name) === value, filterMultiple: true },
+  { title: '产品代码', key: 'product_code', dataIndex: 'product_code', width: '8%', visible: true, filters: productCodeFilters.value, onFilter: (value: string, record: any) => String(record.product_code) === value, filterMultiple: true },
+  { title: '产品名称', key: 'product_name', dataIndex: 'product_name', width: '10%', visible: true, filters: productNameFilters.value, onFilter: (value: string, record: any) => String(record.product_name) === value, filterMultiple: true },
+  { title: '规格型号', key: 'specifications', dataIndex: 'specifications', width: '8%', visible: true, filters: specificationsFilters.value, onFilter: (value: string, record: any) => String(record.specifications) === value, filterMultiple: true },
   { title: '退货数量', key: 'quantity', dataIndex: 'quantity', width: '6%', align: 'right', visible: true },
   { title: '单位', key: 'unit', dataIndex: 'unit', width: '5%', visible: true },
   { title: '金额', key: 'total_amount', dataIndex: 'total_amount', width: '8%', align: 'right', visible: true },
   { title: '退货日期', key: 'return_time', dataIndex: 'return_time', width: '8%', visible: true },
   { title: '录入日期', key: 'entry_date', dataIndex: 'entry_date', width: '8%', visible: true },
-  { title: '退货人', key: 'return_person', dataIndex: 'return_person', width: '6%', visible: true },
+  { title: '退货人', key: 'return_person', dataIndex: 'return_person', width: '6%', visible: true, filters: returnPersonFilters.value, onFilter: (value: string, record: any) => String(record.return_person) === value, filterMultiple: true },
   { title: '退货原因', key: 'reason', dataIndex: 'reason', width: '8%', visible: true },
   { title: '备注', key: 'remarks', dataIndex: 'remarks', width: '8%', visible: true },
   { title: '操作', key: 'actions', width: '10%', fixed: 'right', visible: true },
 ]
 
 const allColumns = ref(defaultColumns)
+
+// 当动态筛选数据变化时，更新 allColumns 中对应列的 filters
+watch(
+  [supplierNameFilters, productCodeFilters, productNameFilters, specificationsFilters, returnPersonFilters],
+  () => {
+    const cols = allColumns.value
+    const filterMap: Record<string, any> = {
+      supplier_name: supplierNameFilters.value,
+      product_code: productCodeFilters.value,
+      product_name: productNameFilters.value,
+      specifications: specificationsFilters.value,
+      return_person: returnPersonFilters.value,
+    }
+    cols.forEach((col: any) => {
+      if (col.dataIndex && filterMap[col.dataIndex]) {
+        col.filters = filterMap[col.dataIndex]
+      }
+    })
+  }
+)
+
 const visibleColumns = computed(() => allColumns.value.filter(col => col.visible))
 
 const handleColumnConfigUpdate = (newColumns: any[]) => {

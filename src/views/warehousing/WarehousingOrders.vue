@@ -51,6 +51,14 @@
             />
           </a-form-item>
 
+          <a-form-item label="快递单号">
+            <a-input
+              v-model:value="searchParams.trackingNumber"
+              placeholder="请输入快递单号"
+              allow-clear
+            />
+          </a-form-item>
+
           <a-form-item label="入库日期">
             <a-range-picker
               v-model:value="dateRange"
@@ -232,6 +240,7 @@ const searchParams = reactive<WarehousingOrderQueryParams>({
   productCode: '',
   productModel: '',
   warehousingDate: '',
+  trackingNumber: '',
 })
 
 const pagination = reactive({
@@ -440,6 +449,7 @@ const handleReset = () => {
   searchParams.productName = ''
   searchParams.productCode = ''
   searchParams.productModel = ''
+  searchParams.trackingNumber = ''
   searchParams.warehousingDate = ''
   dateRange.value = undefined
   handleSearch()

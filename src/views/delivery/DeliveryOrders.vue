@@ -51,6 +51,14 @@
             />
           </a-form-item>
 
+          <a-form-item label="快递单号">
+            <a-input
+              v-model:value="searchParams.trackingNumber"
+              placeholder="请输入快递单号"
+              allow-clear
+            />
+          </a-form-item>
+
           <a-form-item label="出库日期">
             <a-range-picker
               v-model:value="dateRange"
@@ -256,6 +264,7 @@ const searchParams = reactive<DeliveryOrderQueryParams>({
   productCode: '',
   productModel: '',
   deliveryDate: '',
+  trackingNumber: '',
 })
 
 const pagination = reactive({
@@ -280,6 +289,10 @@ const productNameFilters = generateFilters('product_name')
 const modelFilters = generateFilters('model')
 // 产品描述筛选选项（出库单使用 specification 字段）
 const specificationFilters = generateFilters('specification')
+// 客户名称筛选选项
+const customerNameFilters = generateFilters('customer_name')
+// 制单人筛选选项
+const deliveryPersonFilters = generateFilters('delivery_person')
 
 // 使用 ref 使列配置可通过 ColumnConfig 组件更新
 const allColumns = ref([
@@ -361,6 +374,9 @@ const allColumns = ref([
     dataIndex: 'customer_name',
     key: 'customer_name',
     width: 150,
+    filters: customerNameFilters.value,
+    onFilter: (value: string, record: any) => String(record.customer_name) === value,
+    filterMultiple: true,
   },
   {
     title: '出库时间',
@@ -380,6 +396,9 @@ const allColumns = ref([
     dataIndex: 'delivery_person',
     key: 'delivery_person',
     width: 100,
+    filters: deliveryPersonFilters.value,
+    onFilter: (value: string, record: any) => String(record.delivery_person) === value,
+    filterMultiple: true,
   },
   {
     title: '快递单号',
@@ -407,7 +426,7 @@ const handleColumnConfigUpdate = (newColumns: any[]) => {
 
 // 当动态筛选数据变化时，更新 allColumns 中对应列的 filters
 watch(
-  [productCodeFilters, productNameFilters, modelFilters, specificationFilters],
+  [productCodeFilters, productNameFilters, modelFilters, specificationFilters, customerNameFilters, deliveryPersonFilters],
   () => {
     if (isUpdatingFromConfig) return
     const cols = allColumns.value
@@ -416,6 +435,8 @@ watch(
       product_name: productNameFilters.value,
       model: modelFilters.value,
       specification: specificationFilters.value,
+      customer_name: customerNameFilters.value,
+      delivery_person: deliveryPersonFilters.value,
     }
     cols.forEach((col: any) => {
       if (col.dataIndex && filterMap[col.dataIndex]) {
@@ -459,6 +480,7 @@ const handleReset = () => {
   searchParams.productName = ''
   searchParams.productCode = ''
   searchParams.productModel = ''
+  searchParams.trackingNumber = ''
   searchParams.deliveryDate = ''
   dateRange.value = undefined
   handleSearch()

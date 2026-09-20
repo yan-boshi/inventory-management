@@ -1,0 +1,186 @@
+<template>
+  <a-modal
+    :open="visible"
+    :title="isEdit ? '编辑汇率' : '新增汇率'"
+    @cancel="handleCancel"
+    @ok="handleSubmit"
+    :confirmLoading="submitting"
+    width="500px"
+  >
+    <a-form
+      ref="formRef"
+      :model="formData"
+      :rules="rules"
+      layout="vertical"
+    >
+      <a-row :gutter="16">
+        <a-col :span="12">
+          <a-form-item label="源币种" name="source_currency">
+            <a-select
+              v-model:value="formData.source_currency"
+              placeholder="请选择源币种"
+              :disabled="isEdit"
+            >
+              <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
+                {{ cur.currency_code }} - {{ cur.currency_name }}
+              </a-select-option>
+            </a-select>
+          </a-form-item>
+        </a-col>
+        <a-col :span="12">
+          <a-form-item label="目标币种" name="target_currency">
+            <a-select
+              v-model:value="formData.target_currency"
+              placeholder="请选择目标币种"
+              :disabled="isEdit"
+            >
+              <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
+                {{ cur.currency_code }} - {{ cur.currency_name }}
+              </a-select-option>
+            </a-select>
+          </a-form-item>
+        </a-col>
+      </a-row>
+      <a-form-item label="生效周（选择周一日期）" name="effective_week">
+        <a-week-picker
+          v-model:value="formData.effective_week"
+          placeholder="选择周"
+          style="width: 100%"
+          :disabled="isEdit"
+          @change="handleWeekChange"
+        />
+      </a-form-item>
+      <a-form-item label="汇率" name="rate">
+        <a-input-number
+          v-model:value="formData.rate"
+          :min="0"
+          :max="999999"
+          :precision="6"
+          :step="0.0001"
+          placeholder="请输入汇率"
+          style="width: 100%"
+        />
+      </a-form-item>
+      <a-form-item label="备注" name="remarks">
+        <a-textarea
+          v-model:value="formData.remarks"
+          placeholder="请输入备注"
+          :rows="3"
+          :maxlength="200"
+        />
+      </a-form-item>
+    </a-form>
+  </a-modal>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, watch } from 'vue'
+import { message } from 'ant-design-vue'
+import type { FormInstance } from 'ant-design-vue'
+import { createExchangeRate, updateExchangeRate } from '@/api/exchangeRates'
+import type { ExchangeRate, Currency } from '@/types'
+import dayjs, { type Dayjs } from 'dayjs'
+import isoWeek from 'dayjs/plugin/isoWeek'
+import weekday from 'dayjs/plugin/weekday'
+
+dayjs.extend(isoWeek)
+dayjs.extend(weekday)
+
+const props = defineProps<{
+  visible: boolean
+  isEdit: boolean
+  rateData?: ExchangeRate
+  currencyList: Currency[]
+}>()
+
+const emit = defineEmits<{
+  (e: 'update:visible', value: boolean): void
+  (e: 'success'): void
+}>()
+
+const formRef = ref<FormInstance>()
+const submitting = ref(false)
+
+function getMondayStr(date: Dayjs): string {
+  return date.startOf('isoWeek').format('YYYY-MM-DD')
+}
+
+const getDefaultFormData = () => ({
+  source_currency: undefined as string | undefined,
+  target_currency: undefined as string | undefined,
+  effective_week: null as Dayjs | null,
+  effective_week_str: '',
+  rate: undefined as number | undefined,
+  remarks: '',
+})
+
+const formData = reactive(getDefaultFormData())
+
+const rules = {
+  source_currency: [{ required: true, message: '请选择源币种', trigger: 'change' }],
+  target_currency: [{ required: true, message: '请选择目标币种', trigger: 'change' }],
+  effective_week: [{ required: true, message: '请选择生效周', trigger: 'change' }],
+  rate: [{ required: true, message: '请输入汇率', trigger: 'blur' }],
+}
+
+const handleWeekChange = (val: Dayjs | null) => {
+  formData.effective_week_str = val ? getMondayStr(val) : ''
+}
+
+watch(() => props.visible, (val) => {
+  if (val) {
+    if (props.isEdit && props.rateData) {
+      const weekDate = dayjs(props.rateData.effective_week)
+      Object.assign(formData, {
+        source_currency: props.rateData.source_currency,
+        target_currency: props.rateData.target_currency,
+        effective_week: weekDate,
+        effective_week_str: props.rateData.effective_week.slice(0, 10),
+        rate: Number(props.rateData.rate),
+        remarks: props.rateData.remarks || '',
+      })
+    } else {
+      Object.assign(formData, getDefaultFormData())
+    }
+  }
+})
+
+const handleCancel = () => {
+  formRef.value?.resetFields()
+  emit('update:visible', false)
+}
+
+const handleSubmit = async () => {
+  try {
+    await formRef.value?.validateFields()
+    submitting.value = true
+
+    if (props.isEdit && props.rateData) {
+      await updateExchangeRate(props.rateData.exchange_rate_id, {
+        rate: formData.rate,
+        remarks: formData.remarks,
+      })
+      message.success('更新成功')
+    } else {
+      await createExchangeRate({
+        source_currency: formData.source_currency,
+        target_currency: formData.target_currency,
+        effective_week: formData.effective_week_str,
+        rate: formData.rate,
+        remarks: formData.remarks,
+      })
+      message.success('创建成功')
+    }
+
+    formRef.value?.resetFields()
+    emit('update:visible', false)
+    emit('success')
+  } catch (error: any) {
+    if (error.response?.data?.message) {
+      message.error(error.response.data.message)
+    }
+  } finally {
+    submitting.value = false
+  }
+}
+</script>

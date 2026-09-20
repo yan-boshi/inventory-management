@@ -20,6 +20,7 @@ class Payable extends BaseModel {
       status: data.status ?? 0,
       billing_status: data.billing_status ?? 0,
       handling_fee: data.handling_fee ?? 0,
+      payment_method: data.payment_method || null,
       warehousing_time: data.warehousing_time || null
     }
     return super.create(payableData)

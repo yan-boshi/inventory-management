@@ -48,5 +48,10 @@ export const settlementApi = {
   // 获取出库单/入库单的商品信息
   getOrderItems: async (params: { type: number; order_number: string }): Promise<any[]> => {
     return instance.get(`${API_BASE_URL}/order-items`, { params })
+  },
+
+  // 获取下一个对账单编号
+  getNextStatementNumber: async (): Promise<{ statement_number: string }> => {
+    return instance.get(`${API_BASE_URL}/next-statement-number`)
   }
 }

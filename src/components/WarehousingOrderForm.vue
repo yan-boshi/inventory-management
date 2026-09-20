@@ -219,9 +219,9 @@
             style="width: 100%"
             @change="handleCurrencyChange"
           >
-            <a-select-option value="CNY">人民币</a-select-option>
-            <a-select-option value="USD">美元</a-select-option>
-            <a-select-option value="EUR">欧元</a-select-option>
+            <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
+              {{ cur.currency_name }}
+            </a-select-option>
           </a-select>
         </div>
         <div class="note-row">
@@ -229,12 +229,13 @@
           <a-input-number
             v-model:value="form.exchange_rate"
             :min="0"
-            :precision="4"
+            :precision="6"
             :step="0.0001"
-            :disabled="form.currency === 'CNY'"
-            placeholder="请输入汇率"
+            disabled
+            placeholder="系统自动填入"
             style="width: 100%"
             class="invisible-input"
+            :loading="exchangeRateLoading"
           />
         </div>
         <div class="note-row">
@@ -351,13 +352,15 @@ import 'dayjs/locale/zh-cn'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { warehousingOrdersApi } from '@/api/warehousingOrders'
-import type { CreateWarehousingOrderRequest, WarehousingItem } from '@/types'
+import type { CreateWarehousingOrderRequest, WarehousingItem, Currency } from '@/types'
 import { suppliersApi } from '@/api/suppliers'
 import { ProductOption } from '@/types/index'
 import { productsApi } from '@/api/products'
 import { useUserStore } from '@/stores/user'
 import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
 import { Modal } from 'ant-design-vue'
+import { getActiveCurrencies } from '@/api/currencies'
+import { getCurrentRate } from '@/api/exchangeRates'
 
 const userStore = useUserStore()
 
@@ -436,6 +439,8 @@ const loading = reactive({
 })
 
 const purchaseOrderOptions = ref<any[]>([])
+const currencyList = ref<Currency[]>([])
+const exchangeRateLoading = ref(false)
 
 const form = reactive<CreateWarehousingOrderRequest & { warehousing_items: WarehousingItem[] }>({
   contract_number: '',
@@ -546,6 +551,12 @@ const handlePurchaseOrderChange = async (value: string) => {
       form.customer_address = order.supplier_address || ''
       form.total_amount = order.tax_included_amount || 0
       form.currency = order.currency || 'CNY'
+      // 从采购合同获取汇率，如果没有则从系统获取当前汇率
+      if (order.exchange_rate) {
+        form.exchange_rate = order.exchange_rate
+      } else {
+        await fetchCurrentRate(form.currency)
+      }
       calculateTotal()
     } catch (error) {
       console.error('Parse purchase items error:', error)
@@ -694,11 +705,45 @@ const handleCancel = () => {
   emit('update:visible', false)
 }
 
+// 加载币种列表
+const loadCurrencies = async () => {
+  try {
+    const res = await getActiveCurrencies()
+    currencyList.value = res.data || []
+  } catch (error) {
+    console.error('加载币种列表失败:', error)
+  }
+}
+
+// 获取当前周汇率
+const fetchCurrentRate = async (currency: string) => {
+  if (currency === 'CNY') {
+    form.exchange_rate = 1.0
+    return
+  }
+  exchangeRateLoading.value = true
+  try {
+    const res = await getCurrentRate('CNY', currency)
+    if (res.data) {
+      form.exchange_rate = Number(res.data.rate)
+    } else {
+      form.exchange_rate = undefined
+      message.warning('本周尚未设置该币种的汇率，请先在汇率管理中维护')
+    }
+  } catch (error) {
+    console.error('获取汇率失败:', error)
+    form.exchange_rate = undefined
+  } finally {
+    exchangeRateLoading.value = false
+  }
+}
+
 // 监听显示状态变化
 watch(
   () => props.visible,
   visible => {
     if (visible) {
+      loadCurrencies()
       if (!props.isEdit) {
         getNewOrderNumber()
         getPurchaseOrdersForWarehousing()
@@ -715,6 +760,8 @@ watch(
           if (props.warehousingOrderData.warehousing_items) {
             form.warehousing_items = props.warehousingOrderData.warehousing_items
           }
+          calculateTotal()
+          fetchCurrentRate(form.currency)
         } else {
           resetForm()
           checkDraft()
@@ -726,7 +773,6 @@ watch(
         form.customer_address = props.warehousingOrderData.customer_address || ''
         form.total_amount = props.warehousingOrderData.total_amount || 0
         form.currency = props.warehousingOrderData.currency || 'CNY'
-        form.exchange_rate = props.warehousingOrderData.exchange_rate || undefined
         form.warehousing_person = props.warehousingOrderData.warehousing_person || ''
         form.contact_phone = props.warehousingOrderData.contact_phone || ''
         form.remarks = props.warehousingOrderData.remarks || ''
@@ -767,6 +813,7 @@ watch(
           }
         }
         getPurchaseOrdersForWarehousing()
+        fetchCurrentRate(form.currency)
       }
     }
   }
@@ -839,7 +886,6 @@ const restoreDraft = () => {
   form.warehousing_items = draft.data.warehousing_items || []
   form.total_amount = draft.data.total_amount || 0
   form.currency = draft.data.currency || 'CNY'
-  form.exchange_rate = draft.data.exchange_rate || undefined
   form.warehousing_time = draft.data.warehousing_time ? dayjs(draft.data.warehousing_time) : dayjs()
   form.entry_date = draft.data.entry_date ? dayjs(draft.data.entry_date) : dayjs()
   form.tracking_number = draft.data.tracking_number || ''
@@ -852,6 +898,7 @@ const restoreDraft = () => {
     customsFee: 0,
     otherFee: 0,
   }
+  fetchCurrentRate(form.currency)
 }
 
 const checkDraft = () => {
@@ -970,9 +1017,7 @@ const handleSupplierChange = (value: string) => {
 }
 
 const handleCurrencyChange = (value: string) => {
-  if (value === 'CNY') {
-    form.exchange_rate = undefined
-  }
+  fetchCurrentRate(value)
 }
 </script>
 

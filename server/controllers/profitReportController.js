@@ -1,5 +1,43 @@
 import pool from '../config/database.js'
 
+/**
+ * 毛利表Controller - 严格按照规划文档实现
+ * 核心公式：毛利 = 销售收入(未税) - 采购成本(未税) - 费用合计
+ */
+
+// 格式化日期为 YYYY-MM-DD 字符串
+function formatDateStr(date) {
+  if (!date) return null
+  const d = date instanceof Date ? date : new Date(date)
+  if (isNaN(d.getTime())) return null
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// 获取周一日期字符串
+function getMondayStr(dateStr) {
+  if (!dateStr) return null
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return null
+  const day = date.getDay()
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
+  const monday = new Date(date.setDate(diff))
+  return formatDateStr(monday)
+}
+
+// 获取月份第一天日期字符串（用于匹配 effective_month）
+function getMonthStr(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return null
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  // effective_month 存储的是月份第一天，如 '2026-09-01'
+  return `${year}-${month}-01`
+}
+
 export const getProfitReport = async (req, res) => {
   try {
     const { startDate, endDate, contractNumber, customerName, productCode, page = 1, pageSize = 50 } = req.query
@@ -49,7 +87,7 @@ export const getProfitReport = async (req, res) => {
     const [deliveryOrders] = await pool.query(
       `SELECT do.delivery_order_id, do.order_number, do.contract_number,
               do.customer_name, do.delivery_items, do.delivery_date, do.entry_date,
-              do.total_amount, do.currency, do.expenses, do.remarks
+              do.total_amount, do.currency, do.exchange_rate, do.expenses, do.remarks
        FROM delivery_orders do
        ${whereClause}
        ORDER BY do.entry_date DESC, do.created_at DESC
@@ -65,7 +103,7 @@ export const getProfitReport = async (req, res) => {
       })
     }
 
-    // 收集销售合同编号，批量查询销售订单
+    // ============ 1. 批量查询销售订单 ============
     const contractNumbers = [...new Set(
       deliveryOrders.map(o => o.contract_number).filter(Boolean)
     )]
@@ -83,30 +121,55 @@ export const getProfitReport = async (req, res) => {
       }
     }
 
-    // 收集销售订单ID，批量查询采购订单
+    // ============ 2. 批量查询采购订单 ============
     const salesOrderIds = Object.values(salesOrderMap).map(so => so.sales_order_id).filter(Boolean)
 
     let purchaseOrderMap = {} // sales_order_id -> [purchase_orders]
     if (salesOrderIds.length > 0) {
+      const jsonConditions = salesOrderIds.map(() => `JSON_CONTAINS(related_sales_orders, JSON_OBJECT('sales_order_id', ?))`).join(' OR ')
       const [purchaseOrders] = await pool.query(
         `SELECT purchase_order_id, order_number, contract_number, purchase_person,
-                purchase_items, expenses, related_sales_order_id
-         FROM purchase_orders WHERE related_sales_order_id IN (?)`,
-        [salesOrderIds]
+                purchase_items, expenses, related_sales_order_id, related_sales_orders
+         FROM purchase_orders WHERE related_sales_order_id IN (?) OR (${jsonConditions})`,
+        [salesOrderIds, ...salesOrderIds]
       )
+      const matchedIds = new Set()
       for (const po of purchaseOrders) {
-        const soId = po.related_sales_order_id
-        if (!purchaseOrderMap[soId]) purchaseOrderMap[soId] = []
-        purchaseOrderMap[soId].push(po)
+        if (po.related_sales_order_id && salesOrderIds.includes(po.related_sales_order_id)) {
+          if (!purchaseOrderMap[po.related_sales_order_id]) purchaseOrderMap[po.related_sales_order_id] = []
+          const key = `${po.purchase_order_id}_direct`
+          if (!matchedIds.has(key)) {
+            matchedIds.add(key)
+            purchaseOrderMap[po.related_sales_order_id].push(po)
+          }
+        }
+        if (po.related_sales_orders) {
+          let relatedList = []
+          try {
+            relatedList = typeof po.related_sales_orders === 'string'
+              ? JSON.parse(po.related_sales_orders)
+              : po.related_sales_orders
+          } catch {}
+          for (const rel of relatedList) {
+            if (rel.sales_order_id && salesOrderIds.includes(rel.sales_order_id)) {
+              if (!purchaseOrderMap[rel.sales_order_id]) purchaseOrderMap[rel.sales_order_id] = []
+              const key = `${po.purchase_order_id}_${rel.sales_order_id}`
+              if (!matchedIds.has(key)) {
+                matchedIds.add(key)
+                purchaseOrderMap[rel.sales_order_id].push(po)
+              }
+            }
+          }
+        }
       }
     }
 
-    // 收集采购合同编号，批量查询入库单
+    // ============ 3. 批量查询入库单 ============
     const purchaseContractNumbers = [...new Set(
       Object.values(purchaseOrderMap).flat().map(po => po.contract_number).filter(Boolean)
     )]
 
-    let warehousingOrderMap = {} // contract_number -> [warehousing_orders]
+    let warehousingOrderMap = {}
     if (purchaseContractNumbers.length > 0) {
       const [warehousingOrders] = await pool.query(
         `SELECT warehousing_order_id, contract_number, warehousing_items,
@@ -121,7 +184,7 @@ export const getProfitReport = async (req, res) => {
       }
     }
 
-    // 收集产品代码，批量查询产品信息（用于兜底成本和分类）
+    // ============ 4. 批量查询产品信息 ============
     const allProductCodes = new Set()
     for (const order of deliveryOrders) {
       try {
@@ -136,7 +199,7 @@ export const getProfitReport = async (req, res) => {
     if (allProductCodes.size > 0) {
       const [products] = await pool.query(
         `SELECT product_code, product_name, model, description, unit,
-                tax_excluded_price, product_classification
+                tax_included_price, tax_excluded_price, product_classification
          FROM products WHERE product_code IN (?)`,
         [Array.from(allProductCodes)]
       )
@@ -145,7 +208,100 @@ export const getProfitReport = async (req, res) => {
       }
     }
 
-    // 组装报表数据
+    // ============ 5. 批量查询汇率 ============
+    // 收集所有出库日期，计算涉及的周一和月份
+    const weekSet = new Set()
+    const monthSet = new Set()
+    for (const order of deliveryOrders) {
+      if (order.entry_date) {
+        const week = getMondayStr(order.entry_date)
+        const month = getMonthStr(order.entry_date)
+        if (week) weekSet.add(week)
+        if (month) monthSet.add(month)
+      }
+    }
+
+    // 查询银行汇率（按周）
+    let bankRateMap = {} // 'source_currency_target_currency_week' -> rate
+    if (weekSet.size > 0) {
+      const [bankRates] = await pool.query(
+        `SELECT source_currency, target_currency, effective_week, rate
+         FROM exchange_rates
+         WHERE effective_week IN (?) AND target_currency = 'CNY'`,
+        [Array.from(weekSet)]
+      )
+      for (const r of bankRates) {
+        const key = `${r.source_currency}_${r.target_currency}_${r.effective_week}`
+        bankRateMap[key] = parseFloat(r.rate)
+      }
+    }
+
+    // 查询海关汇率（按月）
+    let customsRateMap = {} // 'source_currency_target_currency_month' -> rate
+    if (monthSet.size > 0) {
+      const [customsRates] = await pool.query(
+        `SELECT source_currency, target_currency, effective_month, rate
+         FROM customs_exchange_rates
+         WHERE effective_month IN (?) AND target_currency = 'CNY'`,
+        [Array.from(monthSet)]
+      )
+      for (const r of customsRates) {
+        const key = `${r.source_currency}_${r.target_currency}_${r.effective_month}`
+        customsRateMap[key] = parseFloat(r.rate)
+      }
+    }
+
+    // ============ 6. 批量查询应收单和核销信息 ============
+    const orderNumbers = deliveryOrders.map(o => o.order_number).filter(Boolean)
+
+    let receivableMap = {} // order_number -> receivable
+    let writeOffInfoMap = {} // receivable_id -> { write_off_date, write_off_number, count }
+
+    if (orderNumbers.length > 0) {
+      // 查询应收单
+      const [receivables] = await pool.query(
+        `SELECT receivable_id, source_bill_id, amount, received_amount, balance_amount, status, handling_fee
+         FROM receivables
+         WHERE source_bill_id IN (?) AND source_bill_type = 1`,
+        [orderNumbers]
+      )
+      for (const r of receivables) {
+        receivableMap[r.source_bill_id] = r
+      }
+
+      // 查询核销信息
+      const receivableIds = receivables.map(r => r.receivable_id).filter(Boolean)
+      if (receivableIds.length > 0) {
+        const [writeOffItems] = await pool.query(
+          `SELECT wi.source_id, wi.write_off_amount, wd.write_off_date, wd.write_off_number
+           FROM write_off_items wi
+           JOIN write_off_documents wd ON wi.write_off_id = wd.write_off_id
+           WHERE wi.source_id IN (?)
+           ORDER BY wd.write_off_date DESC`,
+          [receivableIds]
+        )
+
+        for (const item of writeOffItems) {
+          if (!writeOffInfoMap[item.source_id]) {
+            writeOffInfoMap[item.source_id] = {
+              last_write_off_date: item.write_off_date,
+              last_write_off_number: item.write_off_number,
+              count: 0,
+              total_write_off_amount: 0
+            }
+          }
+          writeOffInfoMap[item.source_id].count++
+          writeOffInfoMap[item.source_id].total_write_off_amount += parseFloat(item.write_off_amount) || 0
+          // 更新最近核销日期（因为已按日期降序排列，第一个就是最新的）
+          if (writeOffInfoMap[item.source_id].count === 1) {
+            writeOffInfoMap[item.source_id].last_write_off_date = item.write_off_date
+            writeOffInfoMap[item.source_id].last_write_off_number = item.write_off_number
+          }
+        }
+      }
+    }
+
+    // ============ 7. 组装报表数据 ============
     const reportRows = []
 
     for (const order of deliveryOrders) {
@@ -166,6 +322,28 @@ export const getProfitReport = async (req, res) => {
       }
 
       if (filteredItems.length === 0) continue
+
+      // 获取订单币种和汇率
+      const orderCurrency = order.currency || 'CNY'
+      const orderExchangeRate = parseFloat(order.exchange_rate) || 1
+      const entryDate = order.entry_date
+
+      // 计算银行汇率和海关汇率
+      const week = getMondayStr(entryDate)
+      const month = getMonthStr(entryDate)
+
+      let bankRate = 1
+      let customsRate = 1
+
+      if (orderCurrency !== 'CNY') {
+        // 查找银行汇率
+        const bankKey = `${orderCurrency}_CNY_${week}`
+        bankRate = bankRateMap[bankKey] || orderExchangeRate
+
+        // 查找海关汇率
+        const customsKey = `${orderCurrency}_CNY_${month}`
+        customsRate = customsRateMap[customsKey] || orderExchangeRate
+      }
 
       // 解析出库费用
       let deliveryExpenses = {}
@@ -191,7 +369,7 @@ export const getProfitReport = async (req, res) => {
       // 获取采购订单（可能有多个）
       const purchaseOrders = salesOrder ? (purchaseOrderMap[salesOrder.sales_order_id] || []) : []
 
-      // 解析销售订单商品行（用于获取结算状态）
+      // 解析销售订单商品行
       let salesItems = []
       if (salesOrder) {
         try {
@@ -207,7 +385,7 @@ export const getProfitReport = async (req, res) => {
         const price = parseFloat(item.tax_included_price) || 0
         const amount = parseFloat(item.amount) || (qty * price)
         return sum + amount
-      }, 0) || 1 // 避免除以0
+      }, 0) || 1
 
       // 出库费用总额
       const dlExpressFee = parseFloat(deliveryExpenses.expressDeliveryFee) || 0
@@ -222,7 +400,7 @@ export const getProfitReport = async (req, res) => {
       const slOtherFee = parseFloat(salesExpenses.otherFee) || 0
       const salesExpenseTotal = slTransportationFee + slHandlingFee + slOtherFee
 
-      // 汇总所有采购订单的费用和入库数据
+      // 汇总所有采购订单的费用
       let purchaseExpenseTotal = 0
       let poTransportationFee = 0
       let poOperatingExpenses = 0
@@ -245,15 +423,14 @@ export const getProfitReport = async (req, res) => {
       }
       purchaseExpenseTotal = poTransportationFee + poOperatingExpenses + poValueAddedTax + poHandlingFee + poOtherFee
 
-      // 获取入库数据
+      // 获取入库数据和入库费用
       let warehousingExpensesTotal = { tariff: 0, transportationFee: 0, customsFee: 0, otherFee: 0 }
-      let warehousingItemMap = {} // product_code -> { quantity, tax_included_price, entry_date }
+      let warehousingItemMap = {}
       let warehousingDate = null
 
       for (const po of purchaseOrders) {
         const woList = po.contract_number ? (warehousingOrderMap[po.contract_number] || []) : []
         for (const wo of woList) {
-          // 入库费用
           let woExpenses = {}
           try {
             woExpenses = JSON.parse(wo.expenses || '{}')
@@ -269,7 +446,6 @@ export const getProfitReport = async (req, res) => {
             warehousingDate = wo.entry_date
           }
 
-          // 入库商品
           let woItems = []
           try {
             woItems = JSON.parse(wo.warehousing_items || '[]')
@@ -285,8 +461,8 @@ export const getProfitReport = async (req, res) => {
             const wiQty = parseFloat(wi.quantity) || 0
             const wiPrice = parseFloat(wi.tax_included_price) || 0
             warehousingItemMap[code].quantity += wiQty
-            warehousingItemMap[code].total_price += parseFloat(wi.total_price) || (wiQty * wiPrice)
-            warehousingItemMap[code].tax_included_price = wiPrice // 取最后一次的单价
+            warehousingItemMap[code].total_price += wiQty * wiPrice
+            warehousingItemMap[code].tax_included_price = wiPrice
           }
         }
       }
@@ -296,20 +472,53 @@ export const getProfitReport = async (req, res) => {
         warehousingExpensesTotal.customsFee +
         warehousingExpensesTotal.otherFee
 
+      // 获取结算信息
+      const receivable = receivableMap[order.order_number]
+      let settlementStatus = '未结算'
+      let settlementStatusText = '未结算'
+      let receivableAmount = 0
+      let receivedAmount = 0
+      let balanceAmount = 0
+      let lastWriteOffDate = null
+      let lastWriteOffNumber = ''
+      let writeOffCount = 0
+
+      if (receivable) {
+        receivableAmount = parseFloat(receivable.amount) || 0
+        receivedAmount = parseFloat(receivable.received_amount) || 0
+        balanceAmount = parseFloat(receivable.balance_amount) || (receivableAmount + (parseFloat(receivable.handling_fee) || 0) - receivedAmount)
+
+        if (receivable.status === 2) {
+          settlementStatus = '已结算'
+          settlementStatusText = '已结算'
+        } else if (receivable.status === 1) {
+          settlementStatus = '部分结算'
+          settlementStatusText = '部分结算'
+        } else {
+          settlementStatus = '未结算'
+          settlementStatusText = '未结算'
+        }
+
+        const writeOffInfo = writeOffInfoMap[receivable.receivable_id]
+        if (writeOffInfo) {
+          lastWriteOffDate = writeOffInfo.last_write_off_date
+          lastWriteOffNumber = writeOffInfo.last_write_off_number
+          writeOffCount = writeOffInfo.count
+        }
+      }
+
       // 每个商品生成一行
       for (const item of filteredItems) {
         const productCode = item.product_code || ''
         const quantity = parseFloat(item.quantity) || 0
         const taxIncludedPrice = parseFloat(item.tax_included_price) || 0
         const amount = parseFloat(item.amount) || (quantity * taxIncludedPrice)
-        const taxRate = 13 // 默认税率
+        const taxRate = parseFloat(item.tax_rate) || 13
         const unitPriceExcluded = taxIncludedPrice / (1 + taxRate / 100)
         const amountExcluded = quantity * unitPriceExcluded
 
         // 匹配销售商品行获取结算信息
         const matchedSalesItem = salesItems.find(si => si.product_code === productCode)
-        const settlementStatus = matchedSalesItem?.settlement_status || '未结算'
-        const settlementDate = matchedSalesItem?.settlement_date || null
 
         // 匹配入库数据
         const whItem = warehousingItemMap[productCode]
@@ -317,26 +526,32 @@ export const getProfitReport = async (req, res) => {
 
         let warehousingQuantity = 0
         let warehousingUnitPriceExcluded = 0
+        let warehousingUnitPriceIncluded = 0
         let warehousingAmount = 0
+        let warehousingAmountIncluded = 0
 
         if (hasWarehousing) {
           warehousingQuantity = whItem.quantity
-          warehousingUnitPriceExcluded = (whItem.tax_included_price || 0) / (1 + taxRate / 100)
-          warehousingAmount = whItem.total_price / (1 + taxRate / 100)
+          warehousingUnitPriceIncluded = whItem.tax_included_price || 0
+          warehousingUnitPriceExcluded = warehousingUnitPriceIncluded / (1 + taxRate / 100)
+          warehousingAmountIncluded = whItem.total_price || 0
+          warehousingAmount = warehousingAmountIncluded / (1 + taxRate / 100)
         } else {
-          // 兜底：使用产品表的移动平均未税单价
+          // 兜底：使用产品表的移动加权平均价
           const product = productMap[productCode]
           if (product) {
             warehousingQuantity = quantity
             warehousingUnitPriceExcluded = parseFloat(product.tax_excluded_price) || 0
+            warehousingUnitPriceIncluded = parseFloat(product.tax_included_price) || 0
             warehousingAmount = quantity * warehousingUnitPriceExcluded
+            warehousingAmountIncluded = quantity * warehousingUnitPriceIncluded
           }
         }
 
         // 费用分摊（按金额比例）
         const itemRatio = orderTotalAmount > 0 ? amount / orderTotalAmount : 0
 
-        // 采购合同编号和采购员（取第一个采购订单的）
+        // 采购合同编号和采购员
         const firstPO = purchaseOrders[0]
         const purchaseContractNumber = firstPO?.contract_number || ''
         const purchasePerson = firstPO?.purchase_person || ''
@@ -353,18 +568,61 @@ export const getProfitReport = async (req, res) => {
           }
         }
         const description = product?.description || ''
+        const model = product?.model || item.model || ''
+        const unit = item.unit || product?.unit || ''
 
-        // 毛利 = 出库额(未税) - 入库金额 - 入库费用中的关税
-        const tariffPerItem = hasWarehousing
-          ? warehousingExpensesTotal.tariff * itemRatio
-          : 0
-        const grossProfit = amountExcluded - warehousingAmount - tariffPerItem
+        // ============ 核心毛利计算 ============
+
+        // 各环节费用分摊到商品行
+        const itemPoTransportation = Math.round(poTransportationFee * itemRatio * 100) / 100
+        const itemPoOperating = Math.round(poOperatingExpenses * itemRatio * 100) / 100
+        const itemPoVat = Math.round(poValueAddedTax * itemRatio * 100) / 100
+        const itemPoHandling = Math.round(poHandlingFee * itemRatio * 100) / 100
+        const itemPoOther = Math.round(poOtherFee * itemRatio * 100) / 100
+        const itemPoTotal = Math.round(purchaseExpenseTotal * itemRatio * 100) / 100
+
+        const itemSlTransportation = Math.round(slTransportationFee * itemRatio * 100) / 100
+        const itemSlHandling = Math.round(slHandlingFee * itemRatio * 100) / 100
+        const itemSlOther = Math.round(slOtherFee * itemRatio * 100) / 100
+        const itemSlTotal = Math.round(salesExpenseTotal * itemRatio * 100) / 100
+
+        const itemWhTariff = Math.round(warehousingExpensesTotal.tariff * itemRatio * 100) / 100
+        const itemWhTransportation = Math.round(warehousingExpensesTotal.transportationFee * itemRatio * 100) / 100
+        const itemWhCustoms = Math.round(warehousingExpensesTotal.customsFee * itemRatio * 100) / 100
+        const itemWhOther = Math.round(warehousingExpensesTotal.otherFee * itemRatio * 100) / 100
+        const itemWhTotal = Math.round(warehousingExpenseTotal * itemRatio * 100) / 100
+
+        const itemDlExpress = Math.round(dlExpressFee * itemRatio * 100) / 100
+        const itemDlTransportation = Math.round(dlTransportationFee * itemRatio * 100) / 100
+        const itemDlCustoms = Math.round(dlCustomsFee * itemRatio * 100) / 100
+        const itemDlOther = Math.round(dlOtherFee * itemRatio * 100) / 100
+        const itemDlTotal = Math.round(deliveryExpenseTotal * itemRatio * 100) / 100
+
+        // 费用合计
+        const totalExpense = itemPoTotal + itemSlTotal + itemWhTotal + itemDlTotal
+
+        // 总成本 = 采购成本(未税) + 费用合计
+        const totalCost = warehousingAmount + totalExpense
+
+        // 毛利 = 销售收入(未税) - 总成本
+        const grossProfit = amountExcluded - totalCost
+
+        // 毛利率
+        const grossProfitRate = amountExcluded > 0 ? (grossProfit / amountExcluded * 100) : 0
+
+        // ============ 汇率换算 ============
+        const salesAmountIncludedCNY_bank = amount * bankRate
+        const salesAmountExcludedCNY_bank = amountExcluded * bankRate
+        const salesAmountIncludedCNY_customs = amount * customsRate
+        const salesAmountExcludedCNY_customs = amountExcluded * customsRate
+
+        const exchangeDiffIncluded = salesAmountIncludedCNY_bank - salesAmountIncludedCNY_customs
+        const exchangeDiffExcluded = salesAmountExcludedCNY_bank - salesAmountExcludedCNY_customs
 
         reportRows.push({
           // 出货信息
-          delivery_date: order.entry_date || order.delivery_date || '',
-          settlement_status: settlementStatus,
-          settlement_date: settlementDate,
+          delivery_date: formatDateStr(order.entry_date) || formatDateStr(order.delivery_date) || '',
+          order_number: order.order_number || '',
           sales_contract_number: order.contract_number || '',
           sales_person: salesOrder?.sales_person || '',
           customer_name: order.customer_name || salesOrder?.customer_name || '',
@@ -373,48 +631,79 @@ export const getProfitReport = async (req, res) => {
           // 商品信息
           product_name: item.product_name || '',
           product_code: productCode,
-          model: item.model || '',
+          model: model,
           description: description,
-          unit: item.unit || '',
+          unit: unit,
           delivery_quantity: quantity,
           // 销售信息
-          unit_price: taxIncludedPrice,
+          unit_price: Math.round(taxIncludedPrice * 10000) / 10000,
           sales_amount_included: Math.round(amount * 100) / 100,
           unit_price_excluded: Math.round(unitPriceExcluded * 10000) / 10000,
           sales_amount_excluded: Math.round(amountExcluded * 100) / 100,
+          tax_rate: taxRate,
+          // 结算信息
+          settlement_status: settlementStatusText,
+          receivable_amount: Math.round(receivableAmount * 100) / 100,
+          received_amount: Math.round(receivedAmount * 100) / 100,
+          balance_amount: Math.round(balanceAmount * 100) / 100,
+          last_write_off_date: formatDateStr(lastWriteOffDate),
+          last_write_off_number: lastWriteOffNumber,
+          write_off_count: writeOffCount,
+          // 出库成本（优先采购订单，兜底产品表）
+          cost_unit_price_excluded: Math.round(warehousingUnitPriceExcluded * 10000) / 10000,
+          cost_unit_price_included: Math.round(warehousingUnitPriceIncluded * 10000) / 10000,
+          cost_amount_excluded: Math.round(warehousingAmount * 100) / 100,
+          cost_amount_included: Math.round(warehousingAmountIncluded * 100) / 100,
           // 采购信息
           purchase_contract_number: purchaseContractNumber,
           purchase_person: purchasePerson,
-          warehousing_date: warehousingDate || '',
+          warehousing_date: formatDateStr(warehousingDate) || '',
           warehousing_quantity: warehousingQuantity,
           warehousing_unit_price_excluded: Math.round(warehousingUnitPriceExcluded * 10000) / 10000,
+          warehousing_unit_price_included: Math.round(warehousingUnitPriceIncluded * 10000) / 10000,
           warehousing_amount: Math.round(warehousingAmount * 100) / 100,
+          warehousing_amount_included: Math.round(warehousingAmountIncluded * 100) / 100,
           // 采购费用明细
-          po_expense_transportation: Math.round(poTransportationFee * itemRatio * 100) / 100,
-          po_expense_operating: Math.round(poOperatingExpenses * itemRatio * 100) / 100,
-          po_expense_vat: Math.round(poValueAddedTax * itemRatio * 100) / 100,
-          po_expense_handling: Math.round(poHandlingFee * itemRatio * 100) / 100,
-          po_expense_other: Math.round(poOtherFee * itemRatio * 100) / 100,
-          po_expense_total: Math.round(purchaseExpenseTotal * itemRatio * 100) / 100,
+          po_expense_transportation: itemPoTransportation,
+          po_expense_operating: itemPoOperating,
+          po_expense_vat: itemPoVat,
+          po_expense_handling: itemPoHandling,
+          po_expense_other: itemPoOther,
+          po_expense_total: itemPoTotal,
           // 销售费用明细
-          sl_expense_transportation: Math.round(slTransportationFee * itemRatio * 100) / 100,
-          sl_expense_handling: Math.round(slHandlingFee * itemRatio * 100) / 100,
-          sl_expense_other: Math.round(slOtherFee * itemRatio * 100) / 100,
-          sl_expense_total: Math.round(salesExpenseTotal * itemRatio * 100) / 100,
+          sl_expense_transportation: itemSlTransportation,
+          sl_expense_handling: itemSlHandling,
+          sl_expense_other: itemSlOther,
+          sl_expense_total: itemSlTotal,
           // 入库费用明细
-          wh_expense_tariff: Math.round(warehousingExpensesTotal.tariff * itemRatio * 100) / 100,
-          wh_expense_transportation: Math.round(warehousingExpensesTotal.transportationFee * itemRatio * 100) / 100,
-          wh_expense_customs: Math.round(warehousingExpensesTotal.customsFee * itemRatio * 100) / 100,
-          wh_expense_other: Math.round(warehousingExpensesTotal.otherFee * itemRatio * 100) / 100,
-          wh_expense_total: Math.round(warehousingExpenseTotal * itemRatio * 100) / 100,
+          wh_expense_tariff: itemWhTariff,
+          wh_expense_transportation: itemWhTransportation,
+          wh_expense_customs: itemWhCustoms,
+          wh_expense_other: itemWhOther,
+          wh_expense_total: itemWhTotal,
           // 出库费用明细
-          dl_expense_express: Math.round(dlExpressFee * itemRatio * 100) / 100,
-          dl_expense_transportation: Math.round(dlTransportationFee * itemRatio * 100) / 100,
-          dl_expense_customs: Math.round(dlCustomsFee * itemRatio * 100) / 100,
-          dl_expense_other: Math.round(dlOtherFee * itemRatio * 100) / 100,
-          dl_expense_total: Math.round(deliveryExpenseTotal * itemRatio * 100) / 100,
+          dl_expense_express: itemDlExpress,
+          dl_expense_transportation: itemDlTransportation,
+          dl_expense_customs: itemDlCustoms,
+          dl_expense_other: itemDlOther,
+          dl_expense_total: itemDlTotal,
+          // 费用合计
+          total_expense: Math.round(totalExpense * 100) / 100,
+          // 总成本
+          total_cost: Math.round(totalCost * 100) / 100,
           // 毛利
           gross_profit: Math.round(grossProfit * 100) / 100,
+          gross_profit_rate: Math.round(grossProfitRate * 100) / 100,
+          // 汇率信息
+          currency: orderCurrency,
+          bank_rate: Math.round(bankRate * 1000000) / 1000000,
+          customs_rate: Math.round(customsRate * 1000000) / 1000000,
+          sales_amount_included_cny_bank: Math.round(salesAmountIncludedCNY_bank * 100) / 100,
+          sales_amount_excluded_cny_bank: Math.round(salesAmountExcludedCNY_bank * 100) / 100,
+          sales_amount_included_cny_customs: Math.round(salesAmountIncludedCNY_customs * 100) / 100,
+          sales_amount_excluded_cny_customs: Math.round(salesAmountExcludedCNY_customs * 100) / 100,
+          exchange_diff_included: Math.round(exchangeDiffIncluded * 100) / 100,
+          exchange_diff_excluded: Math.round(exchangeDiffExcluded * 100) / 100,
           // 预留字段
           commission_rate: null,
           commission_amount: null,

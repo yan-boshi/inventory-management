@@ -39,6 +39,22 @@
           <a-input v-model:value="form.customer_email" placeholder="请输入联系邮箱" />
         </a-form-item>
 
+        <a-form-item label="币种" name="currency" style="margin-bottom: 8px;">
+          <a-select v-model:value="form.currency" placeholder="请选择币种" allow-clear>
+            <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
+              {{ cur.currency_name }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+
+        <a-form-item label="国家" name="country" style="margin-bottom: 8px;">
+          <a-input v-model:value="form.country" placeholder="请输入国家" />
+        </a-form-item>
+
+        <a-form-item label="地区" name="region" style="margin-bottom: 8px;">
+          <a-input v-model:value="form.region" placeholder="请输入地区" />
+        </a-form-item>
+
         <a-form-item label="注册地址" name="register_address" style="grid-column: 1 / -1; margin-bottom: 8px;">
           <a-textarea v-model:value="form.register_address" :rows="1" placeholder="请输入注册地址" />
         </a-form-item>
@@ -61,6 +77,18 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 16px;">
         <a-form-item label="收货人" name="receiver" style="margin-bottom: 8px;">
           <a-input v-model:value="form.receiver" placeholder="请输入收货人" />
+        </a-form-item>
+
+        <a-form-item label="收货人联系电话" name="receiver_phone" style="margin-bottom: 8px;">
+          <a-input v-model:value="form.receiver_phone" placeholder="请输入收货人联系电话" />
+        </a-form-item>
+
+        <a-form-item label="邮编" name="zip_code" style="margin-bottom: 8px;">
+          <a-input v-model:value="form.zip_code" placeholder="请输入邮编" />
+        </a-form-item>
+
+        <a-form-item label="快递账号" name="express_account" style="margin-bottom: 8px;">
+          <a-input v-model:value="form.express_account" placeholder="请输入快递账号" />
         </a-form-item>
 
         <a-form-item label="收货地址" name="receiver_address" style="grid-column: 1 / -1; margin-bottom: 8px;">
@@ -97,7 +125,8 @@
 import { ref, reactive, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { customersApi } from '@/api/customers'
-import type { Customer, CreateCustomerRequest } from '@/types'
+import type { Customer, CreateCustomerRequest, Currency } from '@/types'
+import { getActiveCurrencies } from '@/api/currencies'
 
 const props = defineProps<{
   visible: boolean
@@ -112,6 +141,7 @@ const emit = defineEmits<{
 
 const formRef = ref()
 const loading = ref(false)
+const currencyList = ref<Currency[]>([])
 
 const form = reactive<CreateCustomerRequest>({
   customer_name: '',
@@ -126,7 +156,13 @@ const form = reactive<CreateCustomerRequest>({
   contact: '',
   contact_phone: '',
   receiver: '',
+  receiver_phone: '',
   receiver_address: '',
+  zip_code: '',
+  express_account: '',
+  currency: undefined,
+  country: '',
+  region: '',
   remarks: ''
 })
 
@@ -166,7 +202,20 @@ const handleCancel = () => {
   emit('update:visible', false)
 }
 
+// 加载币种列表
+const loadCurrencies = async () => {
+  try {
+    const res = await getActiveCurrencies()
+    currencyList.value = res.data || []
+  } catch (error) {
+    console.error('加载币种列表失败:', error)
+  }
+}
+
 watch(() => props.visible, (visible) => {
+  if (visible) {
+    loadCurrencies()
+  }
   if (visible && props.isEdit && props.customerData) {
     Object.assign(form, {
       customer_name: props.customerData.customer_name || '',
@@ -181,7 +230,13 @@ watch(() => props.visible, (visible) => {
       contact: props.customerData.contact || '',
       contact_phone: props.customerData.contact_phone || '',
       receiver: props.customerData.receiver || '',
+      receiver_phone: props.customerData.receiver_phone || '',
       receiver_address: props.customerData.receiver_address || '',
+      zip_code: props.customerData.zip_code || '',
+      express_account: props.customerData.express_account || '',
+      currency: props.customerData.currency || undefined,
+      country: props.customerData.country || '',
+      region: props.customerData.region || '',
       remarks: props.customerData.remarks || ''
     })
   } else if (visible && !props.isEdit) {
@@ -203,7 +258,13 @@ const resetForm = () => {
     contact: '',
     contact_phone: '',
     receiver: '',
+    receiver_phone: '',
     receiver_address: '',
+    zip_code: '',
+    express_account: '',
+    currency: undefined,
+    country: '',
+    region: '',
     remarks: ''
   })
 }

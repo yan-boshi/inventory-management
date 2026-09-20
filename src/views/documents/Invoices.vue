@@ -56,6 +56,7 @@
       :pagination="pagination"
       @change="handleTableChange"
       row-key="invoice_id"
+      :scroll="{ x: 1000 }"
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'invoice_number'">
@@ -166,7 +167,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import {
   PlusOutlined,
@@ -203,50 +204,87 @@ const pagination = reactive({
   showTotal: (total: number) => `共 ${total} 条`,
 })
 
-const columns = [
+// 动态生成筛选选项
+const buyerNameFilters = ref<{ text: string; value: string }[]>([])
+const tradeTermsFilters = ref<{ text: string; value: string }[]>([])
+
+// 从数据中提取筛选选项
+const extractFilterOptions = (data: Invoice[]) => {
+  const buyerNames = new Set<string>()
+  const tradeTerms = new Set<string>()
+
+  data.forEach((item) => {
+    if (item.buyer_name) {
+      buyerNames.add(item.buyer_name)
+    }
+    if (item.trade_terms) {
+      tradeTerms.add(item.trade_terms)
+    }
+  })
+
+  buyerNameFilters.value = Array.from(buyerNames).map((name) => ({
+    text: name,
+    value: name,
+  }))
+
+  tradeTermsFilters.value = Array.from(tradeTerms).map((term) => ({
+    text: term,
+    value: term,
+  }))
+}
+
+const columns = computed(() => [
   {
     title: '发票号',
     dataIndex: 'invoice_number',
     key: 'invoice_number',
-    width: 120,
+    width: 130,
   },
   {
     title: 'SO.号',
     dataIndex: 'so_number',
     key: 'so_number',
-    width: 120,
+    width: 130,
   },
   {
     title: '开票日期',
     dataIndex: 'invoice_date',
     key: 'invoice_date',
-    width: 120,
+    width: 110,
   },
   {
     title: '买方公司',
     dataIndex: 'buyer_name',
     key: 'buyer_name',
+    width: 180,
     ellipsis: true,
+    filters: buyerNameFilters.value,
+    filterMultiple: true,
+    onFilter: (value: string, record: Invoice) => record.buyer_name === value,
   },
   {
     title: '成交方式',
     dataIndex: 'trade_terms',
     key: 'trade_terms',
-    width: 100,
+    width: 110,
+    filters: tradeTermsFilters.value,
+    filterMultiple: true,
+    onFilter: (value: string, record: Invoice) => record.trade_terms === value,
   },
   {
     title: '总金额',
     dataIndex: 'total_value',
     key: 'total_value',
     width: 120,
+    align: 'right' as const,
   },
   {
     title: '操作',
     key: 'action',
-    width: 150,
+    width: 160,
     fixed: 'right' as const,
   },
-]
+])
 
 const itemColumns = [
   {
@@ -298,6 +336,9 @@ const loadInvoices = async () => {
     const data = response as any
     invoiceList.value = data.data || []
     pagination.total = data.pagination?.total || 0
+
+    // 提取筛选选项
+    extractFilterOptions(invoiceList.value)
   } catch (error) {
     console.error('加载发票列表失败:', error)
     message.error('加载发票列表失败')
@@ -332,7 +373,7 @@ const handleDateChange = (dates: [dayjs.Dayjs, dayjs.Dayjs] | null) => {
   }
 }
 
-const handleTableChange = (pag: any) => {
+const handleTableChange = (pag: any, filters: any) => {
   queryParams.page = pag.current
   queryParams.pageSize = pag.pageSize
   pagination.current = pag.current

@@ -83,6 +83,7 @@ class DeliveryOrder extends BaseModel {
       delivery_date: data.delivery_date || null,
       entry_date: data.entry_date || null,
       currency: data.currency || 'CNY',
+      exchange_rate: data.exchange_rate || 1.0,
       total_amount: totalAmount,
       expenses: expensesJson,
       tracking_number: data.tracking_number || null,
