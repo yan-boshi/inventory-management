@@ -23,7 +23,9 @@ export default {
             REFERENCES settlement_statements(statement_id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对账单开票记录'
       `)
-      console.log('settlement_invoice_records 表创建成功')
+      console.log('✅ settlement_invoice_records 表创建成功')
+    } else {
+      console.log('ℹ️  settlement_invoice_records 表已存在，跳过创建')
     }
 
     // 将现有对账单的开票数据迁移到新表
@@ -49,7 +51,8 @@ export default {
         record.uninvoiced_amount || 0
       ])
     }
-    console.log(`已迁移 ${existingRecords.length} 条开票记录`)
+    console.log(`✅ 已迁移 ${existingRecords.length} 条开票记录`)
+    console.log('\n✅ settlement_invoice_records 迁移完成！')
   },
 
   async down(connection) {
@@ -58,6 +61,10 @@ export default {
     `)
     if (tables.length > 0) {
       await connection.query(`DROP TABLE settlement_invoice_records`)
+      console.log('✅ settlement_invoice_records 表已删除')
+    } else {
+      console.log('ℹ️  settlement_invoice_records 表不存在，跳过删除')
     }
+    console.log('\n✅ settlement_invoice_records 回滚完成！')
   }
 }
