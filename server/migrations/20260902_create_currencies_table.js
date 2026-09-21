@@ -49,6 +49,9 @@ async function up() {
     }
     console.log('预置币种数据插入成功')
     console.log('\n✅ currencies 表迁移完成！')
+  } catch (error) {
+    console.error('\n❌ currencies 表迁移失败:', error.message)
+    throw error
   } finally {
     connection.release()
   }
@@ -60,6 +63,9 @@ async function down() {
     await connection.query('DROP TABLE IF EXISTS currencies')
     console.log('currencies 表已删除')
     console.log('\n✅ currencies 表回滚完成！')
+  } catch (error) {
+    console.error('\n❌ currencies 表回滚失败:', error.message)
+    throw error
   } finally {
     connection.release()
   }

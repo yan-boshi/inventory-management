@@ -31,6 +31,9 @@ async function up() {
       console.log('delivery_orders 表已有 exchange_rate 列，跳过')
     }
     console.log('\n✅ delivery_orders 表迁移完成！')
+  } catch (error) {
+    console.error('\n❌ delivery_orders 表迁移失败:', error.message)
+    throw error
   } finally {
     connection.release()
   }
@@ -48,6 +51,9 @@ async function down() {
       console.log('delivery_orders 表已删除 exchange_rate 列')
     }
     console.log('\n✅ delivery_orders 表回滚完成！')
+  } catch (error) {
+    console.error('\n❌ delivery_orders 表回滚失败:', error.message)
+    throw error
   } finally {
     connection.release()
   }

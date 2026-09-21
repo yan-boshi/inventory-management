@@ -31,6 +31,9 @@ async function up() {
     `)
     console.log('customs_exchange_rates 表创建成功')
     console.log('\n✅ customs_exchange_rates 表迁移完成！')
+  } catch (error) {
+    console.error('\n❌ customs_exchange_rates 表迁移失败:', error.message)
+    throw error
   } finally {
     connection.release()
   }
@@ -42,6 +45,9 @@ async function down() {
     await connection.query('DROP TABLE IF EXISTS customs_exchange_rates')
     console.log('customs_exchange_rates 表已删除')
     console.log('\n✅ customs_exchange_rates 表回滚完成！')
+  } catch (error) {
+    console.error('\n❌ customs_exchange_rates 表回滚失败:', error.message)
+    throw error
   } finally {
     connection.release()
   }

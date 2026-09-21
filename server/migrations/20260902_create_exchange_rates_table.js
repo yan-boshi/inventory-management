@@ -32,6 +32,9 @@ async function up() {
     `)
     console.log('exchange_rates 表创建成功')
     console.log('\n✅ exchange_rates 表迁移完成！')
+  } catch (error) {
+    console.error('\n❌ exchange_rates 表迁移失败:', error.message)
+    throw error
   } finally {
     connection.release()
   }
@@ -43,6 +46,9 @@ async function down() {
     await connection.query('DROP TABLE IF EXISTS exchange_rates')
     console.log('exchange_rates 表已删除')
     console.log('\n✅ exchange_rates 表回滚完成！')
+  } catch (error) {
+    console.error('\n❌ exchange_rates 表回滚失败:', error.message)
+    throw error
   } finally {
     connection.release()
   }
