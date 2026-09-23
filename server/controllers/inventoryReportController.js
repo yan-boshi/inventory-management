@@ -37,6 +37,18 @@ export const getInventoryReport = async (req, res) => {
       [startDate, endDate]
     )
 
+    // 查询时间范围内的所有入库退货单
+    const [inboundReturnOrders] = await pool.query(
+      'SELECT return_items FROM inbound_return_orders WHERE return_time BETWEEN ? AND ?',
+      [startDate, endDate]
+    )
+
+    // 查询时间范围内的所有出库退货单
+    const [outboundReturnOrders] = await pool.query(
+      'SELECT return_items FROM outbound_return_orders WHERE return_time BETWEEN ? AND ?',
+      [startDate, endDate]
+    )
+
     // 汇总每个产品的入库数量
     const inboundMap = {}
     for (const order of warehousingOrders) {
@@ -46,6 +58,21 @@ export const getInventoryReport = async (req, res) => {
           const code = item.product_code
           if (!code) continue
           inboundMap[code] = (inboundMap[code] || 0) + (parseFloat(item.quantity) || 0)
+        }
+      } catch (e) {
+        // skip malformed items
+      }
+    }
+
+    // 汇总每个产品的入库退货数量
+    const inboundReturnMap = {}
+    for (const order of inboundReturnOrders) {
+      try {
+        const items = JSON.parse(order.return_items || '[]')
+        for (const item of items) {
+          const code = item.product_code
+          if (!code) continue
+          inboundReturnMap[code] = (inboundReturnMap[code] || 0) + (parseFloat(item.quantity) || 0)
         }
       } catch (e) {
         // skip malformed items
@@ -67,6 +94,21 @@ export const getInventoryReport = async (req, res) => {
       }
     }
 
+    // 汇总每个产品的出库退货数量
+    const outboundReturnMap = {}
+    for (const order of outboundReturnOrders) {
+      try {
+        const items = JSON.parse(order.return_items || '[]')
+        for (const item of items) {
+          const code = item.product_code
+          if (!code) continue
+          outboundReturnMap[code] = (outboundReturnMap[code] || 0) + (parseFloat(item.quantity) || 0)
+        }
+      } catch (e) {
+        // skip malformed items
+      }
+    }
+
     // 查询时间范围之前的所有入库单（用于计算期初库存）
     const [allWarehousingOrdersBefore] = await pool.query(
       'SELECT warehousing_items FROM warehousing_orders WHERE warehousing_time < ?',
@@ -79,6 +121,18 @@ export const getInventoryReport = async (req, res) => {
       [startDate]
     )
 
+    // 查询时间范围之前的所有入库退货单（用于计算期初库存）
+    const [allInboundReturnOrdersBefore] = await pool.query(
+      'SELECT return_items FROM inbound_return_orders WHERE return_time < ?',
+      [startDate]
+    )
+
+    // 查询时间范围之前的所有出库退货单（用于计算期初库存）
+    const [allOutboundReturnOrdersBefore] = await pool.query(
+      'SELECT return_items FROM outbound_return_orders WHERE return_time < ?',
+      [startDate]
+    )
+
     // 汇总时间范围之前的入库数量
     const inboundBeforeMap = {}
     for (const order of allWarehousingOrdersBefore) {
@@ -88,6 +142,21 @@ export const getInventoryReport = async (req, res) => {
           const code = item.product_code
           if (!code) continue
           inboundBeforeMap[code] = (inboundBeforeMap[code] || 0) + (parseFloat(item.quantity) || 0)
+        }
+      } catch (e) {
+        // skip malformed items
+      }
+    }
+
+    // 汇总时间范围之前的入库退货数量
+    const inboundReturnBeforeMap = {}
+    for (const order of allInboundReturnOrdersBefore) {
+      try {
+        const items = JSON.parse(order.return_items || '[]')
+        for (const item of items) {
+          const code = item.product_code
+          if (!code) continue
+          inboundReturnBeforeMap[code] = (inboundReturnBeforeMap[code] || 0) + (parseFloat(item.quantity) || 0)
         }
       } catch (e) {
         // skip malformed items
@@ -109,15 +178,33 @@ export const getInventoryReport = async (req, res) => {
       }
     }
 
+    // 汇总时间范围之前的出库退货数量
+    const outboundReturnBeforeMap = {}
+    for (const order of allOutboundReturnOrdersBefore) {
+      try {
+        const items = JSON.parse(order.return_items || '[]')
+        for (const item of items) {
+          const code = item.product_code
+          if (!code) continue
+          outboundReturnBeforeMap[code] = (outboundReturnBeforeMap[code] || 0) + (parseFloat(item.quantity) || 0)
+        }
+      } catch (e) {
+        // skip malformed items
+      }
+    }
+
     // 生成报表数据
     const report = products.map(product => {
-      const inbound = inboundMap[product.product_code] || 0
-      const outbound = outboundMap[product.product_code] || 0
-      // 期初库存 = 查询日期之前的所有入库 - 查询日期之前的所有出库
-      const inboundBefore = inboundBeforeMap[product.product_code] || 0
-      const outboundBefore = outboundBeforeMap[product.product_code] || 0
+      const code = product.product_code
+      // 本期入库 = 入库 - 入库退货
+      const inbound = (inboundMap[code] || 0) - (inboundReturnMap[code] || 0)
+      // 本期出库 = 出库 - 出库退货
+      const outbound = (outboundMap[code] || 0) - (outboundReturnMap[code] || 0)
+      // 期初库存 = (之前入库 - 之前入库退货) - (之前出库 - 之前出库退货)
+      const inboundBefore = (inboundBeforeMap[code] || 0) - (inboundReturnBeforeMap[code] || 0)
+      const outboundBefore = (outboundBeforeMap[code] || 0) - (outboundReturnBeforeMap[code] || 0)
       const openingStock = inboundBefore - outboundBefore
-      // 期末库存 = 期初 + 期间入库 - 期间出库（确保公式平衡）
+      // 期末库存 = 期初 + 期间入库 - 期间出库
       const closingStock = openingStock + inbound - outbound
       const taxIncludedPrice = parseFloat(product.tax_included_price) || 0
       // 如果未税单价为空，则根据含税单价和默认税率(13%)计算

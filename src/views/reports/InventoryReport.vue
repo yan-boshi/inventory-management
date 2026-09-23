@@ -139,6 +139,22 @@
             {{ formatMoney(record[column.key]) }}
           </template>
         </template>
+
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div style="padding: 8px">
+            <a-input
+              :placeholder="`搜索${column.title}`"
+              :value="selectedKeys[0]"
+              style="width: 188px; margin-bottom: 8px; display: block"
+              @change="(e: any) => setSelectedKeys(e.target.value ? [e.target.value] : [])"
+              @pressEnter="confirm()"
+            />
+            <a-button type="primary" size="small" style="width: 90px; margin-right: 8px" @click="confirm()">
+              搜索
+            </a-button>
+            <a-button size="small" style="width: 90px" @click="clearFilters?.()">重置</a-button>
+          </div>
+        </template>
       </a-table>
       <a-pagination
         v-model:current="pagination.current"
@@ -179,9 +195,24 @@ const printVisible = ref(false)
 
 // 列配置
 const allColumns = [
-  { title: '产品名称', dataIndex: 'product_name', key: 'product_name', width: 120, fixed: 'left' as const },
-  { title: '产品代码', dataIndex: 'product_code', key: 'product_code', width: 100, fixed: 'left' as const },
-  { title: '规格型号', dataIndex: 'model', key: 'model', width: 100 },
+  {
+    title: '产品名称', dataIndex: 'product_name', key: 'product_name', width: 120, fixed: 'left' as const,
+    customFilterDropdown: true,
+    onFilter: (value: string, record: InventoryReportItem) =>
+      (record.product_name || '').toLowerCase().includes(value.toLowerCase()),
+  },
+  {
+    title: '产品代码', dataIndex: 'product_code', key: 'product_code', width: 100, fixed: 'left' as const,
+    customFilterDropdown: true,
+    onFilter: (value: string, record: InventoryReportItem) =>
+      (record.product_code || '').toLowerCase().includes(value.toLowerCase()),
+  },
+  {
+    title: '规格型号', dataIndex: 'model', key: 'model', width: 100,
+    customFilterDropdown: true,
+    onFilter: (value: string, record: InventoryReportItem) =>
+      (record.model || '').toLowerCase().includes(value.toLowerCase()),
+  },
   { title: '单位', dataIndex: 'unit', key: 'unit', width: 50, align: 'center' as const },
   // 期初
   { title: '期初数量', dataIndex: 'opening_stock', key: 'opening_stock', width: 80, align: 'right' as const },

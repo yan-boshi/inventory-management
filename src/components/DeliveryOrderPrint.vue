@@ -315,15 +315,15 @@ const handlePrint = () => {
   margin-bottom: 40px;
 
   .company-name {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: bold;
-    margin: 0 0 12px 0;
+    margin: 0 0 8px 0;
     color: #000;
   }
 
   .company-address {
-    font-size: 16px;
-    margin: 12px 0 0 0;
+    font-size: 12px;
+    margin: 8px 0 0 0;
     color: #000;
   }
 }
@@ -332,10 +332,10 @@ const handlePrint = () => {
   margin-bottom: 30px;
 
   .order-number-row {
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: 16px;
+    margin-bottom: 16px;
     text-align: left;
-    font-size: 16px;
+    font-size: 12px;
     font-weight: bold;
     color: #000;
   }
@@ -352,8 +352,8 @@ const handlePrint = () => {
 
   .row {
     display: flex;
-    margin-bottom: 16px;
-    font-size: 14px;
+    margin-bottom: 12px;
+    font-size: 12px;
     color: #000;
   }
 
@@ -392,11 +392,11 @@ const handlePrint = () => {
   thead {
     tr {
       th {
-        padding: 12px 8px;
-        background: #f5f5f5;
-        border: 1px solid #d9d9d9;
-        font-weight: 500;
-        font-size: 14px;
+        padding: 10px 8px;
+        background: #e8e8e8;
+        border: 2px solid #333;
+        font-weight: 600;
+        font-size: 12px;
         color: #262626;
         text-align: center;
         white-space: nowrap;
@@ -407,13 +407,13 @@ const handlePrint = () => {
   tbody {
     tr {
       td {
-        padding: 12px 8px;
-        border: 1px solid #e8e8e8;
+        padding: 8px 6px;
+        border: 1.5px solid #555;
         text-align: center;
-        font-size: 14px;
+        font-size: 12px;
         color: #000;
         vertical-align: middle;
-        height: 50px;
+        height: 40px;
         word-wrap: break-word;
         word-break: break-all;
 
@@ -439,8 +439,8 @@ const handlePrint = () => {
 }
 
 .footer-section {
-  margin-top: 40px;
-  font-size: 16px;
+  margin-top: 30px;
+  font-size: 12px;
 
   .footer-label {
     display: inline-block;

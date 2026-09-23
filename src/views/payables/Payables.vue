@@ -196,6 +196,46 @@
             </a-space>
           </template>
         </template>
+
+        <template #summary>
+          <a-table-summary>
+            <a-table-summary-row>
+              <a-table-summary-cell :index="0" />
+              <a-table-summary-cell :index="1" :colSpan="3" align="right">
+                <strong>合计</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="4" align="right">
+                <strong>{{ formatMoney(pageTotals.amount) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="5" align="right">
+                <strong>{{ formatMoney(pageTotals.received_amount) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="6" align="right">
+                <strong>{{ formatMoney(pageTotals.balance_amount) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="7" align="right">
+                <strong>{{ formatMoney(pageTotals.handling_fee) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="8" :colSpan="5" />
+            </a-table-summary-row>
+          </a-table-summary>
+        </template>
+
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div style="padding: 8px">
+            <a-input
+              :placeholder="`搜索${column.title}`"
+              :value="selectedKeys[0]"
+              style="width: 188px; margin-bottom: 8px; display: block"
+              @change="(e: any) => setSelectedKeys(e.target.value ? [e.target.value] : [])"
+              @pressEnter="confirm()"
+            />
+            <a-button type="primary" size="small" style="width: 90px; margin-right: 8px" @click="confirm()">
+              搜索
+            </a-button>
+            <a-button size="small" style="width: 90px" @click="clearFilters?.()">重置</a-button>
+          </div>
+        </template>
       </a-table>
 
       <a-pagination
@@ -229,7 +269,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { SearchOutlined, ReloadOutlined, FileTextOutlined, AuditOutlined } from '@ant-design/icons-vue'
 import { payablesApi } from '@/api/payables'
@@ -271,12 +311,20 @@ const columns = [
     dataIndex: 'supplier_name',
     key: 'supplier_name',
     width: 150,
+    customFilterDropdown: true,
+    onFilter: (value: string, record: Payable) =>
+      (record.supplier_name || '').toLowerCase().includes(value.toLowerCase()),
   },
   {
     title: '来源单据',
     dataIndex: 'source_bill_type',
     key: 'source_bill_type',
     width: 100,
+    filters: [
+      { text: '入库单', value: 1 },
+      { text: '采购退货单', value: 2 },
+    ],
+    onFilter: (value: number, record: Payable) => record.source_bill_type === value,
   },
   {
     title: '来源单据编号',
@@ -318,6 +366,12 @@ const columns = [
     key: 'status',
     width: 90,
     align: 'center',
+    filters: [
+      { text: '未结算', value: 0 },
+      { text: '部分结算', value: 1 },
+      { text: '已结算', value: 2 },
+    ],
+    onFilter: (value: number, record: Payable) => record.status === value,
   },
   {
     title: '开票状态',
@@ -325,6 +379,12 @@ const columns = [
     key: 'billing_status',
     width: 100,
     align: 'center',
+    filters: [
+      { text: '未开票', value: 0 },
+      { text: '已开票', value: 1 },
+      { text: '部分开票', value: 2 },
+    ],
+    onFilter: (value: number, record: Payable) => record.billing_status === value,
   },
   {
     title: '结算日期',
@@ -411,6 +471,19 @@ const formatMoney = (value: number | undefined | null) => {
     maximumFractionDigits: 4,
   })
 }
+
+const pageTotals = computed(() => {
+  return payables.value.reduce(
+    (totals, item) => {
+      totals.amount += Number(item.amount) || 0
+      totals.received_amount += Number(item.received_amount) || 0
+      totals.balance_amount += Number(item.balance_amount) || 0
+      totals.handling_fee += Number(item.handling_fee) || 0
+      return totals
+    },
+    { amount: 0, received_amount: 0, balance_amount: 0, handling_fee: 0 }
+  )
+})
 
 const fetchPayables = async () => {
   loading.value = true

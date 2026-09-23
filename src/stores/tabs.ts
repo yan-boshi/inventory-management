@@ -35,6 +35,7 @@ const routeTitleMap: Record<string, string> = {
   SettlementDetail: '对账单详情',
   SettlementEdit: '编辑对账单',
   ProfitReport: '毛利表',
+  BasicProfitReport: '基础毛利表',
   PackingLists: '装箱单',
   Invoices: '发票',
   Products: '产品管理',

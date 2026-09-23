@@ -41,11 +41,11 @@ export const deleteExchangeRate = (id: string) => {
   return instance.delete<{ success: boolean; message: string }>(`/exchange-rates/${id}`)
 }
 
-// 查询当前周的汇率（给订单表单自动填充用）
-export const getCurrentRate = (source_currency: string, target_currency: string) => {
+// 查询当前周的汇率（给订单表单自动填充用，支持按日期查找最近生效的汇率）
+export const getCurrentRate = (source_currency: string, target_currency: string, date?: string) => {
   return instance.get<{ success: boolean; data: ExchangeRate | null; message?: string }>(
     '/exchange-rates/current',
-    { params: { source_currency, target_currency } }
+    { params: { source_currency, target_currency, date } }
   )
 }
 

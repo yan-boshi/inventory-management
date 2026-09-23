@@ -1028,6 +1028,16 @@ const handleCurrencyChange = (value: string) => {
   fetchCurrentRate(value)
 }
 
+// 监听单据日期变化，重新获取汇率（跨月时只匹配当月的汇率）
+watch(
+  () => form.entry_date,
+  () => {
+    if (form.currency && form.currency !== 'CNY') {
+      fetchCurrentRate(form.currency)
+    }
+  }
+)
+
 // 加载币种列表
 const loadCurrencies = async () => {
   try {
@@ -1046,12 +1056,18 @@ const fetchCurrentRate = async (currency: string) => {
   }
   exchangeRateLoading.value = true
   try {
-    const res = await getCurrentRate('CNY', currency)
+    // 传入单据日期，跨月时只匹配当月的汇率
+    const entryDate = form.entry_date
+      ? (typeof form.entry_date === 'string'
+        ? form.entry_date
+        : dayjs(form.entry_date).format('YYYY-MM-DD'))
+      : undefined
+    const res = await getCurrentRate(currency, 'CNY', entryDate)
     if (res.data) {
       form.exchange_rate = Number(res.data.rate)
     } else {
       form.exchange_rate = undefined
-      message.warning('本周尚未设置该币种的汇率，请先在汇率管理中维护')
+      message.warning('该日期所在月份尚未设置该币种的汇率，请先在汇率管理中维护')
     }
   } catch (error) {
     console.error('获取汇率失败:', error)

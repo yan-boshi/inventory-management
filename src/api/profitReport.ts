@@ -18,6 +18,7 @@ export interface ProfitReportItem {
   sales_person: string
   customer_name: string
   payment_method: string
+  settlement_date: string
   classification: string
 
   // 商品信息

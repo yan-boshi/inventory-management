@@ -58,7 +58,7 @@ export const createExchangeRate = async (req, res) => {
     const { source_currency, target_currency, rate, effective_week, remarks } = req.body
 
     if (!source_currency || !target_currency || !rate || !effective_week) {
-      return res.status(400).json({ success: false, message: '源币种、目标币种、汇率和生效周不能为空' })
+      return res.status(400).json({ success: false, message: '源币种、目标币种、汇率和生效日期不能为空' })
     }
 
     if (source_currency === target_currency) {
@@ -75,7 +75,7 @@ export const createExchangeRate = async (req, res) => {
     // effective_week 必须是周一
     const weekDate = new Date(effective_week)
     if (weekDate.getDay() !== 1) {
-      return res.status(400).json({ success: false, message: '生效周必须选择周一的日期' })
+      return res.status(400).json({ success: false, message: '生效日期必须选择周一的日期' })
     }
     const weekStr = effective_week.slice(0, 10)
 
@@ -139,10 +139,11 @@ export const deleteExchangeRate = async (req, res) => {
   }
 }
 
-// 查询指定币种对当前周的汇率（给订单表单用）
+// 查询指定币种对的汇率（给订单表单用，支持按日期查找最近生效的汇率）
+// 支持两种存储方向：source->target 和 target->source（自动取倒数）
 export const getCurrentRate = async (req, res) => {
   try {
-    const { source_currency, target_currency } = req.query
+    const { source_currency, target_currency, date } = req.query
 
     if (!source_currency || !target_currency) {
       return res.status(400).json({ success: false, message: '源币种和目标币种不能为空' })
@@ -153,15 +154,29 @@ export const getCurrentRate = async (req, res) => {
       return res.json({ success: true, data: { rate: 1.0 } })
     }
 
-    const today = new Date()
-    const monday = getMonday(today)
+    const targetDate = date || new Date().toISOString().slice(0, 10)
 
-    const rate = await ExchangeRate.findRate(source_currency, target_currency, monday)
-    if (!rate) {
-      return res.json({ success: true, data: null, message: '本周尚未设置该币种对的汇率' })
+    // 先查找 source->target 方向
+    let rate = await ExchangeRate.findLatestRate(source_currency, target_currency, targetDate)
+    if (rate) {
+      return res.json({ success: true, data: rate })
     }
 
-    res.json({ success: true, data: rate })
+    // 再查找 target->source 方向（取倒数）
+    rate = await ExchangeRate.findLatestRate(target_currency, source_currency, targetDate)
+    if (rate) {
+      return res.json({
+        success: true,
+        data: {
+          ...rate,
+          rate: 1 / parseFloat(rate.rate),
+          source_currency,
+          target_currency
+        }
+      })
+    }
+
+    res.json({ success: true, data: null, message: '尚未设置该币种对的汇率' })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
@@ -172,7 +187,7 @@ export const getWeekRates = async (req, res) => {
   try {
     const { effective_week } = req.query
     if (!effective_week) {
-      return res.status(400).json({ success: false, message: '生效周不能为空' })
+      return res.status(400).json({ success: false, message: '生效日期不能为空' })
     }
 
     const rates = await ExchangeRate.findByWeek(effective_week)

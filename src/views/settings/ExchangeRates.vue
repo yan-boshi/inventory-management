@@ -27,7 +27,7 @@
               </a-select-option>
             </a-select>
           </a-form-item>
-          <a-form-item label="生效周">
+          <a-form-item label="生效日期">
             <a-week-picker
               v-model:value="searchWeek"
               placeholder="选择周"
@@ -156,7 +156,7 @@ const columns = [
     width: 150,
   },
   {
-    title: '生效周',
+    title: '生效日期',
     dataIndex: 'effective_week',
     key: 'effective_week',
     width: 130,
@@ -185,6 +185,11 @@ function formatWeek(dateStr: string): string {
   if (!dateStr) return ''
   const d = dayjs(dateStr)
   const end = d.add(6, 'day')
+  // 跨月时只显示当月的日期范围
+  if (d.month() !== end.month()) {
+    const monthEnd = d.endOf('month')
+    return `${d.format('YYYY-MM-DD')} ~ ${monthEnd.format('YYYY-MM-DD')}`
+  }
   return `${d.format('YYYY-MM-DD')} ~ ${end.format('YYYY-MM-DD')}`
 }
 

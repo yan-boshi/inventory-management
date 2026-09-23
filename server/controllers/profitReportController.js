@@ -212,42 +212,81 @@ export const getProfitReport = async (req, res) => {
     // 收集所有出库日期，计算涉及的周一和月份
     const weekSet = new Set()
     const monthSet = new Set()
+    let maxEntryDate = null
     for (const order of deliveryOrders) {
       if (order.entry_date) {
         const week = getMondayStr(order.entry_date)
         const month = getMonthStr(order.entry_date)
         if (week) weekSet.add(week)
         if (month) monthSet.add(month)
+        const entryDateStr = formatDateStr(order.entry_date)
+        if (!maxEntryDate || entryDateStr > maxEntryDate) {
+          maxEntryDate = entryDateStr
+        }
       }
     }
 
-    // 查询银行汇率（按周）
-    let bankRateMap = {} // 'source_currency_target_currency_week' -> rate
-    if (weekSet.size > 0) {
+    // 查询银行汇率（支持跨月拆分记录，按 effective_week 降序）
+    // 按币种分组存储，便于查找最近生效的汇率
+    // 支持两种存储方向：外币->CNY 和 CNY->外币（自动取倒数）
+    let bankRatesByCurrency = {} // 'source_currency' -> [{effective_week, rate}, ...] 按 effective_week 降序
+    if (maxEntryDate) {
       const [bankRates] = await pool.query(
         `SELECT source_currency, target_currency, effective_week, rate
          FROM exchange_rates
-         WHERE effective_week IN (?) AND target_currency = 'CNY'`,
-        [Array.from(weekSet)]
+         WHERE effective_week <= ? AND (target_currency = 'CNY' OR source_currency = 'CNY')
+         ORDER BY source_currency, effective_week DESC`,
+        [maxEntryDate]
       )
       for (const r of bankRates) {
-        const key = `${r.source_currency}_${r.target_currency}_${r.effective_week}`
-        bankRateMap[key] = parseFloat(r.rate)
+        let currency, rate
+        if (r.target_currency === 'CNY') {
+          // 外币->CNY：直接使用
+          currency = r.source_currency
+          rate = parseFloat(r.rate)
+        } else if (r.source_currency === 'CNY') {
+          // CNY->外币：取倒数得到外币->CNY的汇率
+          currency = r.target_currency
+          rate = 1 / parseFloat(r.rate)
+        } else {
+          continue
+        }
+        if (!bankRatesByCurrency[currency]) {
+          bankRatesByCurrency[currency] = []
+        }
+        bankRatesByCurrency[currency].push({
+          effective_week: r.effective_week,
+          rate: rate
+        })
       }
     }
 
     // 查询海关汇率（按月）
-    let customsRateMap = {} // 'source_currency_target_currency_month' -> rate
+    // 支持两种存储方向：外币->CNY 和 CNY->外币（自动取倒数）
+    let customsRateMap = {} // 'currency_month' -> rate (外币->CNY)
     if (monthSet.size > 0) {
       const [customsRates] = await pool.query(
         `SELECT source_currency, target_currency, effective_month, rate
          FROM customs_exchange_rates
-         WHERE effective_month IN (?) AND target_currency = 'CNY'`,
+         WHERE effective_month IN (?) AND (target_currency = 'CNY' OR source_currency = 'CNY')`,
         [Array.from(monthSet)]
       )
       for (const r of customsRates) {
-        const key = `${r.source_currency}_${r.target_currency}_${r.effective_month}`
-        customsRateMap[key] = parseFloat(r.rate)
+        let currency, rate, month
+        if (r.target_currency === 'CNY') {
+          currency = r.source_currency
+          rate = parseFloat(r.rate)
+        } else if (r.source_currency === 'CNY') {
+          currency = r.target_currency
+          rate = 1 / parseFloat(r.rate)
+        } else {
+          continue
+        }
+        month = r.effective_month instanceof Date
+          ? `${r.effective_month.getFullYear()}-${String(r.effective_month.getMonth() + 1).padStart(2, '0')}-01`
+          : r.effective_month
+        const key = `${currency}_${month}`
+        customsRateMap[key] = rate
       }
     }
 
@@ -260,7 +299,7 @@ export const getProfitReport = async (req, res) => {
     if (orderNumbers.length > 0) {
       // 查询应收单
       const [receivables] = await pool.query(
-        `SELECT receivable_id, source_bill_id, amount, received_amount, balance_amount, status, handling_fee
+        `SELECT receivable_id, source_bill_id, amount, received_amount, balance_amount, status, handling_fee, due_date
          FROM receivables
          WHERE source_bill_id IN (?) AND source_bill_type = 1`,
         [orderNumbers]
@@ -326,23 +365,74 @@ export const getProfitReport = async (req, res) => {
       // 获取订单币种和汇率
       const orderCurrency = order.currency || 'CNY'
       const orderExchangeRate = parseFloat(order.exchange_rate) || 1
-      const entryDate = order.entry_date
+      const entryDate = formatDateStr(order.entry_date) || ''
 
-      // 计算银行汇率和海关汇率
-      const week = getMondayStr(entryDate)
+      // 先获取结算信息（银行汇率依赖结算日期和结算状态）
+      const receivable = receivableMap[order.order_number]
+      let settlementStatus = '未结算'
+      let settlementStatusText = '未结算'
+      let receivableAmount = 0
+      let receivedAmount = 0
+      let balanceAmount = 0
+      let lastWriteOffDate = null
+      let lastWriteOffNumber = ''
+      let writeOffCount = 0
+      let settlementDate = '' // 结算日期
+
+      if (receivable) {
+        receivableAmount = parseFloat(receivable.amount) || 0
+        receivedAmount = parseFloat(receivable.received_amount) || 0
+        balanceAmount = parseFloat(receivable.balance_amount) || (receivableAmount + (parseFloat(receivable.handling_fee) || 0) - receivedAmount)
+        settlementDate = formatDateStr(receivable.due_date) || ''
+
+        if (receivable.status === 2) {
+          settlementStatus = '已结算'
+          settlementStatusText = '已结算'
+        } else if (receivable.status === 1) {
+          settlementStatus = '部分结算'
+          settlementStatusText = '部分结算'
+        } else {
+          settlementStatus = '未结算'
+          settlementStatusText = '未结算'
+        }
+
+        const writeOffInfo = writeOffInfoMap[receivable.receivable_id]
+        if (writeOffInfo) {
+          lastWriteOffDate = writeOffInfo.last_write_off_date
+          lastWriteOffNumber = writeOffInfo.last_write_off_number
+          writeOffCount = writeOffInfo.count
+        }
+      }
+
+      // 计算海关汇率（以出库日期为基础）
       const month = getMonthStr(entryDate)
-
-      let bankRate = 1
       let customsRate = 1
 
       if (orderCurrency !== 'CNY') {
-        // 查找银行汇率
-        const bankKey = `${orderCurrency}_CNY_${week}`
-        bankRate = bankRateMap[bankKey] || orderExchangeRate
-
-        // 查找海关汇率
-        const customsKey = `${orderCurrency}_CNY_${month}`
+        const customsKey = `${orderCurrency}_${month}`
         customsRate = customsRateMap[customsKey] || orderExchangeRate
+      }
+
+      // 计算银行汇率（以结算日期为基础，未结算时为空）
+      let bankRate = null
+
+      if (orderCurrency !== 'CNY') {
+        if (settlementStatus === '未结算' || !settlementDate) {
+          // 未结算或无结算日期，银行汇率为空
+          bankRate = null
+        } else {
+          // 以结算日期查找银行汇率
+          const currencyRates = bankRatesByCurrency[orderCurrency]
+          if (currencyRates) {
+            const settlementMonth = settlementDate.slice(0, 7) // 'YYYY-MM'
+            const matchingRate = currencyRates.find(r =>
+              r.effective_week <= settlementDate && r.effective_week.slice(0, 7) === settlementMonth
+            )
+            bankRate = matchingRate ? matchingRate.rate : null
+          }
+        }
+      } else {
+        bankRate = 1
       }
 
       // 解析出库费用
@@ -472,41 +562,6 @@ export const getProfitReport = async (req, res) => {
         warehousingExpensesTotal.customsFee +
         warehousingExpensesTotal.otherFee
 
-      // 获取结算信息
-      const receivable = receivableMap[order.order_number]
-      let settlementStatus = '未结算'
-      let settlementStatusText = '未结算'
-      let receivableAmount = 0
-      let receivedAmount = 0
-      let balanceAmount = 0
-      let lastWriteOffDate = null
-      let lastWriteOffNumber = ''
-      let writeOffCount = 0
-
-      if (receivable) {
-        receivableAmount = parseFloat(receivable.amount) || 0
-        receivedAmount = parseFloat(receivable.received_amount) || 0
-        balanceAmount = parseFloat(receivable.balance_amount) || (receivableAmount + (parseFloat(receivable.handling_fee) || 0) - receivedAmount)
-
-        if (receivable.status === 2) {
-          settlementStatus = '已结算'
-          settlementStatusText = '已结算'
-        } else if (receivable.status === 1) {
-          settlementStatus = '部分结算'
-          settlementStatusText = '部分结算'
-        } else {
-          settlementStatus = '未结算'
-          settlementStatusText = '未结算'
-        }
-
-        const writeOffInfo = writeOffInfoMap[receivable.receivable_id]
-        if (writeOffInfo) {
-          lastWriteOffDate = writeOffInfo.last_write_off_date
-          lastWriteOffNumber = writeOffInfo.last_write_off_number
-          writeOffCount = writeOffInfo.count
-        }
-      }
-
       // 每个商品生成一行
       for (const item of filteredItems) {
         const productCode = item.product_code || ''
@@ -611,13 +666,14 @@ export const getProfitReport = async (req, res) => {
         const grossProfitRate = amountExcluded > 0 ? (grossProfit / amountExcluded * 100) : 0
 
         // ============ 汇率换算 ============
-        const salesAmountIncludedCNY_bank = amount * bankRate
-        const salesAmountExcludedCNY_bank = amountExcluded * bankRate
+        // 银行汇率为空时（未结算），CNY金额和汇率差为空/0
+        const salesAmountIncludedCNY_bank = bankRate !== null ? amount * bankRate : null
+        const salesAmountExcludedCNY_bank = bankRate !== null ? amountExcluded * bankRate : null
         const salesAmountIncludedCNY_customs = amount * customsRate
         const salesAmountExcludedCNY_customs = amountExcluded * customsRate
 
-        const exchangeDiffIncluded = salesAmountIncludedCNY_bank - salesAmountIncludedCNY_customs
-        const exchangeDiffExcluded = salesAmountExcludedCNY_bank - salesAmountExcludedCNY_customs
+        const exchangeDiffIncluded = bankRate !== null ? salesAmountIncludedCNY_bank - salesAmountIncludedCNY_customs : 0
+        const exchangeDiffExcluded = bankRate !== null ? salesAmountExcludedCNY_bank - salesAmountExcludedCNY_customs : 0
 
         reportRows.push({
           // 出货信息
@@ -627,6 +683,7 @@ export const getProfitReport = async (req, res) => {
           sales_person: salesOrder?.sales_person || '',
           customer_name: order.customer_name || salesOrder?.customer_name || '',
           payment_method: salesOrder?.payment_method || '',
+          settlement_date: settlementDate,
           classification: classification,
           // 商品信息
           product_name: item.product_name || '',

@@ -34,6 +34,7 @@ import currencyRoutes from './routes/currencyRoutes.js'
 import exchangeRateRoutes from './routes/exchangeRateRoutes.js'
 import customsExchangeRateRoutes from './routes/customsExchangeRateRoutes.js'
 import writeOffRoutes from './routes/writeOffRoutes.js'
+import basicProfitReportRoutes from './routes/basicProfitReportRoutes.js'
 
 dotenv.config()
 
@@ -81,6 +82,7 @@ app.use('/api/currencies', currencyRoutes)
 app.use('/api/exchange-rates', exchangeRateRoutes)
 app.use('/api/customs-exchange-rates', customsExchangeRateRoutes)
 app.use('/api/write-off', writeOffRoutes)
+app.use('/api/basic-profit-report', basicProfitReportRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

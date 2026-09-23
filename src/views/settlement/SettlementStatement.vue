@@ -213,6 +213,45 @@
             </a-space>
           </template>
         </template>
+
+        <template #summary>
+          <a-table-summary>
+            <a-table-summary-row>
+              <a-table-summary-cell :index="0" :colSpan="6" align="right">
+                <strong>合计</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="6" align="right">
+                <strong>{{ formatMoney(pageTotals.total_amount) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="7" align="right">
+                <strong>{{ formatMoney(pageTotals.handling_fee) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="8" align="right">
+                <strong>{{ formatMoney(pageTotals.invoiced_amount) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="9" align="right">
+                <strong>{{ formatMoney(pageTotals.uninvoiced_amount) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="10" :colSpan="4" />
+            </a-table-summary-row>
+          </a-table-summary>
+        </template>
+
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div style="padding: 8px">
+            <a-input
+              :placeholder="`搜索${column.title}`"
+              :value="selectedKeys[0]"
+              style="width: 188px; margin-bottom: 8px; display: block"
+              @change="(e: any) => setSelectedKeys(e.target.value ? [e.target.value] : [])"
+              @pressEnter="confirm()"
+            />
+            <a-button type="primary" size="small" style="width: 90px; margin-right: 8px" @click="confirm()">
+              搜索
+            </a-button>
+            <a-button size="small" style="width: 90px" @click="clearFilters?.()">重置</a-button>
+          </div>
+        </template>
       </a-table>
 
       <a-pagination
@@ -232,7 +271,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
@@ -298,12 +337,20 @@ const columns = [
     key: 'type',
     width: 80,
     align: 'center' as const,
+    filters: [
+      { text: '应收', value: 1 },
+      { text: '应付', value: 2 },
+    ],
+    onFilter: (value: number, record: SettlementStatement) => record.type === value,
   },
   {
     title: '客户/供应商',
     dataIndex: 'entity_name',
     key: 'entity_name',
     width: 150,
+    customFilterDropdown: true,
+    onFilter: (value: string, record: SettlementStatement) =>
+      (record.entity_name || '').toLowerCase().includes(value.toLowerCase()),
   },
   {
     title: '结算日期',
@@ -316,6 +363,9 @@ const columns = [
     dataIndex: 'payment_method',
     key: 'payment_method',
     width: 100,
+    customFilterDropdown: true,
+    onFilter: (value: string, record: SettlementStatement) =>
+      (record.payment_method || '').toLowerCase().includes(value.toLowerCase()),
   },
   {
     title: '总计',
@@ -351,6 +401,12 @@ const columns = [
     key: 'billing_status',
     width: 100,
     align: 'center' as const,
+    filters: [
+      { text: '未开票', value: 0 },
+      { text: '已开票', value: 1 },
+      { text: '部分开票', value: 2 },
+    ],
+    onFilter: (value: number, record: SettlementStatement) => record.billing_status === value,
   },
   {
     title: '发票号',
@@ -379,6 +435,19 @@ const formatMoney = (value: number | undefined | null) => {
     maximumFractionDigits: 2,
   })
 }
+
+const pageTotals = computed(() => {
+  return settlementList.value.reduce(
+    (totals, item) => {
+      totals.total_amount += Number(item.total_amount) || 0
+      totals.handling_fee += Number(item.handling_fee) || 0
+      totals.invoiced_amount += Number(item.invoiced_amount) || 0
+      totals.uninvoiced_amount += Number(item.uninvoiced_amount) || 0
+      return totals
+    },
+    { total_amount: 0, handling_fee: 0, invoiced_amount: 0, uninvoiced_amount: 0 }
+  )
+})
 
 const fetchSummary = async () => {
   try {

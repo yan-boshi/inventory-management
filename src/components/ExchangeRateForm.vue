@@ -41,7 +41,7 @@
           </a-form-item>
         </a-col>
       </a-row>
-      <a-form-item label="生效周（选择周一日期）" name="effective_week">
+      <a-form-item label="生效日期（选择周一日期）" name="effective_week">
         <a-week-picker
           v-model:value="formData.effective_week"
           placeholder="选择周"
@@ -119,7 +119,7 @@ const formData = reactive(getDefaultFormData())
 const rules = {
   source_currency: [{ required: true, message: '请选择源币种', trigger: 'change' }],
   target_currency: [{ required: true, message: '请选择目标币种', trigger: 'change' }],
-  effective_week: [{ required: true, message: '请选择生效周', trigger: 'change' }],
+  effective_week: [{ required: true, message: '请选择生效日期', trigger: 'change' }],
   rate: [{ required: true, message: '请输入汇率', trigger: 'blur' }],
 }
 

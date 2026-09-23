@@ -107,6 +107,9 @@
           <a-menu-item key="ProfitReport" @click="navigateTo('/profit-report')">
             毛利表
           </a-menu-item>
+          <a-menu-item key="BasicProfitReport" @click="navigateTo('/basic-profit-report')">
+            基础毛利表
+          </a-menu-item>
         </a-sub-menu>
         <a-sub-menu key="Documents">
           <template #icon>

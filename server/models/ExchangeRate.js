@@ -34,6 +34,20 @@ class ExchangeRate extends BaseModel {
     )
   }
 
+  // 查找 effective_week <= targetDate 的最新汇率
+  // 跨月时汇率只生效当月的日期：effective_week 和 targetDate 必须在同一月份
+  async findLatestRate(sourceCurrency, targetCurrency, targetDate) {
+    // targetDate 格式: 'YYYY-MM-DD'
+    const targetMonth = targetDate.slice(0, 7) // 'YYYY-MM'
+    const results = await this.findAll({
+      where: 'source_currency = ? AND target_currency = ? AND effective_week <= ? AND DATE_FORMAT(effective_week, \'%Y-%m\') = ?',
+      params: [sourceCurrency, targetCurrency, targetDate, targetMonth],
+      orderBy: 'effective_week DESC',
+      limit: '1'
+    })
+    return results[0] || null
+  }
+
   // 获取某周的所有汇率
   async findByWeek(effectiveWeek) {
     return this.findAll({ where: 'effective_week = ?', params: [effectiveWeek], orderBy: 'source_currency ASC, target_currency ASC' })

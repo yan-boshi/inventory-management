@@ -199,6 +199,36 @@
             </a-space>
           </template>
         </template>
+
+        <template #summary>
+          <a-table-summary>
+            <a-table-summary-row>
+              <a-table-summary-cell :index="0" :colSpan="5" align="right">
+                <strong>合计</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="5" align="right">
+                <strong>{{ formatMoney(pageTotals.total_amount) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="6" :colSpan="5" />
+            </a-table-summary-row>
+          </a-table-summary>
+        </template>
+
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div style="padding: 8px">
+            <a-input
+              :placeholder="`搜索${column.title}`"
+              :value="selectedKeys[0]"
+              style="width: 188px; margin-bottom: 8px; display: block"
+              @change="(e: any) => setSelectedKeys(e.target.value ? [e.target.value] : [])"
+              @pressEnter="confirm()"
+            />
+            <a-button type="primary" size="small" style="width: 90px; margin-right: 8px" @click="confirm()">
+              搜索
+            </a-button>
+            <a-button size="small" style="width: 90px" @click="clearFilters?.()">重置</a-button>
+          </div>
+        </template>
       </a-table>
 
       <a-pagination
@@ -218,7 +248,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
@@ -284,12 +314,20 @@ const columns = [
     key: 'type',
     width: 100,
     align: 'center' as const,
+    filters: [
+      { text: '应收核销', value: 1 },
+      { text: '应付核销', value: 2 },
+    ],
+    onFilter: (value: number, record: WriteOffDocument) => record.type === value,
   },
   {
     title: '客户/供应商',
     dataIndex: 'entity_name',
     key: 'entity_name',
     width: 150,
+    customFilterDropdown: true,
+    onFilter: (value: string, record: WriteOffDocument) =>
+      (record.entity_name || '').toLowerCase().includes(value.toLowerCase()),
   },
   {
     title: '核销日期',
@@ -309,6 +347,9 @@ const columns = [
     dataIndex: 'payment_method',
     key: 'payment_method',
     width: 100,
+    customFilterDropdown: true,
+    onFilter: (value: string, record: WriteOffDocument) =>
+      (record.payment_method || '').toLowerCase().includes(value.toLowerCase()),
   },
   {
     title: '银行流水号',
@@ -322,6 +363,11 @@ const columns = [
     key: 'status',
     width: 80,
     align: 'center' as const,
+    filters: [
+      { text: '已核销', value: 1 },
+      { text: '已作废', value: 0 },
+    ],
+    onFilter: (value: number, record: WriteOffDocument) => record.status === value,
   },
   {
     title: '制单日期',
@@ -344,6 +390,16 @@ const formatMoney = (value: number | undefined | null) => {
     maximumFractionDigits: 2,
   })
 }
+
+const pageTotals = computed(() => {
+  return writeOffList.value.reduce(
+    (totals, item) => {
+      totals.total_amount += Number(item.total_amount) || 0
+      return totals
+    },
+    { total_amount: 0 }
+  )
+})
 
 const fetchSummary = async () => {
   try {

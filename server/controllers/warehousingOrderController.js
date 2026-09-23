@@ -173,7 +173,7 @@ export const createWarehousingOrder = async (req, res) => {
       expenses
     })
 
-    // 更新产品库存（含移动平均法计算单价）
+    // 更新产品库存（含移动平均法计算单价）- 使用锁避免并发问题
     if (warehousing_items) {
       const items = typeof warehousing_items === 'string' ? JSON.parse(warehousing_items) : warehousing_items
       for (const item of items) {
@@ -181,15 +181,16 @@ export const createWarehousingOrder = async (req, res) => {
           console.warn('跳过无产品代码的商品:', item)
           continue
         }
-        // 查询当前库存和单价
+        const inQty = parseFloat(item.quantity || 0)
+        // 使用 SELECT ... FOR UPDATE 获取行锁，避免并发计算错误
         const [productResult] = await pool.query(
-          'SELECT stock, tax_included_price FROM products WHERE product_code = ?',
+          'SELECT stock, tax_included_price FROM products WHERE product_code = ? FOR UPDATE',
           [item.product_code]
         )
         if (productResult.length > 0) {
           const currentStock = parseFloat(productResult[0].stock || 0)
           const currentPrice = parseFloat(productResult[0].tax_included_price || 0)
-          const newStock = currentStock + parseFloat(item.quantity || 0)
+          const newStock = currentStock + inQty
 
           let newTaxIncludedPrice = currentPrice
           let newTaxExcludedPrice = null
@@ -197,7 +198,7 @@ export const createWarehousingOrder = async (req, res) => {
           // 移动平均法计算含税单价
           if (item.tax_included_price && newStock > 0) {
             const incomingPrice = parseFloat(item.tax_included_price)
-            newTaxIncludedPrice = (currentStock * currentPrice + parseFloat(item.quantity) * incomingPrice) / newStock
+            newTaxIncludedPrice = (currentStock * currentPrice + inQty * incomingPrice) / newStock
             // 计算未税单价
             if (item.tax_rate) {
               newTaxExcludedPrice = newTaxIncludedPrice / (1 + parseFloat(item.tax_rate) / 100)

@@ -831,6 +831,16 @@ const handleCurrencyChange = (value: string) => {
   fetchCurrentRate(value)
 }
 
+// 监听单据日期变化，重新获取汇率（跨月时只匹配当月的汇率）
+watch(
+  () => formData.entry_date,
+  () => {
+    if (formData.currency && formData.currency !== 'CNY') {
+      fetchCurrentRate(formData.currency)
+    }
+  }
+)
+
 // 关闭对话框
 const handleClose = () => {
   emit('update:open', false)
@@ -948,6 +958,7 @@ const loadBasicData = async () => {
       product_id: p.product_id || p.id,
       product_name: p.product_name || p.name,
       product_code: p.product_code || p.code,
+      model: p.model,
       description: p.description,
       unit: p.unit,
       stock: p.stock,
@@ -976,12 +987,18 @@ const fetchCurrentRate = async (currency: string) => {
   }
   exchangeRateLoading.value = true
   try {
-    const res = await getCurrentRate('CNY', currency)
+    // 传入单据日期，跨月时只匹配当月的汇率
+    const entryDate = formData.entry_date
+      ? (typeof formData.entry_date === 'string'
+        ? formData.entry_date
+        : dayjs(formData.entry_date).format('YYYY-MM-DD'))
+      : undefined
+    const res = await getCurrentRate(currency, 'CNY', entryDate)
     if (res.data) {
       formData.exchange_rate = Number(res.data.rate)
     } else {
       formData.exchange_rate = undefined
-      message.warning('本周尚未设置该币种的汇率，请先在汇率管理中维护')
+      message.warning('该日期所在月份尚未设置该币种的汇率，请先在汇率管理中维护')
     }
   } catch (error) {
     console.error('获取汇率失败:', error)
@@ -1014,7 +1031,14 @@ watch(
             formData.entry_date = dayjs(props.deliveryOrderData.entry_date)
           }
           if (props.deliveryOrderData.delivery_items) {
-            formData.delivery_items = props.deliveryOrderData.delivery_items
+            // 从计划单生成时，需要补充库存数（plan的items不含stock）
+            formData.delivery_items = props.deliveryOrderData.delivery_items.map((item: any) => {
+              const product = productOptions.value.find(p => p.product_code === item.product_code)
+              return {
+                ...item,
+                stock: product ? Math.floor(product.stock || 0) : (item.stock || 0),
+              }
+            })
             calculateTotal()
           }
           // 根据客户名称查找客户地址

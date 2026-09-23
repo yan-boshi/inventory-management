@@ -199,29 +199,34 @@ export const createDeliveryOrder = async (req, res) => {
       tracking_number
     })
 
-    // 更新产品库存（扣减）
+    // 更新产品库存（扣减）- 使用原子操作避免并发问题
     if (delivery_items) {
       try {
         const parsedItems = typeof delivery_items === 'string' ? JSON.parse(delivery_items) : delivery_items
         for (const item of parsedItems) {
           if (!item.product_code || !item.quantity) continue
-          // 查询当前库存
-          const [productResult] = await pool.query(
-            'SELECT stock FROM products WHERE product_code = ?',
-            [item.product_code]
+          const outQty = parseFloat(item.quantity || 0)
+          // 原子操作：同时检查和扣减库存
+          const [result] = await pool.query(
+            'UPDATE products SET stock = stock - ? WHERE product_code = ? AND stock >= ?',
+            [outQty, item.product_code, outQty]
           )
-          if (productResult.length > 0) {
-            const currentStock = parseFloat(productResult[0].stock || 0)
-            const newStock = currentStock - parseFloat(item.quantity || 0)
-            // 更新库存
-            await pool.query(
-              'UPDATE products SET stock = ? WHERE product_code = ?',
-              [newStock.toFixed(2), item.product_code]
+          // 如果 affectedRows === 0，说明库存不足（被并发抢走了）
+          if (result.affectedRows === 0) {
+            // 检查是产品不存在还是库存不足
+            const [productCheck] = await pool.query(
+              'SELECT stock, product_name FROM products WHERE product_code = ?',
+              [item.product_code]
             )
+            if (productCheck.length > 0) {
+              throw new Error(`商品 ${productCheck[0].product_name}(${item.product_code}) 库存不足，当前库存: ${productCheck[0].stock}，出库数量: ${outQty}`)
+            }
           }
         }
       } catch (stockError) {
-        // 库存更新失败，继续执行
+        // 库存更新失败，回滚已创建的出库单
+        await DeliveryOrder.delete(order.delivery_order_id)
+        throw stockError
       }
     }
 
@@ -361,19 +366,32 @@ export const updateDeliveryOrder = async (req, res) => {
         }
       }
 
-      // 更新库存
+      // 更新库存（使用原子操作）
       for (const [productCode, delta] of quantityDelta) {
         if (delta === 0) continue
-        const [productResult] = await pool.query(
-          'SELECT stock FROM products WHERE product_code = ?',
-          [productCode]
-        )
-        if (productResult.length > 0) {
-          const currentStock = parseFloat(productResult[0].stock || 0)
-          const newStock = Math.max(0, currentStock - delta)
+        if (delta > 0) {
+          // 需要多扣库存，使用原子操作检查并扣减
+          const [result] = await pool.query(
+            'UPDATE products SET stock = stock - ? WHERE product_code = ? AND stock >= ?',
+            [delta, productCode, delta]
+          )
+          if (result.affectedRows === 0) {
+            const [productCheck] = await pool.query(
+              'SELECT stock, product_name FROM products WHERE product_code = ?',
+              [productCode]
+            )
+            if (productCheck.length > 0) {
+              return res.status(400).json({
+                success: false,
+                message: `商品 ${productCheck[0].product_name}(${productCode}) 库存不足，当前库存: ${productCheck[0].stock}，需额外扣减: ${delta}`
+              })
+            }
+          }
+        } else {
+          // 需要加回库存（delta < 0），直接加
           await pool.query(
-            'UPDATE products SET stock = ? WHERE product_code = ?',
-            [newStock.toFixed(2), productCode]
+            'UPDATE products SET stock = stock + ? WHERE product_code = ?',
+            [Math.abs(delta), productCode]
           )
         }
       }

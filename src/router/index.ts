@@ -220,6 +220,12 @@ const router = createRouter({
           meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
         },
         {
+          path: 'basic-profit-report',
+          name: 'BasicProfitReport',
+          component: () => import('@/views/reports/BasicProfitReport.vue'),
+          meta: { roles: ['normal', 'advanced', 'admin'] as UserRole[] }
+        },
+        {
           path: 'packing-lists',
           name: 'PackingLists',
           component: () => import('@/views/documents/PackingLists.vue'),

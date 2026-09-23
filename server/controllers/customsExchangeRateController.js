@@ -138,6 +138,7 @@ export const deleteCustomsExchangeRate = async (req, res) => {
 }
 
 // 查询指定币种对当前月的海关汇率（给订单表单用）
+// 支持两种存储方向：source->target 和 target->source（自动取倒数）
 export const getCurrentCustomsRate = async (req, res) => {
   try {
     const { source_currency, target_currency } = req.query
@@ -154,12 +155,27 @@ export const getCurrentCustomsRate = async (req, res) => {
     const today = new Date()
     const firstDay = getFirstDayOfMonth(today)
 
-    const rate = await CustomsExchangeRate.findRate(source_currency, target_currency, firstDay)
-    if (!rate) {
-      return res.json({ success: true, data: null, message: '本月尚未设置该币种对的海关汇率' })
+    // 先查找 source->target 方向
+    let rate = await CustomsExchangeRate.findRate(source_currency, target_currency, firstDay)
+    if (rate) {
+      return res.json({ success: true, data: rate })
     }
 
-    res.json({ success: true, data: rate })
+    // 再查找 target->source 方向（取倒数）
+    rate = await CustomsExchangeRate.findRate(target_currency, source_currency, firstDay)
+    if (rate) {
+      return res.json({
+        success: true,
+        data: {
+          ...rate,
+          rate: 1 / parseFloat(rate.rate),
+          source_currency,
+          target_currency
+        }
+      })
+    }
+
+    res.json({ success: true, data: null, message: '本月尚未设置该币种对的海关汇率' })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
