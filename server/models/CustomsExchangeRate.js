@@ -21,6 +21,9 @@ class CustomsExchangeRate extends BaseModel {
 
   async update(id, data) {
     const updateData = {}
+    if (data.source_currency !== undefined) updateData.source_currency = data.source_currency
+    if (data.target_currency !== undefined) updateData.target_currency = data.target_currency
+    if (data.effective_month !== undefined) updateData.effective_month = data.effective_month
     if (data.rate !== undefined) updateData.rate = data.rate
     if (data.remarks !== undefined) updateData.remarks = data.remarks
     return super.update(id, updateData)

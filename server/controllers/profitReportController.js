@@ -135,14 +135,14 @@ export const getProfitReport = async (req, res) => {
       )
       const matchedIds = new Set()
       for (const po of purchaseOrders) {
+        // 收集该 PO 关联的所有 sales_order_id（去重）
+        const relatedSoIds = new Set()
+
+        // 匹配 related_sales_order_id 字段
         if (po.related_sales_order_id && salesOrderIds.includes(po.related_sales_order_id)) {
-          if (!purchaseOrderMap[po.related_sales_order_id]) purchaseOrderMap[po.related_sales_order_id] = []
-          const key = `${po.purchase_order_id}_direct`
-          if (!matchedIds.has(key)) {
-            matchedIds.add(key)
-            purchaseOrderMap[po.related_sales_order_id].push(po)
-          }
+          relatedSoIds.add(po.related_sales_order_id)
         }
+        // 匹配 related_sales_orders JSON 数组
         if (po.related_sales_orders) {
           let relatedList = []
           try {
@@ -152,14 +152,19 @@ export const getProfitReport = async (req, res) => {
           } catch {}
           for (const rel of relatedList) {
             if (rel.sales_order_id && salesOrderIds.includes(rel.sales_order_id)) {
-              if (!purchaseOrderMap[rel.sales_order_id]) purchaseOrderMap[rel.sales_order_id] = []
-              const key = `${po.purchase_order_id}_${rel.sales_order_id}`
-              if (!matchedIds.has(key)) {
-                matchedIds.add(key)
-                purchaseOrderMap[rel.sales_order_id].push(po)
-              }
+              relatedSoIds.add(rel.sales_order_id)
             }
           }
+        }
+
+        // 为每个关联的销售订单添加该 PO（按 purchase_order_id + sales_order_id 去重）
+        for (const soId of relatedSoIds) {
+          const key = `${po.purchase_order_id}_${soId}`
+          if (matchedIds.has(key)) continue
+          matchedIds.add(key)
+
+          if (!purchaseOrderMap[soId]) purchaseOrderMap[soId] = []
+          purchaseOrderMap[soId].push(po)
         }
       }
     }
@@ -227,66 +232,44 @@ export const getProfitReport = async (req, res) => {
     }
 
     // 查询银行汇率（支持跨月拆分记录，按 effective_week 降序）
-    // 按币种分组存储，便于查找最近生效的汇率
-    // 支持两种存储方向：外币->CNY 和 CNY->外币（自动取倒数）
-    let bankRatesByCurrency = {} // 'source_currency' -> [{effective_week, rate}, ...] 按 effective_week 降序
+    // 按币种对分组存储，直接使用存储的汇率值
+    let bankRatesByCurrency = {} // 'source_target' -> [{effective_week, rate}, ...] 按 effective_week 降序
     if (maxEntryDate) {
       const [bankRates] = await pool.query(
         `SELECT source_currency, target_currency, effective_week, rate
          FROM exchange_rates
-         WHERE effective_week <= ? AND (target_currency = 'CNY' OR source_currency = 'CNY')
+         WHERE effective_week <= ?
          ORDER BY source_currency, effective_week DESC`,
         [maxEntryDate]
       )
       for (const r of bankRates) {
-        let currency, rate
-        if (r.target_currency === 'CNY') {
-          // 外币->CNY：直接使用
-          currency = r.source_currency
-          rate = parseFloat(r.rate)
-        } else if (r.source_currency === 'CNY') {
-          // CNY->外币：取倒数得到外币->CNY的汇率
-          currency = r.target_currency
-          rate = 1 / parseFloat(r.rate)
-        } else {
-          continue
+        const pairKey = `${r.source_currency}_${r.target_currency}`
+        if (!bankRatesByCurrency[pairKey]) {
+          bankRatesByCurrency[pairKey] = []
         }
-        if (!bankRatesByCurrency[currency]) {
-          bankRatesByCurrency[currency] = []
-        }
-        bankRatesByCurrency[currency].push({
+        bankRatesByCurrency[pairKey].push({
           effective_week: r.effective_week,
-          rate: rate
+          rate: parseFloat(r.rate)
         })
       }
     }
 
     // 查询海关汇率（按月）
-    // 支持两种存储方向：外币->CNY 和 CNY->外币（自动取倒数）
-    let customsRateMap = {} // 'currency_month' -> rate (外币->CNY)
+    // 直接使用存储的汇率值
+    let customsRateMap = {} // 'source_target_month' -> rate
     if (monthSet.size > 0) {
       const [customsRates] = await pool.query(
         `SELECT source_currency, target_currency, effective_month, rate
          FROM customs_exchange_rates
-         WHERE effective_month IN (?) AND (target_currency = 'CNY' OR source_currency = 'CNY')`,
+         WHERE effective_month IN (?)`,
         [Array.from(monthSet)]
       )
       for (const r of customsRates) {
-        let currency, rate, month
-        if (r.target_currency === 'CNY') {
-          currency = r.source_currency
-          rate = parseFloat(r.rate)
-        } else if (r.source_currency === 'CNY') {
-          currency = r.target_currency
-          rate = 1 / parseFloat(r.rate)
-        } else {
-          continue
-        }
-        month = r.effective_month instanceof Date
+        const month = r.effective_month instanceof Date
           ? `${r.effective_month.getFullYear()}-${String(r.effective_month.getMonth() + 1).padStart(2, '0')}-01`
           : r.effective_month
-        const key = `${currency}_${month}`
-        customsRateMap[key] = rate
+        const key = `${r.source_currency}_${r.target_currency}_${month}`
+        customsRateMap[key] = parseFloat(r.rate)
       }
     }
 
@@ -409,7 +392,7 @@ export const getProfitReport = async (req, res) => {
       let customsRate = 1
 
       if (orderCurrency !== 'CNY') {
-        const customsKey = `${orderCurrency}_${month}`
+        const customsKey = `${orderCurrency}_CNY_${month}`
         customsRate = customsRateMap[customsKey] || orderExchangeRate
       }
 
@@ -422,7 +405,7 @@ export const getProfitReport = async (req, res) => {
           bankRate = null
         } else {
           // 以结算日期查找银行汇率
-          const currencyRates = bankRatesByCurrency[orderCurrency]
+          const currencyRates = bankRatesByCurrency[`${orderCurrency}_CNY`]
           if (currencyRates) {
             const settlementMonth = settlementDate.slice(0, 7) // 'YYYY-MM'
             const matchingRate = currencyRates.find(r =>
@@ -445,6 +428,7 @@ export const getProfitReport = async (req, res) => {
 
       // 获取销售订单
       const salesOrder = order.contract_number ? salesOrderMap[order.contract_number] : null
+      const currentSalesOrderId = salesOrder?.sales_order_id
 
       // 解析销售费用
       let salesExpenses = {}
@@ -490,35 +474,84 @@ export const getProfitReport = async (req, res) => {
       const slOtherFee = parseFloat(salesExpenses.otherFee) || 0
       const salesExpenseTotal = slTransportationFee + slHandlingFee + slOtherFee
 
-      // 汇总所有采购订单的费用
+      // 按 related_sales_orders 顺序分配：排在前面的销售订单先分配入库数量
+      // 辅助函数：计算当前SO从某个PO的某个商品中按顺序分配到的数量
+      function getAllocatedQty(po, productCode, totalInboundQty) {
+        if (!po.related_sales_orders || !currentSalesOrderId) return totalInboundQty
+        let relatedList = []
+        try {
+          relatedList = typeof po.related_sales_orders === 'string'
+            ? JSON.parse(po.related_sales_orders)
+            : po.related_sales_orders
+        } catch {}
+        if (relatedList.length <= 1) return totalInboundQty
+
+        // related_sales_orders 结构支持两种格式：
+        // 1. 带 product_code: {"sales_order_id":"xxx", "quantity":100, "product_code":"A00001"}
+        // 2. 不带 product_code: {"sales_order_id":"xxx", "quantity":100}
+        // 如果有 product_code，则只分配对应产品的需求；否则按顺序分配
+
+        // 检查是否有 product_code 字段
+        const hasProductCode = relatedList.some(rel => rel.product_code)
+
+        if (hasProductCode) {
+          // 有 product_code：过滤出当前产品的需求，合并同一SO的需求量
+          const productDemand = {}
+          for (const rel of relatedList) {
+            if (rel.product_code !== productCode) continue
+            const soId = rel.sales_order_id
+            if (!soId) continue
+            productDemand[soId] = (productDemand[soId] || 0) + (parseFloat(rel.quantity) || 0)
+          }
+
+          // 按 related_sales_orders 原始顺序逐个分配
+          let remaining = totalInboundQty
+          const allocatedPerSO = {}
+          for (const rel of relatedList) {
+            const soId = rel.sales_order_id
+            if (!soId || rel.product_code !== productCode) continue
+            if (allocatedPerSO[soId] !== undefined) continue // 已分配过该SO
+            const demand = productDemand[soId] || 0
+            const allocated = Math.min(remaining, demand)
+            allocatedPerSO[soId] = allocated
+            if (soId === currentSalesOrderId) return allocated
+            remaining -= allocated
+            if (remaining <= 0) return 0
+          }
+          return 0
+        } else {
+          // 无 product_code：按原始顺序逐个分配（兼容旧数据）
+          let remaining = totalInboundQty
+          for (const rel of relatedList) {
+            const soId = rel.sales_order_id
+            if (!soId) continue
+            const demand = parseFloat(rel.quantity) || 0
+            const allocated = Math.min(remaining, demand)
+            if (soId === currentSalesOrderId) return allocated
+            remaining -= allocated
+            if (remaining <= 0) return 0
+          }
+          return 0
+        }
+      }
+
+      // 汇总所有采购订单的费用和入库数据
       let purchaseExpenseTotal = 0
       let poTransportationFee = 0
       let poOperatingExpenses = 0
       let poValueAddedTax = 0
       let poHandlingFee = 0
       let poOtherFee = 0
-
-      for (const po of purchaseOrders) {
-        let poExpenses = {}
-        try {
-          poExpenses = JSON.parse(po.expenses || '{}')
-        } catch (e) {
-          poExpenses = {}
-        }
-        poTransportationFee += parseFloat(poExpenses.transportationFee) || 0
-        poOperatingExpenses += parseFloat(poExpenses.operatingExpenses) || 0
-        poValueAddedTax += parseFloat(poExpenses.valueAddedTax) || 0
-        poHandlingFee += parseFloat(poExpenses.handlingFee) || 0
-        poOtherFee += parseFloat(poExpenses.otherFee) || 0
-      }
-      purchaseExpenseTotal = poTransportationFee + poOperatingExpenses + poValueAddedTax + poHandlingFee + poOtherFee
-
-      // 获取入库数据和入库费用
       let warehousingExpensesTotal = { tariff: 0, transportationFee: 0, customsFee: 0, otherFee: 0 }
       let warehousingItemMap = {}
       let warehousingDate = null
 
       for (const po of purchaseOrders) {
+        // 先计算该PO分配给当前SO的总数量（用于费用按比例分摊）
+        let poTotalAllocated = 0
+        let poTotalQty = 0
+        const woExpensesList = []
+
         const woList = po.contract_number ? (warehousingOrderMap[po.contract_number] || []) : []
         for (const wo of woList) {
           let woExpenses = {}
@@ -527,10 +560,7 @@ export const getProfitReport = async (req, res) => {
           } catch (e) {
             woExpenses = {}
           }
-          warehousingExpensesTotal.tariff += parseFloat(woExpenses.tariff) || 0
-          warehousingExpensesTotal.transportationFee += parseFloat(woExpenses.transportationFee) || 0
-          warehousingExpensesTotal.customsFee += parseFloat(woExpenses.customsFee) || 0
-          warehousingExpensesTotal.otherFee += parseFloat(woExpenses.otherFee) || 0
+          woExpensesList.push(woExpenses)
 
           if (wo.entry_date && !warehousingDate) {
             warehousingDate = wo.entry_date
@@ -545,17 +575,50 @@ export const getProfitReport = async (req, res) => {
           for (const wi of woItems) {
             const code = wi.product_code
             if (!code) continue
-            if (!warehousingItemMap[code]) {
-              warehousingItemMap[code] = { quantity: 0, total_price: 0, tax_included_price: 0 }
+            // 使用采购订单ID+产品代码作为key，避免不同PO的同产品数据混合
+            const mapKey = `${po.purchase_order_id}_${code}`
+            if (!warehousingItemMap[mapKey]) {
+              warehousingItemMap[mapKey] = { quantity: 0, total_price: 0, tax_included_price: 0 }
             }
-            const wiQty = parseFloat(wi.quantity) || 0
+            const wiTotalQty = parseFloat(wi.quantity) || 0
             const wiPrice = parseFloat(wi.tax_included_price) || 0
-            warehousingItemMap[code].quantity += wiQty
-            warehousingItemMap[code].total_price += wiQty * wiPrice
-            warehousingItemMap[code].tax_included_price = wiPrice
+
+            // 按顺序分配入库数量
+            const allocatedQty = getAllocatedQty(po, code, wiTotalQty)
+            warehousingItemMap[mapKey].quantity += allocatedQty
+            warehousingItemMap[mapKey].total_price += allocatedQty * wiPrice
+            warehousingItemMap[mapKey].tax_included_price = wiPrice
+
+            poTotalAllocated += allocatedQty
+            poTotalQty += wiTotalQty
           }
         }
+
+        // 统一分配比例：按顺序分配后的数量 / 总入库数量
+        const expenseRatio = poTotalQty > 0 ? poTotalAllocated / poTotalQty : 1
+
+        // 入库费用按统一比例分摊
+        for (const woExpenses of woExpensesList) {
+          warehousingExpensesTotal.tariff += (parseFloat(woExpenses.tariff) || 0) * expenseRatio
+          warehousingExpensesTotal.transportationFee += (parseFloat(woExpenses.transportationFee) || 0) * expenseRatio
+          warehousingExpensesTotal.customsFee += (parseFloat(woExpenses.customsFee) || 0) * expenseRatio
+          warehousingExpensesTotal.otherFee += (parseFloat(woExpenses.otherFee) || 0) * expenseRatio
+        }
+
+        // 采购费用按统一比例分摊
+        let poExpenses = {}
+        try {
+          poExpenses = JSON.parse(po.expenses || '{}')
+        } catch (e) {
+          poExpenses = {}
+        }
+        poTransportationFee += (parseFloat(poExpenses.transportationFee) || 0) * expenseRatio
+        poOperatingExpenses += (parseFloat(poExpenses.operatingExpenses) || 0) * expenseRatio
+        poValueAddedTax += (parseFloat(poExpenses.valueAddedTax) || 0) * expenseRatio
+        poHandlingFee += (parseFloat(poExpenses.handlingFee) || 0) * expenseRatio
+        poOtherFee += (parseFloat(poExpenses.otherFee) || 0) * expenseRatio
       }
+      purchaseExpenseTotal = poTransportationFee + poOperatingExpenses + poValueAddedTax + poHandlingFee + poOtherFee
 
       const warehousingExpenseTotal = warehousingExpensesTotal.tariff +
         warehousingExpensesTotal.transportationFee +
@@ -575,8 +638,15 @@ export const getProfitReport = async (req, res) => {
         // 匹配销售商品行获取结算信息
         const matchedSalesItem = salesItems.find(si => si.product_code === productCode)
 
-        // 匹配入库数据
-        const whItem = warehousingItemMap[productCode]
+        // 匹配入库数据（查找包含该产品代码的采购订单的入库数据）
+        let whItem = null
+        for (const po of purchaseOrders) {
+          const mapKey = `${po.purchase_order_id}_${productCode}`
+          if (warehousingItemMap[mapKey] && warehousingItemMap[mapKey].quantity > 0) {
+            whItem = warehousingItemMap[mapKey]
+            break
+          }
+        }
         const hasWarehousing = whItem && whItem.quantity > 0
 
         let warehousingQuantity = 0
@@ -587,7 +657,8 @@ export const getProfitReport = async (req, res) => {
 
         if (hasWarehousing) {
           warehousingQuantity = whItem.quantity
-          warehousingUnitPriceIncluded = whItem.tax_included_price || 0
+          // 使用加权平均单价：总金额 / 总数量
+          warehousingUnitPriceIncluded = whItem.quantity > 0 ? (whItem.total_price / whItem.quantity) : 0
           warehousingUnitPriceExcluded = warehousingUnitPriceIncluded / (1 + taxRate / 100)
           warehousingAmountIncluded = whItem.total_price || 0
           warehousingAmount = warehousingAmountIncluded / (1 + taxRate / 100)

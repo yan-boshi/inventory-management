@@ -152,170 +152,158 @@
               </a-table-summary-cell>
               <!-- 23-25: 最近核销日期, 核销单号, 核销次数 -->
               <a-table-summary-cell :index="23" :colSpan="3" />
-              <!-- 26: 成本单价(未税) -->
-              <a-table-summary-cell :index="26" :colSpan="1" />
-              <!-- 27: 成本单价(含税) -->
-              <a-table-summary-cell :index="27" :colSpan="1" />
-              <!-- 28: 成本金额(未税) -->
-              <a-table-summary-cell :index="28" :align="'right'">
-                <strong>{{ formatMoney(totals.cost_amount_excluded) }}</strong>
-              </a-table-summary-cell>
-              <!-- 29: 成本金额(含税) -->
-              <a-table-summary-cell :index="29" :align="'right'">
-                <strong>{{ formatMoney(totals.cost_amount_included) }}</strong>
-              </a-table-summary-cell>
-              <!-- 30-33: 采购合同编号, 采购员, 入库日期, 入库数量 -->
-              <a-table-summary-cell :index="30" :colSpan="4" />
-              <!-- 34: 入库单价（未税） -->
-              <a-table-summary-cell :index="34" :colSpan="1" />
-              <!-- 35: 入库单价（含税） -->
-              <a-table-summary-cell :index="35" :colSpan="1" />
-              <!-- 36: 入库金额（含税） -->
-              <a-table-summary-cell :index="36" :align="'right'">
+              <!-- 26-29: 采购合同编号, 采购员, 入库日期, 入库数量 -->
+              <a-table-summary-cell :index="26" :colSpan="4" />
+              <!-- 30: 入库单价（未税） -->
+              <a-table-summary-cell :index="30" :colSpan="1" />
+              <!-- 31: 入库单价（含税） -->
+              <a-table-summary-cell :index="31" :colSpan="1" />
+              <!-- 32: 入库金额（含税） -->
+              <a-table-summary-cell :index="32" :align="'right'">
                 <strong>{{ formatMoney(totals.warehousing_amount_included) }}</strong>
               </a-table-summary-cell>
-              <!-- 37: 入库金额 -->
-              <a-table-summary-cell :index="37" :align="'right'">
+              <!-- 33: 入库金额 -->
+              <a-table-summary-cell :index="33" :align="'right'">
                 <strong>{{ formatMoney(totals.warehousing_amount) }}</strong>
               </a-table-summary-cell>
-              <!-- 38: 采购-运输费 -->
-              <a-table-summary-cell :index="38" :align="'right'">
+              <!-- 34: 采购-运输费 -->
+              <a-table-summary-cell :index="34" :align="'right'">
                 <strong>{{ formatMoney(totals.po_expense_transportation) }}</strong>
               </a-table-summary-cell>
-              <!-- 39: 采购-运营费 -->
-              <a-table-summary-cell :index="39" :align="'right'">
+              <!-- 35: 采购-运营费 -->
+              <a-table-summary-cell :index="35" :align="'right'">
                 <strong>{{ formatMoney(totals.po_expense_operating) }}</strong>
               </a-table-summary-cell>
-              <!-- 40: 采购-增值税 -->
-              <a-table-summary-cell :index="40" :align="'right'">
+              <!-- 36: 采购-增值税 -->
+              <a-table-summary-cell :index="36" :align="'right'">
                 <strong>{{ formatMoney(totals.po_expense_vat) }}</strong>
               </a-table-summary-cell>
-              <!-- 41: 采购-手续费 -->
-              <a-table-summary-cell :index="41" :align="'right'">
+              <!-- 37: 采购-手续费 -->
+              <a-table-summary-cell :index="37" :align="'right'">
                 <strong>{{ formatMoney(totals.po_expense_handling) }}</strong>
               </a-table-summary-cell>
-              <!-- 42: 采购-其他 -->
-              <a-table-summary-cell :index="42" :align="'right'">
+              <!-- 38: 采购-其他 -->
+              <a-table-summary-cell :index="38" :align="'right'">
                 <strong>{{ formatMoney(totals.po_expense_other) }}</strong>
               </a-table-summary-cell>
-              <!-- 43: 采购费用小计 -->
-              <a-table-summary-cell :index="43" :align="'right'">
+              <!-- 39: 采购费用小计 -->
+              <a-table-summary-cell :index="39" :align="'right'">
                 <strong>{{ formatMoney(totals.po_expense_total) }}</strong>
               </a-table-summary-cell>
-              <!-- 44: 销售-运输费 -->
-              <a-table-summary-cell :index="44" :align="'right'">
+              <!-- 40: 销售-运输费 -->
+              <a-table-summary-cell :index="40" :align="'right'">
                 <strong>{{ formatMoney(totals.sl_expense_transportation) }}</strong>
               </a-table-summary-cell>
-              <!-- 45: 销售-手续费 -->
-              <a-table-summary-cell :index="45" :align="'right'">
+              <!-- 41: 销售-手续费 -->
+              <a-table-summary-cell :index="41" :align="'right'">
                 <strong>{{ formatMoney(totals.sl_expense_handling) }}</strong>
               </a-table-summary-cell>
-              <!-- 46: 销售-其他 -->
-              <a-table-summary-cell :index="46" :align="'right'">
+              <!-- 42: 销售-其他 -->
+              <a-table-summary-cell :index="42" :align="'right'">
                 <strong>{{ formatMoney(totals.sl_expense_other) }}</strong>
               </a-table-summary-cell>
-              <!-- 47: 销售费用小计 -->
-              <a-table-summary-cell :index="47" :align="'right'">
+              <!-- 43: 销售费用小计 -->
+              <a-table-summary-cell :index="43" :align="'right'">
                 <strong>{{ formatMoney(totals.sl_expense_total) }}</strong>
               </a-table-summary-cell>
-              <!-- 48: 入库-关税 -->
-              <a-table-summary-cell :index="48" :align="'right'">
+              <!-- 44: 入库-关税 -->
+              <a-table-summary-cell :index="44" :align="'right'">
                 <strong>{{ formatMoney(totals.wh_expense_tariff) }}</strong>
               </a-table-summary-cell>
-              <!-- 49: 入库-运杂费 -->
-              <a-table-summary-cell :index="49" :align="'right'">
+              <!-- 45: 入库-运杂费 -->
+              <a-table-summary-cell :index="45" :align="'right'">
                 <strong>{{ formatMoney(totals.wh_expense_transportation) }}</strong>
               </a-table-summary-cell>
-              <!-- 50: 入库-报关费 -->
-              <a-table-summary-cell :index="50" :align="'right'">
+              <!-- 46: 入库-报关费 -->
+              <a-table-summary-cell :index="46" :align="'right'">
                 <strong>{{ formatMoney(totals.wh_expense_customs) }}</strong>
               </a-table-summary-cell>
-              <!-- 51: 入库-其他 -->
-              <a-table-summary-cell :index="51" :align="'right'">
+              <!-- 47: 入库-其他 -->
+              <a-table-summary-cell :index="47" :align="'right'">
                 <strong>{{ formatMoney(totals.wh_expense_other) }}</strong>
               </a-table-summary-cell>
-              <!-- 52: 入库费用小计 -->
-              <a-table-summary-cell :index="52" :align="'right'">
+              <!-- 48: 入库费用小计 -->
+              <a-table-summary-cell :index="48" :align="'right'">
                 <strong>{{ formatMoney(totals.wh_expense_total) }}</strong>
               </a-table-summary-cell>
-              <!-- 53: 出库-快递费 -->
-              <a-table-summary-cell :index="53" :align="'right'">
+              <!-- 49: 出库-快递费 -->
+              <a-table-summary-cell :index="49" :align="'right'">
                 <strong>{{ formatMoney(totals.dl_expense_express) }}</strong>
               </a-table-summary-cell>
-              <!-- 54: 出库-运杂费 -->
-              <a-table-summary-cell :index="54" :align="'right'">
+              <!-- 50: 出库-运杂费 -->
+              <a-table-summary-cell :index="50" :align="'right'">
                 <strong>{{ formatMoney(totals.dl_expense_transportation) }}</strong>
               </a-table-summary-cell>
-              <!-- 55: 出库-报关费 -->
-              <a-table-summary-cell :index="55" :align="'right'">
+              <!-- 51: 出库-报关费 -->
+              <a-table-summary-cell :index="51" :align="'right'">
                 <strong>{{ formatMoney(totals.dl_expense_customs) }}</strong>
               </a-table-summary-cell>
-              <!-- 56: 出库-其他 -->
-              <a-table-summary-cell :index="56" :align="'right'">
+              <!-- 52: 出库-其他 -->
+              <a-table-summary-cell :index="52" :align="'right'">
                 <strong>{{ formatMoney(totals.dl_expense_other) }}</strong>
               </a-table-summary-cell>
-              <!-- 57: 出库费用小计 -->
-              <a-table-summary-cell :index="57" :align="'right'">
+              <!-- 53: 出库费用小计 -->
+              <a-table-summary-cell :index="53" :align="'right'">
                 <strong>{{ formatMoney(totals.dl_expense_total) }}</strong>
               </a-table-summary-cell>
-              <!-- 58: 费用合计 -->
-              <a-table-summary-cell :index="58" :align="'right'">
+              <!-- 54: 费用合计 -->
+              <a-table-summary-cell :index="54" :align="'right'">
                 <strong>{{ formatMoney(totals.total_expense) }}</strong>
               </a-table-summary-cell>
-              <!-- 59: 总成本 -->
-              <a-table-summary-cell :index="59" :align="'right'">
+              <!-- 55: 总成本 -->
+              <a-table-summary-cell :index="55" :align="'right'">
                 <strong>{{ formatMoney(totals.total_cost) }}</strong>
               </a-table-summary-cell>
-              <!-- 60: 毛利 -->
-              <a-table-summary-cell :index="60" :align="'right'">
+              <!-- 56: 毛利 -->
+              <a-table-summary-cell :index="56" :align="'right'">
                 <strong :style="{ color: totals.gross_profit >= 0 ? '#52c41a' : '#f5222d' }">
                   {{ formatMoney(totals.gross_profit) }}
                 </strong>
               </a-table-summary-cell>
-              <!-- 61: 毛利率(%) -->
-              <a-table-summary-cell :index="61" :colSpan="1" />
-              <!-- 62: 币种 -->
-              <a-table-summary-cell :index="62" :colSpan="1" />
-              <!-- 63: 银行汇率 -->
-              <a-table-summary-cell :index="63" :colSpan="1" />
-              <!-- 64: 海关汇率 -->
-              <a-table-summary-cell :index="64" :colSpan="1" />
-              <!-- 65: CNY销售额(银行,含税) -->
-              <a-table-summary-cell :index="65" :align="'right'">
+              <!-- 57: 毛利率(%) -->
+              <a-table-summary-cell :index="57" :colSpan="1" />
+              <!-- 58: 币种 -->
+              <a-table-summary-cell :index="58" :colSpan="1" />
+              <!-- 59: 银行汇率 -->
+              <a-table-summary-cell :index="59" :colSpan="1" />
+              <!-- 60: 海关汇率 -->
+              <a-table-summary-cell :index="60" :colSpan="1" />
+              <!-- 61: CNY销售额(银行,含税) -->
+              <a-table-summary-cell :index="61" :align="'right'">
                 <strong>{{ formatMoney(totals.sales_amount_included_cny_bank) }}</strong>
               </a-table-summary-cell>
-              <!-- 66: CNY销售额(银行,未税) -->
-              <a-table-summary-cell :index="66" :align="'right'">
+              <!-- 62: CNY销售额(银行,未税) -->
+              <a-table-summary-cell :index="62" :align="'right'">
                 <strong>{{ formatMoney(totals.sales_amount_excluded_cny_bank) }}</strong>
               </a-table-summary-cell>
-              <!-- 67: CNY销售额(海关,含税) -->
-              <a-table-summary-cell :index="67" :align="'right'">
+              <!-- 63: CNY销售额(海关,含税) -->
+              <a-table-summary-cell :index="63" :align="'right'">
                 <strong>{{ formatMoney(totals.sales_amount_included_cny_customs) }}</strong>
               </a-table-summary-cell>
-              <!-- 68: CNY销售额(海关,未税) -->
-              <a-table-summary-cell :index="68" :align="'right'">
+              <!-- 64: CNY销售额(海关,未税) -->
+              <a-table-summary-cell :index="64" :align="'right'">
                 <strong>{{ formatMoney(totals.sales_amount_excluded_cny_customs) }}</strong>
               </a-table-summary-cell>
-              <!-- 69: 汇率差(含税) -->
-              <a-table-summary-cell :index="69" :align="'right'">
+              <!-- 65: 汇率差(含税) -->
+              <a-table-summary-cell :index="65" :align="'right'">
                 <strong :style="{ color: totals.exchange_diff_included >= 0 ? '#52c41a' : '#f5222d' }">
                   {{ formatMoney(totals.exchange_diff_included) }}
                 </strong>
               </a-table-summary-cell>
-              <!-- 70: 汇率差(未税) -->
-              <a-table-summary-cell :index="70" :align="'right'">
+              <!-- 66: 汇率差(未税) -->
+              <a-table-summary-cell :index="66" :align="'right'">
                 <strong :style="{ color: totals.exchange_diff_excluded >= 0 ? '#52c41a' : '#f5222d' }">
                   {{ formatMoney(totals.exchange_diff_excluded) }}
                 </strong>
               </a-table-summary-cell>
-              <!-- 71: 提成比例 -->
-              <a-table-summary-cell :index="71" :colSpan="1" />
-              <!-- 72: 应发提成 -->
-              <a-table-summary-cell :index="72" :align="'right'">
+              <!-- 67: 提成比例 -->
+              <a-table-summary-cell :index="67" :colSpan="1" />
+              <!-- 68: 应发提成 -->
+              <a-table-summary-cell :index="68" :align="'right'">
                 <strong>{{ formatMoney(totals.commission_amount) }}</strong>
               </a-table-summary-cell>
-              <!-- 73: 备注 -->
-              <a-table-summary-cell :index="73" :colSpan="1" />
+              <!-- 69: 备注 -->
+              <a-table-summary-cell :index="69" :colSpan="1" />
             </a-table-summary-row>
           </a-table-summary>
         </template>
@@ -492,10 +480,6 @@ const allColumns = ref([
   { title: '核销次数', dataIndex: 'write_off_count', key: 'write_off_count', width: 80, align: 'right' as const },
 
   // ========== 出库成本 ==========
-  { title: '成本单价(未税)', dataIndex: 'cost_unit_price_excluded', key: 'cost_unit_price_excluded', width: 110, align: 'right' as const },
-  { title: '成本单价(含税)', dataIndex: 'cost_unit_price_included', key: 'cost_unit_price_included', width: 110, align: 'right' as const },
-  { title: '成本金额(未税)', dataIndex: 'cost_amount_excluded', key: 'cost_amount_excluded', width: 110, align: 'right' as const },
-  { title: '成本金额(含税)', dataIndex: 'cost_amount_included', key: 'cost_amount_included', width: 110, align: 'right' as const },
 
   // ========== 采购信息 ==========
   { title: '采购合同编号', dataIndex: 'purchase_contract_number', key: 'purchase_contract_number', width: 130 },
@@ -573,7 +557,6 @@ const visibleColumns = computed(() => {
 const moneyKeys = new Set([
   'unit_price', 'sales_amount_included', 'unit_price_excluded', 'sales_amount_excluded',
   'receivable_amount', 'received_amount', 'balance_amount',
-  'cost_unit_price_excluded', 'cost_unit_price_included', 'cost_amount_excluded', 'cost_amount_included',
   'warehousing_unit_price_excluded', 'warehousing_unit_price_included', 'warehousing_amount', 'warehousing_amount_included',
   'po_expense_transportation', 'po_expense_operating', 'po_expense_vat', 'po_expense_handling', 'po_expense_other', 'po_expense_total',
   'sl_expense_transportation', 'sl_expense_handling', 'sl_expense_other', 'sl_expense_total',
@@ -611,8 +594,6 @@ const totals = computed(() => {
       acc.receivable_amount += item.receivable_amount || 0
       acc.received_amount += item.received_amount || 0
       acc.balance_amount += item.balance_amount || 0
-      acc.cost_amount_excluded += item.cost_amount_excluded || 0
-      acc.cost_amount_included += item.cost_amount_included || 0
       acc.warehousing_amount += item.warehousing_amount || 0
       acc.warehousing_amount_included += item.warehousing_amount_included || 0
       acc.po_expense_transportation += item.po_expense_transportation || 0
@@ -652,8 +633,6 @@ const totals = computed(() => {
       receivable_amount: 0,
       received_amount: 0,
       balance_amount: 0,
-      cost_amount_excluded: 0,
-      cost_amount_included: 0,
       warehousing_amount: 0,
       warehousing_amount_included: 0,
       po_expense_transportation: 0,

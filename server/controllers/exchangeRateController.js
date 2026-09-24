@@ -140,7 +140,6 @@ export const deleteExchangeRate = async (req, res) => {
 }
 
 // 查询指定币种对的汇率（给订单表单用，支持按日期查找最近生效的汇率）
-// 支持两种存储方向：source->target 和 target->source（自动取倒数）
 export const getCurrentRate = async (req, res) => {
   try {
     const { source_currency, target_currency, date } = req.query
@@ -156,24 +155,10 @@ export const getCurrentRate = async (req, res) => {
 
     const targetDate = date || new Date().toISOString().slice(0, 10)
 
-    // 先查找 source->target 方向
-    let rate = await ExchangeRate.findLatestRate(source_currency, target_currency, targetDate)
+    // 精确匹配 source->target 方向
+    const rate = await ExchangeRate.findLatestRate(source_currency, target_currency, targetDate)
     if (rate) {
       return res.json({ success: true, data: rate })
-    }
-
-    // 再查找 target->source 方向（取倒数）
-    rate = await ExchangeRate.findLatestRate(target_currency, source_currency, targetDate)
-    if (rate) {
-      return res.json({
-        success: true,
-        data: {
-          ...rate,
-          rate: 1 / parseFloat(rate.rate),
-          source_currency,
-          target_currency
-        }
-      })
     }
 
     res.json({ success: true, data: null, message: '尚未设置该币种对的汇率' })

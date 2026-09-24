@@ -19,7 +19,6 @@
             <a-select
               v-model:value="formData.source_currency"
               placeholder="请选择源币种"
-              :disabled="isEdit"
             >
               <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
                 {{ cur.currency_code }} - {{ cur.currency_name }}
@@ -32,7 +31,6 @@
             <a-select
               v-model:value="formData.target_currency"
               placeholder="请选择目标币种"
-              :disabled="isEdit"
             >
               <a-select-option v-for="cur in currencyList" :key="cur.currency_code" :value="cur.currency_code">
                 {{ cur.currency_code }} - {{ cur.currency_name }}
@@ -46,7 +44,6 @@
           v-model:value="formData.effective_month"
           placeholder="选择月份"
           style="width: 100%"
-          :disabled="isEdit"
           @change="handleMonthChange"
         />
       </a-form-item>
@@ -60,6 +57,9 @@
           placeholder="请输入汇率"
           style="width: 100%"
         />
+        <div v-if="formData.source_currency && formData.target_currency && formData.rate" style="color: #1890ff; font-size: 12px; margin-top: 4px;">
+          1 {{ formData.source_currency }} = {{ formData.rate }} {{ formData.target_currency }}
+        </div>
       </a-form-item>
       <a-form-item label="备注" name="remarks">
         <a-textarea
@@ -152,6 +152,9 @@ const handleSubmit = async () => {
 
     if (props.isEdit && props.rateData) {
       await updateCustomsExchangeRate(props.rateData.customs_exchange_rate_id, {
+        source_currency: formData.source_currency,
+        target_currency: formData.target_currency,
+        effective_month: formData.effective_month_str,
         rate: formData.rate,
         remarks: formData.remarks,
       })

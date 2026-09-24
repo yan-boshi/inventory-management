@@ -60,6 +60,9 @@
           placeholder="请输入汇率"
           style="width: 100%"
         />
+        <div v-if="formData.source_currency && formData.target_currency && formData.rate" style="color: #1890ff; font-size: 12px; margin-top: 4px;">
+          1 {{ formData.source_currency }} = {{ formData.rate }} {{ formData.target_currency }}
+        </div>
       </a-form-item>
       <a-form-item label="备注" name="remarks">
         <a-textarea

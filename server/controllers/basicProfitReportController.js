@@ -154,13 +154,13 @@ export const getBasicProfitReport = async (req, res) => {
       }
     }
 
-    // ============ 2. 收集所有涉及的币种和月份，批量查询海关汇率 ============
-    const currencyMonthSet = new Set()
+    // ============ 2. 收集所有涉及的月份，批量查询海关汇率 ============
+    const monthSet = new Set()
     for (const so of salesOrders) {
       const currency = so.currency || 'CNY'
       if (currency !== 'CNY') {
         const month = getMonthStr(formatDateStr(so.entry_date))
-        if (month) currencyMonthSet.add(`${currency}_${month}`)
+        if (month) monthSet.add(month)
       }
       // 采购订单的币种和月份
       const pos = purchaseOrderMap[so.sales_order_id] || []
@@ -168,37 +168,26 @@ export const getBasicProfitReport = async (req, res) => {
         const poCurrency = po.currency || 'CNY'
         if (poCurrency !== 'CNY') {
           const poMonth = getMonthStr(formatDateStr(po.entry_date))
-          if (poMonth) currencyMonthSet.add(`${poCurrency}_${poMonth}`)
+          if (poMonth) monthSet.add(poMonth)
         }
       }
     }
 
-    // 查询海关汇率（支持正反方向）
-    let customsRateMap = {} // 'currency_month' -> rate (外币->CNY)
-    if (currencyMonthSet.size > 0) {
-      const monthSet = [...new Set([...currencyMonthSet].map(k => k.split('_').slice(1).join('_')))]
+    // 查询海关汇率（直接使用存储的汇率值）
+    let customsRateMap = {} // 'source_target_month' -> rate
+    if (monthSet.size > 0) {
       const [customsRates] = await pool.query(
         `SELECT source_currency, target_currency, effective_month, rate
          FROM customs_exchange_rates
-         WHERE effective_month IN (?) AND (target_currency = 'CNY' OR source_currency = 'CNY')`,
-        [monthSet]
+         WHERE effective_month IN (?)`,
+        [Array.from(monthSet)]
       )
       for (const r of customsRates) {
-        let currency, rate, month
-        if (r.target_currency === 'CNY') {
-          currency = r.source_currency
-          rate = parseFloat(r.rate)
-        } else if (r.source_currency === 'CNY') {
-          currency = r.target_currency
-          rate = 1 / parseFloat(r.rate)
-        } else {
-          continue
-        }
-        month = r.effective_month instanceof Date
+        const month = r.effective_month instanceof Date
           ? `${r.effective_month.getFullYear()}-${String(r.effective_month.getMonth() + 1).padStart(2, '0')}-01`
           : r.effective_month
-        const key = `${currency}_${month}`
-        customsRateMap[key] = rate
+        const key = `${r.source_currency}_${r.target_currency}_${month}`
+        customsRateMap[key] = parseFloat(r.rate)
       }
     }
 
@@ -237,7 +226,7 @@ export const getBasicProfitReport = async (req, res) => {
       // 海关汇率（销售）
       let salesCustomsRate = 1
       if (salesCurrency !== 'CNY') {
-        const customsKey = `${salesCurrency}_${salesMonth}`
+        const customsKey = `${salesCurrency}_CNY_${salesMonth}`
         salesCustomsRate = customsRateMap[customsKey] || salesExchangeRate
       }
 
@@ -261,6 +250,62 @@ export const getBasicProfitReport = async (req, res) => {
       // 获取关联的采购订单
       const purchaseOrders = purchaseOrderMap[so.sales_order_id] || []
 
+      // 按 related_sales_orders 顺序分配：排在前面的销售订单先分配采购数量
+      // 辅助函数：计算当前SO从某个PO的某个商品中按顺序分配到的数量
+      function getAllocatedQty(po, productCode, totalQty) {
+        if (!po.related_sales_orders || !so.sales_order_id) return totalQty
+        let relatedList = []
+        try {
+          relatedList = typeof po.related_sales_orders === 'string'
+            ? JSON.parse(po.related_sales_orders)
+            : po.related_sales_orders
+        } catch {}
+        if (relatedList.length <= 1) return totalQty
+
+        // 检查是否有 product_code 字段
+        const hasProductCode = relatedList.some(rel => rel.product_code)
+
+        if (hasProductCode) {
+          // 有 product_code：过滤出当前产品的需求，合并同一SO的需求量
+          const productDemand = {}
+          for (const rel of relatedList) {
+            if (rel.product_code !== productCode) continue
+            const soId = rel.sales_order_id
+            if (!soId) continue
+            productDemand[soId] = (productDemand[soId] || 0) + (parseFloat(rel.quantity) || 0)
+          }
+
+          // 按 related_sales_orders 原始顺序逐个分配
+          let remaining = totalQty
+          const allocatedPerSO = {}
+          for (const rel of relatedList) {
+            const soId = rel.sales_order_id
+            if (!soId || rel.product_code !== productCode) continue
+            if (allocatedPerSO[soId] !== undefined) continue
+            const demand = productDemand[soId] || 0
+            const allocated = Math.min(remaining, demand)
+            allocatedPerSO[soId] = allocated
+            if (soId === so.sales_order_id) return allocated
+            remaining -= allocated
+            if (remaining <= 0) return 0
+          }
+          return 0
+        } else {
+          // 无 product_code：按原始顺序逐个分配（兼容旧数据）
+          let remaining = totalQty
+          for (const rel of relatedList) {
+            const soId = rel.sales_order_id
+            if (!soId) continue
+            const demand = parseFloat(rel.quantity) || 0
+            const allocated = Math.min(remaining, demand)
+            if (soId === so.sales_order_id) return allocated
+            remaining -= allocated
+            if (remaining <= 0) return 0
+          }
+          return 0
+        }
+      }
+
       for (const item of filteredItems) {
         const productCodeVal = item.product_code || ''
         const quantity = parseFloat(item.quantity) || 0
@@ -276,7 +321,7 @@ export const getBasicProfitReport = async (req, res) => {
         let purchasePerson = ''
         let purchaseQuantity = 0
         let purchaseCurrency = ''
-        let purchaseUnitPrice = 0
+        let purchaseUnitPriceTotal = 0
         let purchaseAmount = 0
         let purchaseCustomsRate = 1
         let purchaseAmountCNY = 0
@@ -303,7 +348,7 @@ export const getBasicProfitReport = async (req, res) => {
           // 海关汇率（采购）
           let poCustomsRate = 1
           if (poCurrency !== 'CNY') {
-            const customsKey = `${poCurrency}_${poMonth}`
+            const customsKey = `${poCurrency}_CNY_${poMonth}`
             poCustomsRate = customsRateMap[customsKey] || poExchangeRate
           }
 
@@ -311,26 +356,11 @@ export const getBasicProfitReport = async (req, res) => {
           const poPrice = parseFloat(matchedPoItem.tax_included_price) || 0
           const poAmount = poQty * poPrice
 
-          // 分摊逻辑：如果采购订单关联多个销售订单，按比例分摊
-          let shareRatio = 1
-          if (po.related_sales_orders) {
-            let relatedList = []
-            try {
-              relatedList = typeof po.related_sales_orders === 'string'
-                ? JSON.parse(po.related_sales_orders)
-                : po.related_sales_orders
-            } catch {}
+          // 按顺序分配采购数量（支持 product_code）
+          const allocatedQty = getAllocatedQty(po, productCodeVal, poQty)
+          const allocatedRatio = poQty > 0 ? allocatedQty / poQty : 1
 
-            if (relatedList.length > 1) {
-              const totalQty = relatedList.reduce((sum, rel) => sum + (parseFloat(rel.quantity) || 0), 0)
-              const currentRel = relatedList.find(rel => rel.sales_order_id === so.sales_order_id)
-              if (currentRel && totalQty > 0) {
-                shareRatio = (parseFloat(currentRel.quantity) || 0) / totalQty
-              }
-            }
-          }
-
-          const sharedPoAmount = poAmount * shareRatio
+          const sharedPoAmount = poAmount * allocatedRatio
           const sharedPoAmountCNY = sharedPoAmount * poCustomsRate
 
           // 采购费用
@@ -356,12 +386,12 @@ export const getBasicProfitReport = async (req, res) => {
           purchasePerson = purchasePerson
             ? `${purchasePerson}, ${po.purchase_person || ''}`
             : (po.purchase_person || '')
-          purchaseQuantity += poQty * shareRatio
+          purchaseQuantity += allocatedQty
           purchaseCurrency = poCurrency
-          purchaseUnitPrice += poPrice * shareRatio
+          purchaseUnitPriceTotal += poPrice * allocatedQty
           purchaseAmount += sharedPoAmount
           purchaseAmountCNY += sharedPoAmountCNY
-          purchaseExpenseCNY += expenseCNY * shareRatio
+          purchaseExpenseCNY += expenseCNY * allocatedRatio
           purchaseCustomsRate = poCustomsRate
           purchaseEntryDate = poEntryDate
         }
@@ -372,12 +402,15 @@ export const getBasicProfitReport = async (req, res) => {
           if (product) {
             purchaseQuantity = quantity
             purchaseCurrency = salesCurrency
-            purchaseUnitPrice = parseFloat(product.tax_included_price) || 0
-            purchaseAmount = quantity * purchaseUnitPrice
+            purchaseUnitPriceTotal = parseFloat(product.tax_included_price) || 0
+            purchaseAmount = quantity * purchaseUnitPriceTotal
             purchaseAmountCNY = purchaseAmount * salesCustomsRate
             purchaseCustomsRate = salesCustomsRate
           }
         }
+
+        // 计算加权平均采购单价
+        const purchaseUnitPrice = purchaseQuantity > 0 ? (purchaseUnitPriceTotal / purchaseQuantity) : 0
 
         // 毛利计算
         const grossProfit = salesAmountCNY - purchaseAmountCNY - purchaseExpenseCNY

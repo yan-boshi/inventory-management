@@ -102,14 +102,56 @@ export const createCustomsExchangeRate = async (req, res) => {
 export const updateCustomsExchangeRate = async (req, res) => {
   try {
     const { id } = req.params
-    const { rate, remarks } = req.body
+    const { source_currency, target_currency, effective_month, rate, remarks } = req.body
 
     const existing = await CustomsExchangeRate.findById(id)
     if (!existing) {
       return res.status(404).json({ success: false, message: '海关汇率不存在' })
     }
 
+    // 如果修改了币种或月份，验证不重复
+    const newSource = source_currency || existing.source_currency
+    const newTarget = target_currency || existing.target_currency
+    let newMonth = existing.effective_month
+
+    if (effective_month) {
+      const monthDate = new Date(effective_month)
+      if (monthDate.getDate() !== 1) {
+        return res.status(400).json({ success: false, message: '生效月必须选择每月1日的日期' })
+      }
+      newMonth = effective_month.slice(0, 10)
+    }
+
+    if (source_currency || target_currency || effective_month) {
+      if (newSource === newTarget) {
+        return res.status(400).json({ success: false, message: '源币种和目标币种不能相同' })
+      }
+
+      // 验证币种是否存在
+      if (source_currency) {
+        const sourceExists = await Currency.findOne('currency_code = ?', [source_currency])
+        if (!sourceExists) {
+          return res.status(400).json({ success: false, message: '源币种不存在' })
+        }
+      }
+      if (target_currency) {
+        const targetExists = await Currency.findOne('currency_code = ?', [target_currency])
+        if (!targetExists) {
+          return res.status(400).json({ success: false, message: '目标币种不存在' })
+        }
+      }
+
+      // 检查新组合是否已存在（排除自身）
+      const duplicate = await CustomsExchangeRate.findRate(newSource, newTarget, newMonth)
+      if (duplicate && duplicate.customs_exchange_rate_id !== id) {
+        return res.status(400).json({ success: false, message: '该币种对在该月已有海关汇率记录' })
+      }
+    }
+
     const updateData = {}
+    if (source_currency) updateData.source_currency = source_currency
+    if (target_currency) updateData.target_currency = target_currency
+    if (effective_month) updateData.effective_month = newMonth
     if (rate !== undefined) updateData.rate = parseFloat(rate)
     if (remarks !== undefined) updateData.remarks = remarks
 
@@ -138,7 +180,6 @@ export const deleteCustomsExchangeRate = async (req, res) => {
 }
 
 // 查询指定币种对当前月的海关汇率（给订单表单用）
-// 支持两种存储方向：source->target 和 target->source（自动取倒数）
 export const getCurrentCustomsRate = async (req, res) => {
   try {
     const { source_currency, target_currency } = req.query
@@ -155,24 +196,10 @@ export const getCurrentCustomsRate = async (req, res) => {
     const today = new Date()
     const firstDay = getFirstDayOfMonth(today)
 
-    // 先查找 source->target 方向
-    let rate = await CustomsExchangeRate.findRate(source_currency, target_currency, firstDay)
+    // 精确匹配 source->target 方向
+    const rate = await CustomsExchangeRate.findRate(source_currency, target_currency, firstDay)
     if (rate) {
       return res.json({ success: true, data: rate })
-    }
-
-    // 再查找 target->source 方向（取倒数）
-    rate = await CustomsExchangeRate.findRate(target_currency, source_currency, firstDay)
-    if (rate) {
-      return res.json({
-        success: true,
-        data: {
-          ...rate,
-          rate: 1 / parseFloat(rate.rate),
-          source_currency,
-          target_currency
-        }
-      })
     }
 
     res.json({ success: true, data: null, message: '本月尚未设置该币种对的海关汇率' })
