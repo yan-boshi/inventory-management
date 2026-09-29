@@ -564,8 +564,8 @@ const handleSave = async (record: any) => {
   record._saving = true
   try {
     await payablesApi.update(record.payable_id, {
-      received_amount: record.received_amount,
-      balance_amount: record.balance_amount,
+      received_amount: record.received_amount || 0,
+      balance_amount: record.balance_amount || 0,
       status: record.status,
       due_date: record._due_date ? record._due_date.format('YYYY-MM-DD') : null,
     })

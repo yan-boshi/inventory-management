@@ -2,6 +2,7 @@ import WarehousingOrder from '../models/WarehousingOrder.js'
 import PurchaseOrder from '../models/PurchaseOrder.js'
 import Payable from '../models/Payable.js'
 import pool from '../config/database.js'
+import { handleDbError } from '../utils/errorHandler.js'
 
 export const getAllWarehousingOrders = async (req, res) => {
   try {
@@ -81,7 +82,8 @@ export const getAllWarehousingOrders = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作入库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -94,7 +96,8 @@ export const getWarehousingOrderById = async (req, res) => {
     }
     res.json({ success: true, data: order })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作入库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -299,7 +302,8 @@ export const createWarehousingOrder = async (req, res) => {
 
     res.status(201).json({ success: true, data: order })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作入库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -405,7 +409,8 @@ export const updateWarehousingOrder = async (req, res) => {
     const order = await WarehousingOrder.update(id, updateData)
     res.json({ success: true, data: order })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作入库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -504,7 +509,8 @@ export const deleteWarehousingOrder = async (req, res) => {
     await WarehousingOrder.delete(id)
     res.json({ success: true, message: '入库单删除成功' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作入库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -513,7 +519,8 @@ export const getNewOrderNumber = async (req, res) => {
     const orderNumber = await WarehousingOrder.getNewOrderNumber()
     res.json({ success: true, data: { order_number: orderNumber } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作入库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -541,6 +548,7 @@ export const getPurchaseOrdersForWarehousing = async (req, res) => {
     })
     res.json({ success: true, data: filtered })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作入库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }

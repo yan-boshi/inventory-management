@@ -1,4 +1,5 @@
 import Supplier from '../models/Supplier.js'
+import { handleDbError } from '../utils/errorHandler.js'
 
 export const getAllSuppliers = async (req, res) => {
   try {
@@ -36,7 +37,8 @@ export const getAllSuppliers = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作供应商信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -49,7 +51,8 @@ export const getSupplierById = async (req, res) => {
     }
     res.json({ success: true, data: supplier })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作供应商信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -96,7 +99,8 @@ export const createSupplier = async (req, res) => {
     })
     res.status(201).json({ success: true, data: supplier })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作供应商信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -148,7 +152,8 @@ export const updateSupplier = async (req, res) => {
     const supplier = await Supplier.update(id, updateData)
     res.json({ success: true, data: supplier })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作供应商信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -164,7 +169,8 @@ export const deleteSupplier = async (req, res) => {
     await Supplier.delete(id)
     res.json({ success: true, message: 'Supplier deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作供应商信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -180,6 +186,7 @@ export const getAllSuppliersList = async (req, res) => {
       }))
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作供应商信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }

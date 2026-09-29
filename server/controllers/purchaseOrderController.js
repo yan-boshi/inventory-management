@@ -2,6 +2,7 @@ import PurchaseOrder from '../models/PurchaseOrder.js'
 import SalesOrder from '../models/SalesOrder.js'
 import pool from '../config/database.js'
 import { generateFromPurchaseOrder } from './inboundPlanController.js'
+import { handleDbError } from '../utils/errorHandler.js'
 
 export const getAllPurchaseOrders = async (req, res) => {
   try {
@@ -88,7 +89,8 @@ export const getAllPurchaseOrders = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作采购订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -103,7 +105,8 @@ export const getPurchaseOrderById = async (req, res) => {
     const status = await PurchaseOrder.calculateStatus(id)
     res.json({ success: true, data: { ...order, status } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作采购订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -153,7 +156,8 @@ export const createPurchaseOrder = async (req, res) => {
       console.error('Auto generate inbound plan failed:', err)
     )
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作采购订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -256,7 +260,8 @@ export const updatePurchaseOrder = async (req, res) => {
       console.error('Auto regenerate inbound plan failed:', err)
     )
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作采购订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -280,7 +285,8 @@ export const deletePurchaseOrder = async (req, res) => {
 
     res.json({ success: true, message: 'Purchase order deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作采购订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -304,7 +310,8 @@ export const updatePurchaseOrderStatus = async (req, res) => {
     const updated = await PurchaseOrder.update(id, updateData)
     res.json({ success: true, data: updated })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作采购订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -313,7 +320,8 @@ export const getNewOrderNumber = async (req, res) => {
     const orderNumber = await PurchaseOrder.generateOrderNumber()
     res.json({ success: true, data: { order_number: orderNumber } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作采购订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 

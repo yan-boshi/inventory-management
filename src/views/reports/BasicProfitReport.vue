@@ -234,8 +234,10 @@ const modelFilters = generateFilters('model')
 const supplierNameFilters = generateFilters('supplier_name')
 const purchaseCurrencyFilters = generateFilters('purchase_currency')
 
-// 使用 ref 使列配置可通过 ColumnConfig 组件更新
-const allColumns = ref([
+// 使用 computed 使列配置能响应 filters 的变化，同时支持 ColumnConfig 组件更新
+const _columnConfigOverrides = ref<any[] | null>(null)
+
+const baseColumns = computed(() => [
   // ========== 销售订单信息 ==========
   {
     title: '销售合同编号',
@@ -345,8 +347,19 @@ const allColumns = ref([
 
 // 处理 ColumnConfig 组件的列更新
 const handleColumnConfigUpdate = (newColumns: any[]) => {
-  allColumns.value = newColumns
+  _columnConfigOverrides.value = newColumns
 }
+
+// 合并 baseColumns（含动态 filters）与 ColumnConfig 的覆盖（visible、width 等）
+const allColumns = computed(() => {
+  const base = baseColumns.value
+  const overrides = _columnConfigOverrides.value
+  if (!overrides) return base
+  return base.map(col => {
+    const override = overrides.find((o: any) => o.key === col.key)
+    return override ? { ...col, ...override, filters: col.filters, onFilter: col.onFilter } : col
+  })
+})
 
 // 可见列（过滤掉隐藏的列）
 const visibleColumns = computed(() => {

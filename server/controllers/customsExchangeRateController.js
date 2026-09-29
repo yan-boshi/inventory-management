@@ -1,6 +1,7 @@
 import CustomsExchangeRate from '../models/CustomsExchangeRate.js'
 import Currency from '../models/Currency.js'
 import { generateUUID } from '../utils/uuid.js'
+import { handleDbError } from '../utils/errorHandler.js'
 
 // 获取本月1日日期
 function getFirstDayOfMonth(date) {
@@ -32,7 +33,8 @@ export const getAllCustomsExchangeRates = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作海关汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -46,7 +48,8 @@ export const getCustomsExchangeRateById = async (req, res) => {
     }
     res.json({ success: true, data: rate })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作海关汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -94,7 +97,8 @@ export const createCustomsExchangeRate = async (req, res) => {
 
     res.status(201).json({ success: true, data: customsRate })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作海关汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -158,7 +162,8 @@ export const updateCustomsExchangeRate = async (req, res) => {
     const customsRate = await CustomsExchangeRate.update(id, updateData)
     res.json({ success: true, data: customsRate })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作海关汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -175,7 +180,8 @@ export const deleteCustomsExchangeRate = async (req, res) => {
     await CustomsExchangeRate.delete(id)
     res.json({ success: true, message: '海关汇率删除成功' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作海关汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -204,7 +210,8 @@ export const getCurrentCustomsRate = async (req, res) => {
 
     res.json({ success: true, data: null, message: '本月尚未设置该币种对的海关汇率' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作海关汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -219,6 +226,7 @@ export const getMonthRates = async (req, res) => {
     const rates = await CustomsExchangeRate.findByMonth(effective_month)
     res.json({ success: true, data: rates })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作海关汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }

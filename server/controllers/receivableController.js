@@ -1,4 +1,5 @@
 import Receivable from '../models/Receivable.js'
+import { handleDbError } from '../utils/errorHandler.js'
 
 export const getAllReceivables = async (req, res) => {
   try {
@@ -65,7 +66,8 @@ export const getAllReceivables = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作应收账款')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -78,7 +80,8 @@ export const getReceivableById = async (req, res) => {
     }
     res.json({ success: true, data: receivable })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作应收账款')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -94,7 +97,8 @@ export const deleteReceivable = async (req, res) => {
     await Receivable.delete(id)
     res.json({ success: true, message: '应收账款删除成功' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作应收账款')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -119,6 +123,7 @@ export const updateReceivable = async (req, res) => {
     const receivable = await Receivable.update(id, updateData)
     res.json({ success: true, data: receivable })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作应收账款')
+    res.status(statusCode).json({ success: false, message })
   }
 }

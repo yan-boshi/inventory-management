@@ -522,10 +522,14 @@ const loadFromPreSelectedRecords = async () => {
 
   // 自动填充实体信息（entity_id 对应客户代码/供应商代码，不是 UUID）
   if (formData.type === 1) {
-    formData.entity_id = firstRecord.customer_code || ''
+    // 通过 customer_id 在 entityOptions 中查找对应的 customer_code
+    const customerOption = entityOptions.value.find(item => item.id === firstRecord.customer_id)
+    formData.entity_id = customerOption?.code || firstRecord.customer_id || ''
     formData.entity_name = firstRecord.customer_name || ''
   } else {
-    formData.entity_id = firstRecord.supplier_code || ''
+    // 通过 supplier_id 在 entityOptions 中查找对应的 supplier_code
+    const supplierOption = entityOptions.value.find(item => item.id === firstRecord.supplier_id)
+    formData.entity_id = supplierOption?.code || firstRecord.supplier_id || ''
     formData.entity_name = firstRecord.supplier_name || ''
   }
 

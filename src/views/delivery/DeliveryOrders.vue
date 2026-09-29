@@ -128,6 +128,10 @@
             <span>{{ record.tracking_number || '-' }}</span>
           </template>
 
+          <template v-else-if="column.key === 'shipping_fee'">
+            <span>{{ formatShippingFee(record.expenses) }}</span>
+          </template>
+
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-button type="link" size="small" @click="handleEdit(record)">
@@ -407,6 +411,13 @@ const allColumns = ref([
     width: 150,
   },
   {
+    title: '运费',
+    dataIndex: 'shipping_fee',
+    key: 'shipping_fee',
+    width: 100,
+    align: 'right' as const,
+  },
+  {
     title: '操作',
     key: 'actions',
     width: 200,
@@ -570,6 +581,20 @@ const getDeliveryItems = (order: DeliveryOrder) => {
   }
 }
 
+// 计算运费（快递费 + 运杂费）
+const formatShippingFee = (expenses: string | object | null | undefined) => {
+  if (!expenses) return '-'
+  try {
+    const data = typeof expenses === 'string' ? JSON.parse(expenses) : expenses
+    const expressFee = Number(data.expressDeliveryFee) || 0
+    const transportFee = Number(data.transportationFee) || 0
+    const total = expressFee + transportFee
+    return total > 0 ? total.toFixed(2) : '-'
+  } catch {
+    return '-'
+  }
+}
+
 // 导出Excel
 const exportColumns: ExportColumn[] = [
   { key: 'order_number', title: '出库单编号' },
@@ -585,6 +610,7 @@ const exportColumns: ExportColumn[] = [
   { key: 'entry_date', title: '录入日期', formatter: (v) => formatDate(v) },
   { key: 'delivery_person', title: '制单人' },
   { key: 'tracking_number', title: '快递单号' },
+  { key: 'expenses', title: '运费', formatter: (v) => formatShippingFee(v) },
 ]
 
 const handleExport = async () => {

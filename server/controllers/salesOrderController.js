@@ -1,6 +1,7 @@
 import SalesOrder from '../models/SalesOrder.js'
 import { generateFromSalesOrder as generatePurchasePlan } from './purchasePlanController.js'
 import { generateFromSalesOrder as generateOutboundPlan } from './outboundPlanController.js'
+import { handleDbError } from '../utils/errorHandler.js'
 
 export const getAllSalesOrders = async (req, res) => {
   try {
@@ -87,7 +88,8 @@ export const getAllSalesOrders = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作销售订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -102,7 +104,8 @@ export const getSalesOrderById = async (req, res) => {
     const status = await SalesOrder.calculateStatus(id)
     res.json({ success: true, data: { ...order, status } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作销售订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -153,7 +156,8 @@ export const createSalesOrder = async (req, res) => {
       console.error('Auto generate outbound plan failed:', err)
     )
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作销售订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -211,7 +215,8 @@ export const updateSalesOrder = async (req, res) => {
       console.error('Auto regenerate outbound plan failed:', err)
     )
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作销售订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -227,7 +232,8 @@ export const deleteSalesOrder = async (req, res) => {
     await SalesOrder.delete(id)
     res.json({ success: true, message: 'Sales order deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作销售订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -236,7 +242,8 @@ export const getNewOrderNumber = async (req, res) => {
     const orderNumber = await SalesOrder.getNewOrderNumber()
     res.json({ success: true, data: { order_number: orderNumber } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作销售订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -268,7 +275,8 @@ export const getUndeliveredContractNumbers = async (req, res) => {
 
     res.json({ success: true, data: contractNumbers })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作销售订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -310,6 +318,7 @@ export const getSalesItemsByContractNumber = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作销售订单')
+    res.status(statusCode).json({ success: false, message })
   }
 }

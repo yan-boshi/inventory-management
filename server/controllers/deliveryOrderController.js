@@ -2,6 +2,7 @@ import DeliveryOrder from '../models/DeliveryOrder.js'
 import SalesOrder from '../models/SalesOrder.js'
 import Receivable from '../models/Receivable.js'
 import pool from '../config/database.js'
+import { handleDbError } from '../utils/errorHandler.js'
 
 export const getAllDeliveryOrders = async (req, res) => {
   try {
@@ -81,7 +82,8 @@ export const getAllDeliveryOrders = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作出库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -94,7 +96,8 @@ export const getDeliveryOrderById = async (req, res) => {
     }
     res.json({ success: true, data: order })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作出库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -303,7 +306,8 @@ export const createDeliveryOrder = async (req, res) => {
 
     res.status(201).json({ success: true, data: order })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作出库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -416,7 +420,8 @@ export const updateDeliveryOrder = async (req, res) => {
     const order = await DeliveryOrder.update(id, updateData)
     res.json({ success: true, data: order })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作出库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -507,7 +512,8 @@ export const deleteDeliveryOrder = async (req, res) => {
     await DeliveryOrder.delete(id)
     res.json({ success: true, message: '出库单删除成功' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作出库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -516,7 +522,8 @@ export const getNewOrderNumber = async (req, res) => {
     const orderNumber = await DeliveryOrder.getNewOrderNumber()
     res.json({ success: true, data: { order_number: orderNumber } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作出库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -544,6 +551,7 @@ export const getUndeliveredSalesOrders = async (req, res) => {
     })
     res.json({ success: true, data: filtered })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作出库单')
+    res.status(statusCode).json({ success: false, message })
   }
 }

@@ -4,6 +4,8 @@ import SettlementStatementItem from '../models/SettlementStatementItem.js'
 import SettlementInvoiceRecord from '../models/SettlementInvoiceRecord.js'
 import Receivable from '../models/Receivable.js'
 import Payable from '../models/Payable.js'
+import { handleDbError } from '../utils/errorHandler.js'
+import { generateUUID } from '../utils/uuid.js'
 
 // 获取下一个对账单编号
 export const getNextStatementNumber = async (req, res) => {
@@ -230,40 +232,53 @@ export const createSettlement = async (req, res) => {
       return res.status(400).json({ success: false, message: '缺少必要参数' })
     }
 
-    // 生成对账单编号
+    // 生成对账单编号和ID
     const statement_number = await SettlementStatement.generateStatementNumber()
+    const statementId = generateUUID()
+
+    // sales_amount 和 total_amount 默认为 0，避免 NOT NULL 约束报错
+    const resolvedSalesAmount = sales_amount || total_amount || 0
+    const resolvedTotalAmount = total_amount || 0
+    const resolvedInvoicedAmount = invoiced_amount || 0
+    const resolvedUninvoicedAmount = uninvoiced_amount || 0
+    const resolvedHandlingFee = handling_fee || 0
 
     // 创建对账单
-    const [result] = await connection.query(
+    await connection.query(
       `INSERT INTO settlement_statements (
-        statement_number, type, entity_id, entity_name, billing_month, payment_method,
+        statement_id, statement_number, type, entity_id, entity_name, billing_month, payment_method,
         sales_amount, is_invoiced, invoice_date, invoice_number,
         handling_fee, document_date, total_amount, invoiced_amount, uninvoiced_amount,
         billing_status, remarks
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        statement_number, type, entity_id, entity_name, resolvedBillingMonth, payment_method,
-        sales_amount, is_invoiced, invoice_date, invoice_number,
-        handling_fee, document_date, total_amount, invoiced_amount, uninvoiced_amount,
+        statementId, statement_number, type, entity_id, entity_name, resolvedBillingMonth, payment_method,
+        resolvedSalesAmount, is_invoiced, invoice_date, invoice_number,
+        resolvedHandlingFee, document_date, resolvedTotalAmount, resolvedInvoicedAmount, resolvedUninvoicedAmount,
         billing_status, remarks
       ]
     )
 
-    const statementId = result.insertId
-
     // 创建明细
     if (items && items.length > 0) {
       for (const item of items) {
+        // amount 默认使用 amount_with_tax
+        const itemId = generateUUID()
+        const resolvedItemAmount = item.amount || item.amount_with_tax || 0
+        const resolvedQuantity = item.quantity || 0
+        const resolvedUnitPrice = item.unit_price || 0
+        const resolvedAmountWithTax = item.amount_with_tax || 0
+
         await connection.query(
           `INSERT INTO settlement_statement_items (
-            statement_id, source_type, source_id, amount, delivery_date, delivery_number,
+            item_id, statement_id, source_type, source_id, amount, delivery_date, delivery_number,
             product_code, product_name, product_model, product_description,
             quantity, currency, unit, unit_price, amount_with_tax, remarks
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            statementId, item.source_type, item.source_id, item.amount, item.delivery_date, item.delivery_number,
+            itemId, statementId, item.source_type, item.source_id, resolvedItemAmount, item.delivery_date, item.delivery_number,
             item.product_code, item.product_name, item.product_model, item.product_description,
-            item.quantity, item.currency, item.unit, item.unit_price, item.amount_with_tax, item.remarks
+            resolvedQuantity, item.currency, item.unit, resolvedUnitPrice, resolvedAmountWithTax, item.remarks
           ]
         )
       }
@@ -296,11 +311,12 @@ export const createSettlement = async (req, res) => {
     // 创建开票记录
     if (invoice_records && invoice_records.length > 0) {
       for (const record of invoice_records) {
+        const invoiceRecordId = generateUUID()
         await connection.query(
           `INSERT INTO settlement_invoice_records (
-            statement_id, invoice_date, invoice_number, invoiced_amount, uninvoiced_amount
-          ) VALUES (?, ?, ?, ?, ?)`,
-          [statementId, record.invoice_date, record.invoice_number, record.invoiced_amount, record.uninvoiced_amount]
+            invoice_record_id, statement_id, invoice_date, invoice_number, invoiced_amount, uninvoiced_amount
+          ) VALUES (?, ?, ?, ?, ?, ?)`,
+          [invoiceRecordId, statementId, record.invoice_date, record.invoice_number, record.invoiced_amount, record.uninvoiced_amount]
         )
       }
     }
@@ -311,8 +327,8 @@ export const createSettlement = async (req, res) => {
     res.status(201).json({ success: true, data: statement })
   } catch (error) {
     await connection.rollback()
-    console.error('创建对账单失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '创建对账单')
+    res.status(statusCode).json({ success: false, message })
   } finally {
     connection.release()
   }
@@ -425,8 +441,8 @@ export const updateSettlement = async (req, res) => {
 
     res.json({ success: true, data: statement })
   } catch (error) {
-    console.error('更新对账单失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '更新对账单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -444,8 +460,8 @@ export const deleteSettlement = async (req, res) => {
 
     res.json({ success: true, message: '对账单删除成功' })
   } catch (error) {
-    console.error('删除对账单失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '删除对账单')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 

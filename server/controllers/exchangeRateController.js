@@ -1,6 +1,7 @@
 import ExchangeRate from '../models/ExchangeRate.js'
 import Currency from '../models/Currency.js'
 import { generateUUID } from '../utils/uuid.js'
+import { handleDbError } from '../utils/errorHandler.js'
 
 // 获取本周周一日期
 function getMonday(date) {
@@ -34,7 +35,8 @@ export const getAllExchangeRates = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -48,7 +50,8 @@ export const getExchangeRateById = async (req, res) => {
     }
     res.json({ success: true, data: rate })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -96,7 +99,8 @@ export const createExchangeRate = async (req, res) => {
 
     res.status(201).json({ success: true, data: exchangeRate })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -118,7 +122,8 @@ export const updateExchangeRate = async (req, res) => {
     const exchangeRate = await ExchangeRate.update(id, updateData)
     res.json({ success: true, data: exchangeRate })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -135,7 +140,8 @@ export const deleteExchangeRate = async (req, res) => {
     await ExchangeRate.delete(id)
     res.json({ success: true, message: '汇率删除成功' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -163,7 +169,8 @@ export const getCurrentRate = async (req, res) => {
 
     res.json({ success: true, data: null, message: '尚未设置该币种对的汇率' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -178,6 +185,7 @@ export const getWeekRates = async (req, res) => {
     const rates = await ExchangeRate.findByWeek(effective_week)
     res.json({ success: true, data: rates })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作汇率')
+    res.status(statusCode).json({ success: false, message })
   }
 }

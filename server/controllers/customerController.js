@@ -1,4 +1,5 @@
 import Customer from '../models/Customer.js'
+import { handleDbError } from '../utils/errorHandler.js'
 
 export const getAllCustomers = async (req, res) => {
   try {
@@ -35,7 +36,8 @@ export const getAllCustomers = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作客户信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -48,7 +50,8 @@ export const getCustomerById = async (req, res) => {
     }
     res.json({ success: true, data: customer })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作客户信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -99,7 +102,8 @@ export const createCustomer = async (req, res) => {
     })
     res.status(201).json({ success: true, data: customer })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作客户信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -155,7 +159,8 @@ export const updateCustomer = async (req, res) => {
     const customer = await Customer.update(id, updateData)
     res.json({ success: true, data: customer })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作客户信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -171,7 +176,8 @@ export const deleteCustomer = async (req, res) => {
     await Customer.delete(id)
     res.json({ success: true, message: 'Customer deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作客户信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -187,6 +193,7 @@ export const getAllCustomersList = async (req, res) => {
       }))
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作客户信息')
+    res.status(statusCode).json({ success: false, message })
   }
 }

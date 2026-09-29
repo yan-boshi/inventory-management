@@ -1,4 +1,5 @@
 import Payable from '../models/Payable.js'
+import { handleDbError } from '../utils/errorHandler.js'
 
 export const getAllPayables = async (req, res) => {
   try {
@@ -65,7 +66,8 @@ export const getAllPayables = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作应付账款')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -78,7 +80,8 @@ export const getPayableById = async (req, res) => {
     }
     res.json({ success: true, data: payable })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作应付账款')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -94,7 +97,8 @@ export const deletePayable = async (req, res) => {
     await Payable.delete(id)
     res.json({ success: true, message: '应付账款删除成功' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作应付账款')
+    res.status(statusCode).json({ success: false, message })
   }
 }
 
@@ -119,6 +123,7 @@ export const updatePayable = async (req, res) => {
     const payable = await Payable.update(id, updateData)
     res.json({ success: true, data: payable })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    const { statusCode, message } = handleDbError(error, '操作应付账款')
+    res.status(statusCode).json({ success: false, message })
   }
 }

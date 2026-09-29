@@ -694,6 +694,7 @@ const handleSubmit = async () => {
       is_invoiced: computedBillingStatus.value === 1 ? 1 : 0,
       handling_fee: formData.handling_fee,
       document_date: formData.document_date ? formData.document_date.format('YYYY-MM-DD') : null,
+      sales_amount: totalAmount.value,
       total_amount: totalAmount.value,
       invoiced_amount: totalInvoicedAmount.value,
       billing_status: computedBillingStatus.value,
