@@ -13,6 +13,7 @@
       <div class="page-header">
         <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
         <p class="company-address">深圳市龙岗区坂田街道南坑社区五和大道（南）42号景丰大厦602</p>
+        <h2 class="document-title">出库单</h2>
       </div>
 
       <!-- 客户信息 -->
@@ -39,7 +40,7 @@
             </div>
             <div class="row">
               <span class="label">出库时间：</span>
-              <span class="value editable" @click="handleEdit('deliveryTime')">{{
+              <span class="value">{{
                 formatDate(formData.deliveryTime)
               }}</span>
             </div>
@@ -68,7 +69,7 @@
             <td>{{ item.product_name || '-' }}</td>
             <td>{{ item.model || '-' }}</td>
             <td>{{ item.specification || '-' }}</td>
-            <td class="editable-cell" @click="handleEdit('quantity', item.no - 1)">
+            <td>
               {{ item.quantity || '-' }}
             </td>
             <td>{{ item.unit || '-' }}</td>
@@ -326,13 +327,20 @@ const handlePrint = () => {
     margin: 8px 0 0 0;
     color: #000;
   }
+
+  .document-title {
+    font-size: 12px;
+    font-weight: normal;
+    margin: 8px 0 0 0;
+    color: #000;
+  }
 }
 
 .customer-section {
   margin-bottom: 30px;
 
   .order-number-row {
-    margin-top: 16px;
+    margin-top: 30px;
     margin-bottom: 16px;
     text-align: left;
     font-size: 12px;
@@ -348,6 +356,10 @@ const handlePrint = () => {
   .customer-left,
   .customer-right {
     width: 50%;
+  }
+
+  .customer-right {
+    padding-left: 20%;
   }
 
   .row {
@@ -394,7 +406,7 @@ const handlePrint = () => {
       th {
         padding: 10px 8px;
         background: #e8e8e8;
-        border: 2px solid #333;
+        border: 1.5px solid #555;
         font-weight: 600;
         font-size: 12px;
         color: #262626;

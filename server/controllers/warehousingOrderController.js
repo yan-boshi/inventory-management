@@ -407,6 +407,29 @@ export const updateWarehousingOrder = async (req, res) => {
     if (expenses !== undefined) updateData.expenses = expenses
 
     const order = await WarehousingOrder.update(id, updateData)
+
+    // 更新对应的应付账款记录
+    if (total_amount !== undefined || warehousing_items !== undefined) {
+      try {
+        const payable = await Payable.findOne('source_bill_id = ?', [existing.order_number])
+        if (payable) {
+          const newTotalAmount = total_amount !== undefined
+            ? parseFloat(total_amount) || 0
+            : parseFloat(existing.total_amount) || 0
+          const receivedAmount = parseFloat(payable.received_amount) || 0
+          const newBalanceAmount = Math.max(0, newTotalAmount - receivedAmount)
+
+          await Payable.update(payable.payable_id, {
+            amount: newTotalAmount,
+            balance_amount: newBalanceAmount,
+            warehousing_time: warehousing_time || existing.warehousing_time || null
+          })
+        }
+      } catch (payableError) {
+        console.error('更新应付账款记录失败:', payableError)
+      }
+    }
+
     res.json({ success: true, data: order })
   } catch (error) {
     const { statusCode, message } = handleDbError(error, '操作入库单')

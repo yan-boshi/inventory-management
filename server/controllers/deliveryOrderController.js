@@ -418,6 +418,29 @@ export const updateDeliveryOrder = async (req, res) => {
     if (tracking_number !== undefined) updateData.tracking_number = tracking_number
 
     const order = await DeliveryOrder.update(id, updateData)
+
+    // 更新对应的应收账款记录
+    if (total_amount !== undefined || delivery_items !== undefined) {
+      try {
+        const receivable = await Receivable.findOne('source_bill_id = ?', [existing.order_number])
+        if (receivable) {
+          const newTotalAmount = total_amount !== undefined
+            ? parseFloat(total_amount) || 0
+            : parseFloat(existing.total_amount) || 0
+          const receivedAmount = parseFloat(receivable.received_amount) || 0
+          const newBalanceAmount = Math.max(0, newTotalAmount - receivedAmount)
+
+          await Receivable.update(receivable.receivable_id, {
+            amount: newTotalAmount,
+            balance_amount: newBalanceAmount,
+            delivery_time: delivery_time || existing.delivery_time || null
+          })
+        }
+      } catch (receivableError) {
+        console.error('更新应收账款记录失败:', receivableError)
+      }
+    }
+
     res.json({ success: true, data: order })
   } catch (error) {
     const { statusCode, message } = handleDbError(error, '操作出库单')
