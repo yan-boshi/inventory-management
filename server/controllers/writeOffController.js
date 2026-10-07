@@ -85,7 +85,7 @@ export const getNextWriteOffNumber = async (req, res) => {
 // 获取核销单列表
 export const getWriteOffList = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, type, status, entity_name, write_off_date_start, write_off_date_end } = req.query
+    const { page = 1, pageSize = 10, type, status, entity_name, write_off_date_start, write_off_date_end, document_date_start, document_date_end } = req.query
     const where = []
     const params = []
 
@@ -112,6 +112,17 @@ export const getWriteOffList = async (req, res) => {
     if (write_off_date_end) {
       where.push('write_off_date <= ?')
       params.push(write_off_date_end)
+    }
+
+    // 制单日期范围筛选
+    if (document_date_start) {
+      where.push('document_date >= ?')
+      params.push(document_date_start)
+    }
+
+    if (document_date_end) {
+      where.push('document_date <= ?')
+      params.push(document_date_end)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''

@@ -3,7 +3,7 @@ import { handleDbError } from '../utils/errorHandler.js'
 
 export const getAllPayables = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, supplier_name, status, billing_status, start_date, end_date } = req.query
+    const { page = 1, pageSize = 10, supplier_name, status, billing_status, start_date, end_date, warehousing_time_start, warehousing_time_end, amount_filter, received_amount_filter, balance_amount_filter, handling_fee_filter } = req.query
     const where = []
     const params = []
 
@@ -44,6 +44,42 @@ export const getAllPayables = async (req, res) => {
     if (end_date) {
       where.push('due_date <= ?')
       params.push(end_date)
+    }
+
+    // 入库时间范围筛选
+    if (warehousing_time_start) {
+      where.push('warehousing_time >= ?')
+      params.push(warehousing_time_start)
+    }
+
+    if (warehousing_time_end) {
+      where.push('warehousing_time <= ?')
+      params.push(warehousing_time_end)
+    }
+
+    // 金额筛选条件
+    if (amount_filter === '0') {
+      where.push('(amount = 0 OR amount IS NULL)')
+    } else if (amount_filter === 'not_empty') {
+      where.push('(amount > 0 AND amount IS NOT NULL)')
+    }
+
+    if (received_amount_filter === '0') {
+      where.push('(received_amount = 0 OR received_amount IS NULL)')
+    } else if (received_amount_filter === 'not_empty') {
+      where.push('(received_amount > 0 AND received_amount IS NOT NULL)')
+    }
+
+    if (balance_amount_filter === '0') {
+      where.push('(balance_amount = 0 OR balance_amount IS NULL)')
+    } else if (balance_amount_filter === 'not_empty') {
+      where.push('(balance_amount > 0 AND balance_amount IS NOT NULL)')
+    }
+
+    if (handling_fee_filter === '0') {
+      where.push('(handling_fee = 0 OR handling_fee IS NULL)')
+    } else if (handling_fee_filter === 'not_empty') {
+      where.push('(handling_fee > 0 AND handling_fee IS NOT NULL)')
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''

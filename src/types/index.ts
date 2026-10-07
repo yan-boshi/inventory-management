@@ -181,6 +181,7 @@ export interface ProductQueryParams {
   pageSize?: number
   name?: string
   code?: string
+  model?: string
 }
 
 export interface WarehousingExpenseReportParams {
@@ -1003,6 +1004,12 @@ export interface ReceivableQueryParams {
   billing_status?: number | number[]
   start_date?: string
   end_date?: string
+  delivery_time_start?: string
+  delivery_time_end?: string
+  amount_filter?: string
+  received_amount_filter?: string
+  balance_amount_filter?: string
+  handling_fee_filter?: string
 }
 
 // 应付账款
@@ -1033,6 +1040,12 @@ export interface PayableQueryParams {
   billing_status?: number | number[]
   start_date?: string
   end_date?: string
+  warehousing_time_start?: string
+  warehousing_time_end?: string
+  amount_filter?: string
+  received_amount_filter?: string
+  balance_amount_filter?: string
+  handling_fee_filter?: string
 }
 
 // 对账单
@@ -1113,6 +1126,8 @@ export interface SettlementQueryParams {
   billing_status?: 0 | 1 | 2
   settlement_date_start?: string
   settlement_date_end?: string
+  document_date_start?: string
+  document_date_end?: string
   entity_name?: string
 }
 
@@ -1169,6 +1184,8 @@ export interface WriteOffQueryParams {
   entity_name?: string
   write_off_date_start?: string
   write_off_date_end?: string
+  document_date_start?: string
+  document_date_end?: string
 }
 
 export interface PendingRecord {

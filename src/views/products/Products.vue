@@ -21,11 +21,20 @@
             />
           </a-form-item>
 
+          <a-form-item label="规格型号">
+            <a-input
+              v-model:value="searchParams.model"
+              placeholder="请输入规格型号"
+              allow-clear
+              style="width: 200px"
+            />
+          </a-form-item>
+
           <a-form-item>
             <a-space>
               <a-button type="primary" @click="handleSearch"> <SearchOutlined /> 查询 </a-button>
               <a-button @click="handleReset"> <ReloadOutlined /> 重置 </a-button>
-              <a-button type="primary" @click="handleAdd" style="margin-left: 16px;">
+              <a-button type="primary" @click="handleAdd" style="margin-left: 16px">
                 <template #icon><PlusOutlined /></template>
                 新增产品
               </a-button>
@@ -107,6 +116,7 @@ const searchParams = reactive<ProductQueryParams>({
   pageSize: 100,
   name: '',
   code: '',
+  model: '',
 })
 
 const pagination = reactive({
@@ -147,6 +157,15 @@ const columns = [
     key: 'stock',
     width: 80,
     align: 'right' as const,
+    filters: [
+      { text: '0', value: '0' },
+      { text: '不为0', value: 'not_empty' },
+    ],
+    onFilter: (value: string, record: Product) => {
+      const val = Number(record.stock)
+      if (value === '0') return !val || val === 0
+      return val > 0
+    },
   },
   {
     title: '单位',
@@ -195,6 +214,7 @@ const handleSearch = () => {
 const handleReset = () => {
   searchParams.name = ''
   searchParams.code = ''
+  searchParams.model = ''
   handleSearch()
 }
 

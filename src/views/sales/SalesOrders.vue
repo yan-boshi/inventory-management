@@ -77,7 +77,7 @@
                 @update:columns="handleColumnConfigUpdate"
                 cacheKey="salesOrders"
               />
-              <a-button type="primary" @click="handleAdd" style="margin-left: 16px;">
+              <a-button type="primary" @click="handleAdd" style="margin-left: 16px">
                 <template #icon><PlusOutlined /></template>
                 新增销售订单
               </a-button>
@@ -182,6 +182,44 @@
               </a-dropdown>
             </a-space>
           </template>
+        </template>
+        <template #summary>
+          <a-table-summary fixed>
+            <a-table-summary-row>
+              <a-table-summary-cell :index="0" :col-span="1" class="summary-cell summary-label">
+                <span style="font-weight: 600">总计</span>
+              </a-table-summary-cell>
+              <a-table-summary-cell
+                v-for="col in visibleColumns.slice(1)"
+                :key="col.key || col.dataIndex"
+                :index="visibleColumns.indexOf(col)"
+                class="summary-cell"
+                :class="{
+                  'summary-value':
+                    col.key === 'amount' ||
+                    col.key === 'tax_excluded_amount' ||
+                    col.key === 'settlement_amount' ||
+                    col.key === 'unsettled_amount',
+                }"
+              >
+                <template
+                  v-if="
+                    col.key === 'amount' ||
+                    col.key === 'tax_excluded_amount' ||
+                    col.key === 'settlement_amount' ||
+                    col.key === 'unsettled_amount'
+                  "
+                >
+                  <span style="color: #f5222d; font-weight: 600">
+                    {{ formatMoney(getTotalAmountByKey(col.key)) }}
+                  </span>
+                </template>
+                <template v-else-if="col.key === 'index'">
+                  <span style="font-weight: 600">-</span>
+                </template>
+              </a-table-summary-cell>
+            </a-table-summary-row>
+          </a-table-summary>
         </template>
       </a-table>
       <a-pagination
@@ -359,6 +397,20 @@ const pagination = reactive({
   total: 0,
 })
 
+// 计算总计金额
+const totalAmounts = computed(() => {
+  const data = expandedOrders.value
+  return {
+    settlement_amount: data.reduce((sum, item) => sum + (Number(item.settlement_amount) || 0), 0),
+    unsettled_amount: data.reduce((sum, item) => sum + (Number(item.unsettled_amount) || 0), 0),
+    amount: data.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
+    tax_excluded_amount: data.reduce(
+      (sum, item) => sum + (Number(item.tax_excluded_amount) || 0),
+      0
+    ),
+  }
+})
+
 // 动态生成筛选选项的辅助函数
 const generateFilters = (dataKey: string) => {
   return computed(() => {
@@ -526,7 +578,7 @@ const allColumns = ref([
     sorter: (a: any, b: any) => (a.amount || 0) - (b.amount || 0),
   },
   {
-    title: '不含税金额',
+    title: '未税金额',
     dataIndex: 'tax_excluded_amount',
     key: 'tax_excluded_amount',
     width: 110,
@@ -903,6 +955,16 @@ const parseSalesItems = (salesItems: string) => {
   }
 }
 
+const getTotalAmountByKey = (key: string): number => {
+  const keyMap: Record<string, keyof typeof totalAmounts.value> = {
+    amount: 'amount',
+    tax_excluded_amount: 'tax_excluded_amount',
+    settlement_amount: 'settlement_amount',
+    unsettled_amount: 'unsettled_amount',
+  }
+  return totalAmounts.value[keyMap[key] || key] || 0
+}
+
 const getStatusColor = (status: number) => {
   const colorMap: Record<number, string> = {
     1: 'blue', // 未出库
@@ -986,7 +1048,7 @@ const exportColumns: ExportColumn[] = [
   { key: 'tax_excluded_price', title: '未税单价', formatter: v => formatMoney(v) },
   { key: 'unit', title: '单位' },
   { key: 'amount', title: '金额', formatter: v => formatMoney(v) },
-  { key: 'tax_excluded_amount', title: '不含税金额', formatter: v => formatMoney(v) },
+  { key: 'tax_excluded_amount', title: '未税金额', formatter: v => formatMoney(v) },
   { key: 'tax_amount', title: '税额', formatter: v => formatMoney(v) },
   { key: 'tax_rate', title: '税率(%)' },
   { key: 'outbound_quantity', title: '出库数量' },
@@ -1141,6 +1203,25 @@ onMounted(() => {
 
     &:hover {
       color: #40a9ff;
+    }
+  }
+
+  :deep(.ant-table-summary) {
+    .summary-cell {
+      background-color: #fafafa !important;
+      border-top: 2px solid #e8e8e8;
+      padding: 12px 16px;
+      font-weight: 600;
+    }
+
+    .summary-label {
+      text-align: center;
+      color: #333;
+    }
+
+    .summary-value {
+      color: #f5222d;
+      font-weight: 600;
     }
   }
 }

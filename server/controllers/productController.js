@@ -2,7 +2,7 @@ import Product from '../models/Product.js'
 
 export const getAllProducts = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, name, code } = req.query
+    const { page = 1, pageSize = 10, name, code, model } = req.query
     const where = []
     const params = []
 
@@ -14,6 +14,11 @@ export const getAllProducts = async (req, res) => {
     if (code) {
       where.push('product_code LIKE ?')
       params.push(`%${code}%`)
+    }
+
+    if (model) {
+      where.push('model LIKE ?')
+      params.push(`%${model}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''

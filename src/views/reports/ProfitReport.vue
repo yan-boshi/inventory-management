@@ -77,6 +77,7 @@
         bordered
         size="small"
         :scroll="{ x: 8000, y: 'calc(100vh - 300px)' }"
+        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'delivery_date'">
@@ -89,7 +90,15 @@
             {{ formatDate(record.warehousing_date) }}
           </template>
           <template v-else-if="column.key === 'settlement_status'">
-            <a-tag :color="record.settlement_status === '已结算' ? 'green' : record.settlement_status === '部分结算' ? 'orange' : 'default'">
+            <a-tag
+              :color="
+                record.settlement_status === '已结算'
+                  ? 'green'
+                  : record.settlement_status === '部分结算'
+                  ? 'orange'
+                  : 'default'
+              "
+            >
               {{ record.settlement_status || '未结算' }}
             </a-tag>
           </template>
@@ -106,19 +115,28 @@
             {{ formatRate(record[column.key]) }}
           </template>
           <template v-else-if="column.key === 'gross_profit_rate'">
-            {{ record.gross_profit_rate !== null && record.gross_profit_rate !== undefined ? record.gross_profit_rate.toFixed(2) + '%' : '' }}
+            {{
+              record.gross_profit_rate !== null && record.gross_profit_rate !== undefined
+                ? record.gross_profit_rate.toFixed(2) + '%'
+                : ''
+            }}
           </template>
           <template v-else-if="isMoneyColumn(column.key)">
             {{ formatMoney(record[column.key]) }}
           </template>
           <template v-else-if="column.key === 'gross_profit'">
-            <span :style="{ color: record.gross_profit >= 0 ? '#52c41a' : '#f5222d', fontWeight: 'bold' }">
+            <span
+              :style="{
+                color: record.gross_profit >= 0 ? '#52c41a' : '#f5222d',
+                fontWeight: 'bold',
+              }"
+            >
               {{ formatMoney(record.gross_profit) }}
             </span>
           </template>
         </template>
         <template #summary>
-          <a-table-summary>
+          <a-table-summary v-if="filteredReportData.length > 0">
             <a-table-summary-row>
               <!-- 0-13: 出货日期, 出库单号, 销售合同编号, 销售员, 客户名称, 结算方式, 结算日期, 分类, 产品名称, 产品代码, 规格型号, 规格描述, 单位, 出货数量 -->
               <a-table-summary-cell :index="0" :colSpan="14" />
@@ -286,13 +304,17 @@
               </a-table-summary-cell>
               <!-- 65: 汇率差(含税) -->
               <a-table-summary-cell :index="65" :align="'right'">
-                <strong :style="{ color: totals.exchange_diff_included >= 0 ? '#52c41a' : '#f5222d' }">
+                <strong
+                  :style="{ color: totals.exchange_diff_included >= 0 ? '#52c41a' : '#f5222d' }"
+                >
                   {{ formatMoney(totals.exchange_diff_included) }}
                 </strong>
               </a-table-summary-cell>
               <!-- 66: 汇率差(未税) -->
               <a-table-summary-cell :index="66" :align="'right'">
-                <strong :style="{ color: totals.exchange_diff_excluded >= 0 ? '#52c41a' : '#f5222d' }">
+                <strong
+                  :style="{ color: totals.exchange_diff_excluded >= 0 ? '#52c41a' : '#f5222d' }"
+                >
                   {{ formatMoney(totals.exchange_diff_excluded) }}
                 </strong>
               </a-table-summary-cell>
@@ -338,6 +360,7 @@ import type { Dayjs } from 'dayjs'
 const loading = ref(false)
 const exportLoading = ref(false)
 const reportData = ref<ProfitReportItem[]>([])
+const filteredReportData = ref<ProfitReportItem[]>([])
 const dateRange = ref<[Dayjs, Dayjs] | null>(null)
 
 const searchParams = reactive<ProfitReportParams>({
@@ -382,169 +405,523 @@ const currencyFilters = generateFilters('currency')
 // 使用 computed 使列配置能响应 filters 的变化，同时支持 ColumnConfig 组件更新
 const _columnConfigOverrides = ref<any[] | null>(null)
 
-const baseColumns = computed(() => [
-  // ========== 出货信息 ==========
-  { title: '出货日期', dataIndex: 'delivery_date', key: 'delivery_date', width: 100, fixed: 'left' as const },
-  { title: '出库单号', dataIndex: 'order_number', key: 'order_number', width: 130, fixed: 'left' as const },
-  { title: '销售合同编号', dataIndex: 'sales_contract_number', key: 'sales_contract_number', width: 130 },
-  {
-    title: '销售员',
-    dataIndex: 'sales_person',
-    key: 'sales_person',
-    width: 80,
-    filters: salesPersonFilters.value,
-    onFilter: (value: string, record: ProfitReportItem) => record.sales_person === value,
-    filterMultiple: true,
-  },
-  {
-    title: '客户名称',
-    dataIndex: 'customer_name',
-    key: 'customer_name',
-    width: 150,
-    filters: customerNameFilters.value,
-    onFilter: (value: string, record: ProfitReportItem) => record.customer_name === value,
-    filterMultiple: true,
-  },
-  {
-    title: '结算方式',
-    dataIndex: 'payment_method',
-    key: 'payment_method',
-    width: 100,
-    filters: paymentMethodFilters.value,
-    onFilter: (value: string, record: ProfitReportItem) => record.payment_method === value,
-    filterMultiple: true,
-  },
-  { title: '结算日期', dataIndex: 'settlement_date', key: 'settlement_date', width: 100 },
-  {
-    title: '分类',
-    dataIndex: 'classification',
-    key: 'classification',
-    width: 100,
-    filters: classificationFilters.value,
-    onFilter: (value: string, record: ProfitReportItem) => record.classification === value,
-    filterMultiple: true,
-  },
+// 金额列0/不为0筛选选项
+const moneyFilterOptions = [
+  { text: '0', value: '0' },
+  { text: '不为0', value: 'not_empty' },
+]
 
-  // ========== 商品信息 ==========
-  {
-    title: '产品名称',
-    dataIndex: 'product_name',
-    key: 'product_name',
-    width: 150,
-    filters: productNameFilters.value,
-    onFilter: (value: string, record: ProfitReportItem) => record.product_name === value,
-    filterMultiple: true,
-  },
-  {
-    title: '产品代码',
-    dataIndex: 'product_code',
-    key: 'product_code',
-    width: 120,
-    filters: productCodeFilters.value,
-    onFilter: (value: string, record: ProfitReportItem) => record.product_code === value,
-    filterMultiple: true,
-  },
-  {
-    title: '规格型号',
-    dataIndex: 'model',
-    key: 'model',
-    width: 100,
-    filters: modelFilters.value,
-    onFilter: (value: string, record: ProfitReportItem) => record.model === value,
-    filterMultiple: true,
-  },
-  { title: '规格描述', dataIndex: 'description', key: 'description', width: 120 },
-  { title: '单位', dataIndex: 'unit', key: 'unit', width: 60 },
-  { title: '出货数量', dataIndex: 'delivery_quantity', key: 'delivery_quantity', width: 80, align: 'right' as const },
+const moneyOnFilter = (value: string, record: ProfitReportItem, dataIndex: string) => {
+  const val = Number(record[dataIndex as keyof ProfitReportItem])
+  if (value === '0') return !val || val === 0
+  return val > 0
+}
 
-  // ========== 销售信息 ==========
-  { title: '单价（含税）', dataIndex: 'unit_price', key: 'unit_price', width: 100, align: 'right' as const },
-  { title: '销售额（含税）', dataIndex: 'sales_amount_included', key: 'sales_amount_included', width: 120, align: 'right' as const },
-  { title: '未税单价', dataIndex: 'unit_price_excluded', key: 'unit_price_excluded', width: 100, align: 'right' as const },
-  { title: '未税金额', dataIndex: 'sales_amount_excluded', key: 'sales_amount_excluded', width: 110, align: 'right' as const },
-  { title: '税率(%)', dataIndex: 'tax_rate', key: 'tax_rate', width: 70, align: 'right' as const },
+const baseColumns = computed(() => {
+  const columns = [
+    // ========== 出货信息 ==========
+    {
+      title: '出货日期',
+      dataIndex: 'delivery_date',
+      key: 'delivery_date',
+      width: 100,
+      fixed: 'left' as const,
+    },
+    {
+      title: '出库单号',
+      dataIndex: 'order_number',
+      key: 'order_number',
+      width: 130,
+      fixed: 'left' as const,
+    },
+    {
+      title: '销售合同编号',
+      dataIndex: 'sales_contract_number',
+      key: 'sales_contract_number',
+      width: 130,
+    },
+    {
+      title: '销售员',
+      dataIndex: 'sales_person',
+      key: 'sales_person',
+      width: 80,
+      filters: salesPersonFilters.value,
+      onFilter: (value: string, record: ProfitReportItem) => record.sales_person === value,
+      filterMultiple: true,
+    },
+    {
+      title: '客户名称',
+      dataIndex: 'customer_name',
+      key: 'customer_name',
+      width: 150,
+      filters: customerNameFilters.value,
+      onFilter: (value: string, record: ProfitReportItem) => record.customer_name === value,
+      filterMultiple: true,
+    },
+    {
+      title: '结算方式',
+      dataIndex: 'payment_method',
+      key: 'payment_method',
+      width: 100,
+      filters: paymentMethodFilters.value,
+      onFilter: (value: string, record: ProfitReportItem) => record.payment_method === value,
+      filterMultiple: true,
+    },
+    { title: '结算日期', dataIndex: 'settlement_date', key: 'settlement_date', width: 100 },
+    {
+      title: '分类',
+      dataIndex: 'classification',
+      key: 'classification',
+      width: 100,
+      filters: classificationFilters.value,
+      onFilter: (value: string, record: ProfitReportItem) => record.classification === value,
+      filterMultiple: true,
+    },
 
-  // ========== 结算信息 ==========
-  {
-    title: '结算状态',
-    dataIndex: 'settlement_status',
-    key: 'settlement_status',
-    width: 90,
-    filters: settlementStatusFilters,
-    onFilter: (value: string, record: ProfitReportItem) => (record.settlement_status || '未结算') === value,
-    filterMultiple: true,
-  },
-  { title: '应收金额', dataIndex: 'receivable_amount', key: 'receivable_amount', width: 100, align: 'right' as const },
-  { title: '已结算金额', dataIndex: 'received_amount', key: 'received_amount', width: 100, align: 'right' as const },
-  { title: '待结算余额', dataIndex: 'balance_amount', key: 'balance_amount', width: 100, align: 'right' as const },
-  { title: '最近核销日期', dataIndex: 'last_write_off_date', key: 'last_write_off_date', width: 110 },
-  { title: '核销单号', dataIndex: 'last_write_off_number', key: 'last_write_off_number', width: 130 },
-  { title: '核销次数', dataIndex: 'write_off_count', key: 'write_off_count', width: 80, align: 'right' as const },
+    // ========== 商品信息 ==========
+    {
+      title: '产品名称',
+      dataIndex: 'product_name',
+      key: 'product_name',
+      width: 150,
+      filters: productNameFilters.value,
+      onFilter: (value: string, record: ProfitReportItem) => record.product_name === value,
+      filterMultiple: true,
+    },
+    {
+      title: '产品代码',
+      dataIndex: 'product_code',
+      key: 'product_code',
+      width: 120,
+      filters: productCodeFilters.value,
+      onFilter: (value: string, record: ProfitReportItem) => record.product_code === value,
+      filterMultiple: true,
+    },
+    {
+      title: '规格型号',
+      dataIndex: 'model',
+      key: 'model',
+      width: 100,
+      filters: modelFilters.value,
+      onFilter: (value: string, record: ProfitReportItem) => record.model === value,
+      filterMultiple: true,
+    },
+    { title: '规格描述', dataIndex: 'description', key: 'description', width: 120 },
+    { title: '单位', dataIndex: 'unit', key: 'unit', width: 60 },
+    {
+      title: '出货数量',
+      dataIndex: 'delivery_quantity',
+      key: 'delivery_quantity',
+      width: 80,
+      align: 'right' as const,
+    },
 
-  // ========== 出库成本 ==========
+    // ========== 销售信息 ==========
+    {
+      title: '单价（含税）',
+      dataIndex: 'unit_price',
+      key: 'unit_price',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '销售额（含税）',
+      dataIndex: 'sales_amount_included',
+      key: 'sales_amount_included',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '未税单价',
+      dataIndex: 'unit_price_excluded',
+      key: 'unit_price_excluded',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '未税金额',
+      dataIndex: 'sales_amount_excluded',
+      key: 'sales_amount_excluded',
+      width: 110,
+      align: 'right' as const,
+    },
+    {
+      title: '税率(%)',
+      dataIndex: 'tax_rate',
+      key: 'tax_rate',
+      width: 70,
+      align: 'right' as const,
+    },
 
-  // ========== 采购信息 ==========
-  { title: '采购合同编号', dataIndex: 'purchase_contract_number', key: 'purchase_contract_number', width: 130 },
-  { title: '采购员', dataIndex: 'purchase_person', key: 'purchase_person', width: 80 },
-  { title: '入库日期', dataIndex: 'warehousing_date', key: 'warehousing_date', width: 100 },
-  { title: '入库数量', dataIndex: 'warehousing_quantity', key: 'warehousing_quantity', width: 80, align: 'right' as const },
-  { title: '入库单价（未税）', dataIndex: 'warehousing_unit_price_excluded', key: 'warehousing_unit_price_excluded', width: 120, align: 'right' as const },
-  { title: '入库单价（含税）', dataIndex: 'warehousing_unit_price_included', key: 'warehousing_unit_price_included', width: 120, align: 'right' as const },
-  { title: '入库金额（含税）', dataIndex: 'warehousing_amount_included', key: 'warehousing_amount_included', width: 120, align: 'right' as const },
-  { title: '入库金额', dataIndex: 'warehousing_amount', key: 'warehousing_amount', width: 110, align: 'right' as const },
+    // ========== 结算信息 ==========
+    {
+      title: '结算状态',
+      dataIndex: 'settlement_status',
+      key: 'settlement_status',
+      width: 90,
+      filters: settlementStatusFilters,
+      onFilter: (value: string, record: ProfitReportItem) =>
+        (record.settlement_status || '未结算') === value,
+      filterMultiple: true,
+    },
+    {
+      title: '应收金额',
+      dataIndex: 'receivable_amount',
+      key: 'receivable_amount',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '已结算金额',
+      dataIndex: 'received_amount',
+      key: 'received_amount',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '待结算余额',
+      dataIndex: 'balance_amount',
+      key: 'balance_amount',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '最近核销日期',
+      dataIndex: 'last_write_off_date',
+      key: 'last_write_off_date',
+      width: 110,
+    },
+    {
+      title: '核销单号',
+      dataIndex: 'last_write_off_number',
+      key: 'last_write_off_number',
+      width: 130,
+    },
+    {
+      title: '核销次数',
+      dataIndex: 'write_off_count',
+      key: 'write_off_count',
+      width: 80,
+      align: 'right' as const,
+    },
 
-  // ========== 费用 ==========
-  { title: '采购-运输费', dataIndex: 'po_expense_transportation', key: 'po_expense_transportation', width: 100, align: 'right' as const },
-  { title: '采购-运营费', dataIndex: 'po_expense_operating', key: 'po_expense_operating', width: 100, align: 'right' as const },
-  { title: '采购-增值税', dataIndex: 'po_expense_vat', key: 'po_expense_vat', width: 100, align: 'right' as const },
-  { title: '采购-手续费', dataIndex: 'po_expense_handling', key: 'po_expense_handling', width: 100, align: 'right' as const },
-  { title: '采购-其他', dataIndex: 'po_expense_other', key: 'po_expense_other', width: 90, align: 'right' as const },
-  { title: '采购费用小计', dataIndex: 'po_expense_total', key: 'po_expense_total', width: 110, align: 'right' as const },
-  { title: '销售-运输费', dataIndex: 'sl_expense_transportation', key: 'sl_expense_transportation', width: 100, align: 'right' as const },
-  { title: '销售-手续费', dataIndex: 'sl_expense_handling', key: 'sl_expense_handling', width: 100, align: 'right' as const },
-  { title: '销售-其他', dataIndex: 'sl_expense_other', key: 'sl_expense_other', width: 90, align: 'right' as const },
-  { title: '销售费用小计', dataIndex: 'sl_expense_total', key: 'sl_expense_total', width: 110, align: 'right' as const },
-  { title: '入库-关税', dataIndex: 'wh_expense_tariff', key: 'wh_expense_tariff', width: 90, align: 'right' as const },
-  { title: '入库-运杂费', dataIndex: 'wh_expense_transportation', key: 'wh_expense_transportation', width: 100, align: 'right' as const },
-  { title: '入库-报关费', dataIndex: 'wh_expense_customs', key: 'wh_expense_customs', width: 100, align: 'right' as const },
-  { title: '入库-其他', dataIndex: 'wh_expense_other', key: 'wh_expense_other', width: 90, align: 'right' as const },
-  { title: '入库费用小计', dataIndex: 'wh_expense_total', key: 'wh_expense_total', width: 110, align: 'right' as const },
-  { title: '出库-快递费', dataIndex: 'dl_expense_express', key: 'dl_expense_express', width: 100, align: 'right' as const },
-  { title: '出库-运杂费', dataIndex: 'dl_expense_transportation', key: 'dl_expense_transportation', width: 100, align: 'right' as const },
-  { title: '出库-报关费', dataIndex: 'dl_expense_customs', key: 'dl_expense_customs', width: 100, align: 'right' as const },
-  { title: '出库-其他', dataIndex: 'dl_expense_other', key: 'dl_expense_other', width: 90, align: 'right' as const },
-  { title: '出库费用小计', dataIndex: 'dl_expense_total', key: 'dl_expense_total', width: 110, align: 'right' as const },
-  { title: '费用合计', dataIndex: 'total_expense', key: 'total_expense', width: 100, align: 'right' as const },
+    // ========== 出库成本 ==========
 
-  // ========== 利润 ==========
-  { title: '总成本', dataIndex: 'total_cost', key: 'total_cost', width: 110, align: 'right' as const },
-  { title: '毛利', dataIndex: 'gross_profit', key: 'gross_profit', width: 110, align: 'right' as const },
-  { title: '毛利率(%)', dataIndex: 'gross_profit_rate', key: 'gross_profit_rate', width: 90, align: 'right' as const },
+    // ========== 采购信息 ==========
+    {
+      title: '采购合同编号',
+      dataIndex: 'purchase_contract_number',
+      key: 'purchase_contract_number',
+      width: 130,
+    },
+    { title: '采购员', dataIndex: 'purchase_person', key: 'purchase_person', width: 80 },
+    { title: '入库日期', dataIndex: 'warehousing_date', key: 'warehousing_date', width: 100 },
+    {
+      title: '入库数量',
+      dataIndex: 'warehousing_quantity',
+      key: 'warehousing_quantity',
+      width: 80,
+      align: 'right' as const,
+    },
+    {
+      title: '入库单价（未税）',
+      dataIndex: 'warehousing_unit_price_excluded',
+      key: 'warehousing_unit_price_excluded',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '入库单价（含税）',
+      dataIndex: 'warehousing_unit_price_included',
+      key: 'warehousing_unit_price_included',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '入库金额（含税）',
+      dataIndex: 'warehousing_amount_included',
+      key: 'warehousing_amount_included',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '入库金额',
+      dataIndex: 'warehousing_amount',
+      key: 'warehousing_amount',
+      width: 110,
+      align: 'right' as const,
+    },
 
-  // ========== 汇率换算 ==========
-  {
-    title: '币种',
-    dataIndex: 'currency',
-    key: 'currency',
-    width: 70,
-    filters: currencyFilters.value,
-    onFilter: (value: string, record: ProfitReportItem) => record.currency === value,
-    filterMultiple: true,
-  },
-  { title: '银行汇率', dataIndex: 'bank_rate', key: 'bank_rate', width: 90, align: 'right' as const },
-  { title: '海关汇率', dataIndex: 'customs_rate', key: 'customs_rate', width: 90, align: 'right' as const },
-  { title: 'CNY销售额(银行,含税)', dataIndex: 'sales_amount_included_cny_bank', key: 'sales_amount_included_cny_bank', width: 150, align: 'right' as const },
-  { title: 'CNY销售额(银行,未税)', dataIndex: 'sales_amount_excluded_cny_bank', key: 'sales_amount_excluded_cny_bank', width: 150, align: 'right' as const },
-  { title: 'CNY销售额(海关,含税)', dataIndex: 'sales_amount_included_cny_customs', key: 'sales_amount_included_cny_customs', width: 150, align: 'right' as const },
-  { title: 'CNY销售额(海关,未税)', dataIndex: 'sales_amount_excluded_cny_customs', key: 'sales_amount_excluded_cny_customs', width: 150, align: 'right' as const },
-  { title: '汇率差(含税)', dataIndex: 'exchange_diff_included', key: 'exchange_diff_included', width: 110, align: 'right' as const },
-  { title: '汇率差(未税)', dataIndex: 'exchange_diff_excluded', key: 'exchange_diff_excluded', width: 110, align: 'right' as const },
+    // ========== 费用 ==========
+    {
+      title: '采购-运输费',
+      dataIndex: 'po_expense_transportation',
+      key: 'po_expense_transportation',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '采购-运营费',
+      dataIndex: 'po_expense_operating',
+      key: 'po_expense_operating',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '采购-增值税',
+      dataIndex: 'po_expense_vat',
+      key: 'po_expense_vat',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '采购-手续费',
+      dataIndex: 'po_expense_handling',
+      key: 'po_expense_handling',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '采购-其他',
+      dataIndex: 'po_expense_other',
+      key: 'po_expense_other',
+      width: 90,
+      align: 'right' as const,
+    },
+    {
+      title: '采购费用小计',
+      dataIndex: 'po_expense_total',
+      key: 'po_expense_total',
+      width: 110,
+      align: 'right' as const,
+    },
+    {
+      title: '销售-运输费',
+      dataIndex: 'sl_expense_transportation',
+      key: 'sl_expense_transportation',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '销售-手续费',
+      dataIndex: 'sl_expense_handling',
+      key: 'sl_expense_handling',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '销售-其他',
+      dataIndex: 'sl_expense_other',
+      key: 'sl_expense_other',
+      width: 90,
+      align: 'right' as const,
+    },
+    {
+      title: '销售费用小计',
+      dataIndex: 'sl_expense_total',
+      key: 'sl_expense_total',
+      width: 110,
+      align: 'right' as const,
+    },
+    {
+      title: '入库-关税',
+      dataIndex: 'wh_expense_tariff',
+      key: 'wh_expense_tariff',
+      width: 90,
+      align: 'right' as const,
+    },
+    {
+      title: '入库-运杂费',
+      dataIndex: 'wh_expense_transportation',
+      key: 'wh_expense_transportation',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '入库-报关费',
+      dataIndex: 'wh_expense_customs',
+      key: 'wh_expense_customs',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '入库-其他',
+      dataIndex: 'wh_expense_other',
+      key: 'wh_expense_other',
+      width: 90,
+      align: 'right' as const,
+    },
+    {
+      title: '入库费用小计',
+      dataIndex: 'wh_expense_total',
+      key: 'wh_expense_total',
+      width: 110,
+      align: 'right' as const,
+    },
+    {
+      title: '出库-快递费',
+      dataIndex: 'dl_expense_express',
+      key: 'dl_expense_express',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '出库-运杂费',
+      dataIndex: 'dl_expense_transportation',
+      key: 'dl_expense_transportation',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '出库-报关费',
+      dataIndex: 'dl_expense_customs',
+      key: 'dl_expense_customs',
+      width: 100,
+      align: 'right' as const,
+    },
+    {
+      title: '出库-其他',
+      dataIndex: 'dl_expense_other',
+      key: 'dl_expense_other',
+      width: 90,
+      align: 'right' as const,
+    },
+    {
+      title: '出库费用小计',
+      dataIndex: 'dl_expense_total',
+      key: 'dl_expense_total',
+      width: 110,
+      align: 'right' as const,
+    },
+    {
+      title: '费用合计',
+      dataIndex: 'total_expense',
+      key: 'total_expense',
+      width: 100,
+      align: 'right' as const,
+    },
 
-  // ========== 其他 ==========
-  { title: '提成比例', dataIndex: 'commission_rate', key: 'commission_rate', width: 80, align: 'right' as const },
-  { title: '应发提成', dataIndex: 'commission_amount', key: 'commission_amount', width: 100, align: 'right' as const },
-  { title: '备注', dataIndex: 'remarks', key: 'remarks', width: 150 },
-])
+    // ========== 利润 ==========
+    {
+      title: '总成本',
+      dataIndex: 'total_cost',
+      key: 'total_cost',
+      width: 110,
+      align: 'right' as const,
+    },
+    {
+      title: '毛利',
+      dataIndex: 'gross_profit',
+      key: 'gross_profit',
+      width: 110,
+      align: 'right' as const,
+    },
+    {
+      title: '毛利率(%)',
+      dataIndex: 'gross_profit_rate',
+      key: 'gross_profit_rate',
+      width: 90,
+      align: 'right' as const,
+    },
+
+    // ========== 汇率换算 ==========
+    {
+      title: '币种',
+      dataIndex: 'currency',
+      key: 'currency',
+      width: 70,
+      filters: currencyFilters.value,
+      onFilter: (value: string, record: ProfitReportItem) => record.currency === value,
+      filterMultiple: true,
+    },
+    {
+      title: '银行汇率',
+      dataIndex: 'bank_rate',
+      key: 'bank_rate',
+      width: 90,
+      align: 'right' as const,
+    },
+    {
+      title: '海关汇率',
+      dataIndex: 'customs_rate',
+      key: 'customs_rate',
+      width: 90,
+      align: 'right' as const,
+    },
+    {
+      title: 'CNY销售额(银行,含税)',
+      dataIndex: 'sales_amount_included_cny_bank',
+      key: 'sales_amount_included_cny_bank',
+      width: 150,
+      align: 'right' as const,
+    },
+    {
+      title: 'CNY销售额(银行,未税)',
+      dataIndex: 'sales_amount_excluded_cny_bank',
+      key: 'sales_amount_excluded_cny_bank',
+      width: 150,
+      align: 'right' as const,
+    },
+    {
+      title: 'CNY销售额(海关,含税)',
+      dataIndex: 'sales_amount_included_cny_customs',
+      key: 'sales_amount_included_cny_customs',
+      width: 150,
+      align: 'right' as const,
+    },
+    {
+      title: 'CNY销售额(海关,未税)',
+      dataIndex: 'sales_amount_excluded_cny_customs',
+      key: 'sales_amount_excluded_cny_customs',
+      width: 150,
+      align: 'right' as const,
+    },
+    {
+      title: '汇率差(含税)',
+      dataIndex: 'exchange_diff_included',
+      key: 'exchange_diff_included',
+      width: 110,
+      align: 'right' as const,
+    },
+    {
+      title: '汇率差(未税)',
+      dataIndex: 'exchange_diff_excluded',
+      key: 'exchange_diff_excluded',
+      width: 110,
+      align: 'right' as const,
+    },
+
+    // ========== 其他 ==========
+    {
+      title: '提成比例',
+      dataIndex: 'commission_rate',
+      key: 'commission_rate',
+      width: 80,
+      align: 'right' as const,
+    },
+    {
+      title: '应发提成',
+      dataIndex: 'commission_amount',
+      key: 'commission_amount',
+      width: 100,
+      align: 'right' as const,
+    },
+    { title: '备注', dataIndex: 'remarks', key: 'remarks', width: 150 },
+  ]
+
+  // 为所有金额列自动添加0/不为0筛选
+  return columns.map(col => {
+    if (moneyKeys.has(col.key)) {
+      return {
+        ...col,
+        filters: moneyFilterOptions,
+        onFilter: (value: string, record: ProfitReportItem) =>
+          moneyOnFilter(value, record, col.dataIndex),
+      }
+    }
+    return col
+  })
+})
 
 // 处理 ColumnConfig 组件的列更新
 const handleColumnConfigUpdate = (newColumns: any[]) => {
@@ -568,17 +945,45 @@ const visibleColumns = computed(() => {
 })
 
 const moneyKeys = new Set([
-  'unit_price', 'sales_amount_included', 'unit_price_excluded', 'sales_amount_excluded',
-  'receivable_amount', 'received_amount', 'balance_amount',
-  'warehousing_unit_price_excluded', 'warehousing_unit_price_included', 'warehousing_amount', 'warehousing_amount_included',
-  'po_expense_transportation', 'po_expense_operating', 'po_expense_vat', 'po_expense_handling', 'po_expense_other', 'po_expense_total',
-  'sl_expense_transportation', 'sl_expense_handling', 'sl_expense_other', 'sl_expense_total',
-  'wh_expense_tariff', 'wh_expense_transportation', 'wh_expense_customs', 'wh_expense_other', 'wh_expense_total',
-  'dl_expense_express', 'dl_expense_transportation', 'dl_expense_customs', 'dl_expense_other', 'dl_expense_total',
-  'total_expense', 'total_cost',
-  'sales_amount_included_cny_bank', 'sales_amount_excluded_cny_bank',
-  'sales_amount_included_cny_customs', 'sales_amount_excluded_cny_customs',
-  'exchange_diff_included', 'exchange_diff_excluded',
+  'unit_price',
+  'sales_amount_included',
+  'unit_price_excluded',
+  'sales_amount_excluded',
+  'receivable_amount',
+  'received_amount',
+  'balance_amount',
+  'warehousing_unit_price_excluded',
+  'warehousing_unit_price_included',
+  'warehousing_amount',
+  'warehousing_amount_included',
+  'po_expense_transportation',
+  'po_expense_operating',
+  'po_expense_vat',
+  'po_expense_handling',
+  'po_expense_other',
+  'po_expense_total',
+  'sl_expense_transportation',
+  'sl_expense_handling',
+  'sl_expense_other',
+  'sl_expense_total',
+  'wh_expense_tariff',
+  'wh_expense_transportation',
+  'wh_expense_customs',
+  'wh_expense_other',
+  'wh_expense_total',
+  'dl_expense_express',
+  'dl_expense_transportation',
+  'dl_expense_customs',
+  'dl_expense_other',
+  'dl_expense_total',
+  'total_expense',
+  'total_cost',
+  'sales_amount_included_cny_bank',
+  'sales_amount_excluded_cny_bank',
+  'sales_amount_included_cny_customs',
+  'sales_amount_excluded_cny_customs',
+  'exchange_diff_included',
+  'exchange_diff_excluded',
   'commission_amount',
 ])
 
@@ -600,7 +1005,7 @@ const formatRate = (value: number | null | undefined) => {
 }
 
 const totals = computed(() => {
-  return reportData.value.reduce(
+  return filteredReportData.value.reduce(
     (acc, item) => {
       acc.sales_amount_included += item.sales_amount_included || 0
       acc.sales_amount_excluded += item.sales_amount_excluded || 0
@@ -700,6 +1105,7 @@ const fetchReport = async () => {
       ...item,
       index: (pagination.current - 1) * pagination.pageSize + index + 1,
     }))
+    filteredReportData.value = reportData.value
     if (res.pagination) {
       pagination.total = res.pagination.total
     }
@@ -732,6 +1138,11 @@ const handlePageChange = (page: number, pageSize: number) => {
   fetchReport()
 }
 
+// 处理表格筛选变化
+const handleTableChange = (_pagination: any, _filters: any, _sorter: any, { currentDataSource }: any) => {
+  filteredReportData.value = currentDataSource || []
+}
+
 const handleExport = async () => {
   exportLoading.value = true
   try {
@@ -754,13 +1165,17 @@ const handleExport = async () => {
     const exportColumns: ExportColumn[] = visibleColumns.value.map(col => ({
       key: col.dataIndex || col.key,
       title: col.title,
-      formatter: col.key === 'delivery_date' || col.key === 'last_write_off_date' || col.key === 'warehousing_date' || col.key === 'settlement_date'
-        ? (value: any) => value ? formatDate(value) : ''
-        : col.key === 'bank_rate' || col.key === 'customs_rate'
-        ? (value: any) => value ? value.toFixed(6) : ''
-        : col.key === 'gross_profit_rate'
-        ? (value: any) => value !== null && value !== undefined ? value.toFixed(2) + '%' : ''
-        : undefined,
+      formatter:
+        col.key === 'delivery_date' ||
+        col.key === 'last_write_off_date' ||
+        col.key === 'warehousing_date' ||
+        col.key === 'settlement_date'
+          ? (value: any) => (value ? formatDate(value) : '')
+          : col.key === 'bank_rate' || col.key === 'customs_rate'
+          ? (value: any) => (value ? value.toFixed(6) : '')
+          : col.key === 'gross_profit_rate'
+          ? (value: any) => (value !== null && value !== undefined ? value.toFixed(2) + '%' : '')
+          : undefined,
     }))
 
     exportToExcel({

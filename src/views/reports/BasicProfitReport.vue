@@ -86,6 +86,7 @@
         bordered
         size="small"
         :scroll="{ x: 5000, y: 'calc(100vh - 320px)' }"
+        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'entry_date'">
@@ -97,23 +98,36 @@
           <template v-else-if="column.key === 'purchase_quantity'">
             {{ formatNumber(record.purchase_quantity) }}
           </template>
-          <template v-else-if="column.key === 'sales_customs_rate' || column.key === 'purchase_customs_rate'">
+          <template
+            v-else-if="
+              column.key === 'sales_customs_rate' || column.key === 'purchase_customs_rate'
+            "
+          >
             {{ formatRate(record[column.key]) }}
           </template>
           <template v-else-if="column.key === 'gross_profit_rate'">
-            {{ record.gross_profit_rate !== null && record.gross_profit_rate !== undefined ? record.gross_profit_rate.toFixed(2) + '%' : '' }}
+            {{
+              record.gross_profit_rate !== null && record.gross_profit_rate !== undefined
+                ? record.gross_profit_rate.toFixed(2) + '%'
+                : ''
+            }}
           </template>
           <template v-else-if="isMoneyColumn(column.key)">
             {{ formatMoney(record[column.key]) }}
           </template>
           <template v-else-if="column.key === 'gross_profit'">
-            <span :style="{ color: record.gross_profit >= 0 ? '#52c41a' : '#f5222d', fontWeight: 'bold' }">
+            <span
+              :style="{
+                color: record.gross_profit >= 0 ? '#52c41a' : '#f5222d',
+                fontWeight: 'bold',
+              }"
+            >
               {{ formatMoney(record.gross_profit) }}
             </span>
           </template>
         </template>
         <template #summary>
-          <a-table-summary>
+          <a-table-summary v-if="filteredReportData.length > 0">
             <a-table-summary-row>
               <!-- 0-3: 销售合同编号, 客户名称, 销售员, 录入日期 -->
               <a-table-summary-cell :index="0" :colSpan="4" />
@@ -199,6 +213,7 @@ import type { Dayjs } from 'dayjs'
 const loading = ref(false)
 const exportLoading = ref(false)
 const reportData = ref<BasicProfitReportItem[]>([])
+const filteredReportData = ref<BasicProfitReportItem[]>([])
 const dateRange = ref<[Dayjs, Dayjs] | null>(null)
 
 const searchParams = reactive<BasicProfitReportParams>({
@@ -237,113 +252,224 @@ const purchaseCurrencyFilters = generateFilters('purchase_currency')
 // 使用 computed 使列配置能响应 filters 的变化，同时支持 ColumnConfig 组件更新
 const _columnConfigOverrides = ref<any[] | null>(null)
 
-const baseColumns = computed(() => [
-  // ========== 销售订单信息 ==========
-  {
-    title: '销售合同编号',
-    dataIndex: 'contract_number',
-    key: 'contract_number',
-    width: 130,
-    fixed: 'left' as const,
-  },
-  {
-    title: '客户名称',
-    dataIndex: 'customer_name',
-    key: 'customer_name',
-    width: 150,
-    filters: customerNameFilters.value,
-    onFilter: (value: string, record: BasicProfitReportItem) => record.customer_name === value,
-    filterMultiple: true,
-  },
-  {
-    title: '销售员',
-    dataIndex: 'sales_person',
-    key: 'sales_person',
-    width: 80,
-    filters: salesPersonFilters.value,
-    onFilter: (value: string, record: BasicProfitReportItem) => record.sales_person === value,
-    filterMultiple: true,
-  },
-  { title: '录入日期', dataIndex: 'entry_date', key: 'entry_date', width: 100 },
+// 金额列0/不为0筛选选项
+const moneyFilterOptions = [
+  { text: '0', value: '0' },
+  { text: '不为0', value: 'not_empty' },
+]
 
-  // ========== 商品信息 ==========
-  {
-    title: '产品名称',
-    dataIndex: 'product_name',
-    key: 'product_name',
-    width: 150,
-    filters: productNameFilters.value,
-    onFilter: (value: string, record: BasicProfitReportItem) => record.product_name === value,
-    filterMultiple: true,
-  },
-  {
-    title: '产品代码',
-    dataIndex: 'product_code',
-    key: 'product_code',
-    width: 120,
-    filters: productCodeFilters.value,
-    onFilter: (value: string, record: BasicProfitReportItem) => record.product_code === value,
-    filterMultiple: true,
-  },
-  {
-    title: '规格型号',
-    dataIndex: 'model',
-    key: 'model',
-    width: 100,
-    filters: modelFilters.value,
-    onFilter: (value: string, record: BasicProfitReportItem) => record.model === value,
-    filterMultiple: true,
-  },
-  { title: '销售数量', dataIndex: 'quantity', key: 'quantity', width: 80, align: 'right' as const },
+const moneyOnFilter = (value: string, record: BasicProfitReportItem, dataIndex: string) => {
+  const val = Number(record[dataIndex as keyof BasicProfitReportItem])
+  if (value === '0') return !val || val === 0
+  return val > 0
+}
 
-  // ========== 销售金额 ==========
-  {
-    title: '币种',
-    dataIndex: 'currency',
-    key: 'currency',
-    width: 70,
-    filters: currencyFilters.value,
-    onFilter: (value: string, record: BasicProfitReportItem) => record.currency === value,
-    filterMultiple: true,
-  },
-  { title: '销售单价（含税）', dataIndex: 'unit_price', key: 'unit_price', width: 120, align: 'right' as const },
-  { title: '销售金额（含税）', dataIndex: 'amount', key: 'amount', width: 120, align: 'right' as const },
-  { title: '海关汇率（销售）', dataIndex: 'sales_customs_rate', key: 'sales_customs_rate', width: 120, align: 'right' as const },
-  { title: '销售金额（CNY）', dataIndex: 'sales_amount_cny', key: 'sales_amount_cny', width: 120, align: 'right' as const },
+const baseColumns = computed(() => {
+  const columns = [
+    // ========== 销售订单信息 ==========
+    {
+      title: '销售合同编号',
+      dataIndex: 'contract_number',
+      key: 'contract_number',
+      width: 130,
+      fixed: 'left' as const,
+    },
+    {
+      title: '客户名称',
+      dataIndex: 'customer_name',
+      key: 'customer_name',
+      width: 150,
+      filters: customerNameFilters.value,
+      onFilter: (value: string, record: BasicProfitReportItem) => record.customer_name === value,
+      filterMultiple: true,
+    },
+    {
+      title: '销售员',
+      dataIndex: 'sales_person',
+      key: 'sales_person',
+      width: 80,
+      filters: salesPersonFilters.value,
+      onFilter: (value: string, record: BasicProfitReportItem) => record.sales_person === value,
+      filterMultiple: true,
+    },
+    { title: '录入日期', dataIndex: 'entry_date', key: 'entry_date', width: 100 },
 
-  // ========== 采购订单信息 ==========
-  { title: '采购合同编号', dataIndex: 'purchase_contract_number', key: 'purchase_contract_number', width: 130 },
-  {
-    title: '供应商名称',
-    dataIndex: 'supplier_name',
-    key: 'supplier_name',
-    width: 150,
-    filters: supplierNameFilters.value,
-    onFilter: (value: string, record: BasicProfitReportItem) => record.supplier_name === value,
-    filterMultiple: true,
-  },
-  { title: '采购员', dataIndex: 'purchase_person', key: 'purchase_person', width: 80 },
-  { title: '采购数量', dataIndex: 'purchase_quantity', key: 'purchase_quantity', width: 80, align: 'right' as const },
-  {
-    title: '采购币种',
-    dataIndex: 'purchase_currency',
-    key: 'purchase_currency',
-    width: 80,
-    filters: purchaseCurrencyFilters.value,
-    onFilter: (value: string, record: BasicProfitReportItem) => record.purchase_currency === value,
-    filterMultiple: true,
-  },
-  { title: '采购单价（含税）', dataIndex: 'purchase_unit_price', key: 'purchase_unit_price', width: 120, align: 'right' as const },
-  { title: '采购金额（含税）', dataIndex: 'purchase_amount', key: 'purchase_amount', width: 120, align: 'right' as const },
-  { title: '海关汇率（采购）', dataIndex: 'purchase_customs_rate', key: 'purchase_customs_rate', width: 120, align: 'right' as const },
-  { title: '采购金额（CNY）', dataIndex: 'purchase_amount_cny', key: 'purchase_amount_cny', width: 120, align: 'right' as const },
+    // ========== 商品信息 ==========
+    {
+      title: '产品名称',
+      dataIndex: 'product_name',
+      key: 'product_name',
+      width: 150,
+      filters: productNameFilters.value,
+      onFilter: (value: string, record: BasicProfitReportItem) => record.product_name === value,
+      filterMultiple: true,
+    },
+    {
+      title: '产品代码',
+      dataIndex: 'product_code',
+      key: 'product_code',
+      width: 120,
+      filters: productCodeFilters.value,
+      onFilter: (value: string, record: BasicProfitReportItem) => record.product_code === value,
+      filterMultiple: true,
+    },
+    {
+      title: '规格型号',
+      dataIndex: 'model',
+      key: 'model',
+      width: 100,
+      filters: modelFilters.value,
+      onFilter: (value: string, record: BasicProfitReportItem) => record.model === value,
+      filterMultiple: true,
+    },
+    {
+      title: '销售数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 80,
+      align: 'right' as const,
+    },
 
-  // ========== 费用和利润 ==========
-  { title: '采购费用（CNY）', dataIndex: 'purchase_expense_cny', key: 'purchase_expense_cny', width: 120, align: 'right' as const },
-  { title: '毛利（CNY）', dataIndex: 'gross_profit', key: 'gross_profit', width: 110, align: 'right' as const },
-  { title: '毛利率', dataIndex: 'gross_profit_rate', key: 'gross_profit_rate', width: 80, align: 'right' as const },
-  { title: '备注', dataIndex: 'remarks', key: 'remarks', width: 150 },
-])
+    // ========== 销售金额 ==========
+    {
+      title: '币种',
+      dataIndex: 'currency',
+      key: 'currency',
+      width: 70,
+      filters: currencyFilters.value,
+      onFilter: (value: string, record: BasicProfitReportItem) => record.currency === value,
+      filterMultiple: true,
+    },
+    {
+      title: '销售单价（含税）',
+      dataIndex: 'unit_price',
+      key: 'unit_price',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '销售金额（含税）',
+      dataIndex: 'amount',
+      key: 'amount',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '海关汇率（销售）',
+      dataIndex: 'sales_customs_rate',
+      key: 'sales_customs_rate',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '销售金额（CNY）',
+      dataIndex: 'sales_amount_cny',
+      key: 'sales_amount_cny',
+      width: 120,
+      align: 'right' as const,
+    },
+
+    // ========== 采购订单信息 ==========
+    {
+      title: '采购合同编号',
+      dataIndex: 'purchase_contract_number',
+      key: 'purchase_contract_number',
+      width: 130,
+    },
+    {
+      title: '供应商名称',
+      dataIndex: 'supplier_name',
+      key: 'supplier_name',
+      width: 150,
+      filters: supplierNameFilters.value,
+      onFilter: (value: string, record: BasicProfitReportItem) => record.supplier_name === value,
+      filterMultiple: true,
+    },
+    { title: '采购员', dataIndex: 'purchase_person', key: 'purchase_person', width: 80 },
+    {
+      title: '采购数量',
+      dataIndex: 'purchase_quantity',
+      key: 'purchase_quantity',
+      width: 80,
+      align: 'right' as const,
+    },
+    {
+      title: '采购币种',
+      dataIndex: 'purchase_currency',
+      key: 'purchase_currency',
+      width: 80,
+      filters: purchaseCurrencyFilters.value,
+      onFilter: (value: string, record: BasicProfitReportItem) =>
+        record.purchase_currency === value,
+      filterMultiple: true,
+    },
+    {
+      title: '采购单价（含税）',
+      dataIndex: 'purchase_unit_price',
+      key: 'purchase_unit_price',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '采购金额（含税）',
+      dataIndex: 'purchase_amount',
+      key: 'purchase_amount',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '海关汇率（采购）',
+      dataIndex: 'purchase_customs_rate',
+      key: 'purchase_customs_rate',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '采购金额（CNY）',
+      dataIndex: 'purchase_amount_cny',
+      key: 'purchase_amount_cny',
+      width: 120,
+      align: 'right' as const,
+    },
+
+    // ========== 费用和利润 ==========
+    {
+      title: '采购费用（CNY）',
+      dataIndex: 'purchase_expense_cny',
+      key: 'purchase_expense_cny',
+      width: 120,
+      align: 'right' as const,
+    },
+    {
+      title: '毛利（CNY）',
+      dataIndex: 'gross_profit',
+      key: 'gross_profit',
+      width: 110,
+      align: 'right' as const,
+    },
+    {
+      title: '毛利率',
+      dataIndex: 'gross_profit_rate',
+      key: 'gross_profit_rate',
+      width: 80,
+      align: 'right' as const,
+    },
+    { title: '备注', dataIndex: 'remarks', key: 'remarks', width: 150 },
+  ]
+
+  // 为所有金额列自动添加0/不为0筛选
+  return columns.map(col => {
+    if (moneyKeys.has(col.key)) {
+      return {
+        ...col,
+        filters: moneyFilterOptions,
+        onFilter: (value: string, record: BasicProfitReportItem) =>
+          moneyOnFilter(value, record, col.dataIndex),
+      }
+    }
+    return col
+  })
+})
 
 // 处理 ColumnConfig 组件的列更新
 const handleColumnConfigUpdate = (newColumns: any[]) => {
@@ -367,8 +493,12 @@ const visibleColumns = computed(() => {
 })
 
 const moneyKeys = new Set([
-  'unit_price', 'amount', 'sales_amount_cny',
-  'purchase_unit_price', 'purchase_amount', 'purchase_amount_cny',
+  'unit_price',
+  'amount',
+  'sales_amount_cny',
+  'purchase_unit_price',
+  'purchase_amount',
+  'purchase_amount_cny',
   'purchase_expense_cny',
 ])
 
@@ -390,7 +520,7 @@ const formatRate = (value: number | null | undefined) => {
 }
 
 const totals = computed(() => {
-  return reportData.value.reduce(
+  return filteredReportData.value.reduce(
     (acc, item) => {
       acc.amount += item.amount || 0
       acc.sales_amount_cny += item.sales_amount_cny || 0
@@ -430,6 +560,7 @@ const fetchReport = async () => {
       ...item,
       index: (pagination.current - 1) * pagination.pageSize + index + 1,
     }))
+    filteredReportData.value = reportData.value
     if (res.pagination) {
       pagination.total = res.pagination.total
     }
@@ -463,6 +594,11 @@ const handlePageChange = (page: number, pageSize: number) => {
   fetchReport()
 }
 
+// 处理表格筛选变化
+const handleTableChange = (_pagination: any, _filters: any, _sorter: any, { currentDataSource }: any) => {
+  filteredReportData.value = currentDataSource || []
+}
+
 const handleExport = async () => {
   exportLoading.value = true
   try {
@@ -485,13 +621,14 @@ const handleExport = async () => {
     const exportColumns: ExportColumn[] = visibleColumns.value.map(col => ({
       key: col.dataIndex || col.key,
       title: col.title,
-      formatter: col.key === 'entry_date'
-        ? (value: any) => value ? formatDate(value) : ''
-        : col.key === 'sales_customs_rate' || col.key === 'purchase_customs_rate'
-        ? (value: any) => value ? value.toFixed(6) : ''
-        : col.key === 'gross_profit_rate'
-        ? (value: any) => value !== null && value !== undefined ? value.toFixed(2) + '%' : ''
-        : undefined,
+      formatter:
+        col.key === 'entry_date'
+          ? (value: any) => (value ? formatDate(value) : '')
+          : col.key === 'sales_customs_rate' || col.key === 'purchase_customs_rate'
+          ? (value: any) => (value ? value.toFixed(6) : '')
+          : col.key === 'gross_profit_rate'
+          ? (value: any) => (value !== null && value !== undefined ? value.toFixed(2) + '%' : '')
+          : undefined,
     }))
 
     exportToExcel({

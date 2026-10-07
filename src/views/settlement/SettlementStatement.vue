@@ -77,11 +77,7 @@
       <div class="search-bar">
         <a-form layout="inline">
           <a-form-item label="类型">
-            <a-select
-              v-model:value="searchParams.type"
-              placeholder="请选择类型"
-              allow-clear
-            >
+            <a-select v-model:value="searchParams.type" placeholder="请选择类型" allow-clear>
               <a-select-option :value="1">应收</a-select-option>
               <a-select-option :value="2">应付</a-select-option>
             </a-select>
@@ -93,6 +89,14 @@
               :mode="['month', 'month']"
               format="YYYY-MM"
               :placeholder="['开始月份', '结束月份']"
+            />
+          </a-form-item>
+
+          <a-form-item label="制单日期">
+            <a-range-picker
+              v-model:value="documentDateRange"
+              format="YYYY-MM-DD"
+              :placeholder="['开始日期', '结束日期']"
             />
           </a-form-item>
 
@@ -146,6 +150,7 @@
         :scroll="{ y: 'calc(100vh - 400px)' }"
         bordered
         size="small"
+        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record, index }">
           <template v-if="column.key === 'no'">
@@ -159,8 +164,22 @@
           </template>
 
           <template v-else-if="column.key === 'billing_status'">
-            <a-tag :color="record.billing_status === 1 ? 'green' : record.billing_status === 2 ? 'orange' : 'default'">
-              {{ record.billing_status === 1 ? '已开票' : record.billing_status === 2 ? '部分开票' : '未开票' }}
+            <a-tag
+              :color="
+                record.billing_status === 1
+                  ? 'green'
+                  : record.billing_status === 2
+                  ? 'orange'
+                  : 'default'
+              "
+            >
+              {{
+                record.billing_status === 1
+                  ? '已开票'
+                  : record.billing_status === 2
+                  ? '部分开票'
+                  : '未开票'
+              }}
             </a-tag>
           </template>
 
@@ -196,26 +215,17 @@
 
           <template v-else-if="column.key === 'actions'">
             <a-space>
-              <a-button type="link" size="small" @click="handleViewDetail(record)">
-                详情
-              </a-button>
-              <a-button type="link" size="small" @click="handleEdit(record)">
-                编辑
-              </a-button>
-              <a-popconfirm
-                title="确定要删除这个对账单吗？"
-                @confirm="handleDelete(record)"
-              >
-                <a-button type="link" size="small" danger>
-                  删除
-                </a-button>
+              <a-button type="link" size="small" @click="handleViewDetail(record)"> 详情 </a-button>
+              <a-button type="link" size="small" @click="handleEdit(record)"> 编辑 </a-button>
+              <a-popconfirm title="确定要删除这个对账单吗？" @confirm="handleDelete(record)">
+                <a-button type="link" size="small" danger> 删除 </a-button>
               </a-popconfirm>
             </a-space>
           </template>
         </template>
 
         <template #summary>
-          <a-table-summary>
+          <a-table-summary v-if="filteredSettlementList.length > 0">
             <a-table-summary-row>
               <a-table-summary-cell :index="0" :colSpan="6" align="right">
                 <strong>合计</strong>
@@ -237,7 +247,9 @@
           </a-table-summary>
         </template>
 
-        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+        <template
+          #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }"
+        >
           <div style="padding: 8px">
             <a-input
               :placeholder="`搜索${column.title}`"
@@ -246,7 +258,12 @@
               @change="(e: any) => setSelectedKeys(e.target.value ? [e.target.value] : [])"
               @pressEnter="confirm()"
             />
-            <a-button type="primary" size="small" style="width: 90px; margin-right: 8px" @click="confirm()">
+            <a-button
+              type="primary"
+              size="small"
+              style="width: 90px; margin-right: 8px"
+              @click="confirm()"
+            >
               搜索
             </a-button>
             <a-button size="small" style="width: 90px" @click="clearFilters?.()">重置</a-button>
@@ -289,8 +306,10 @@ const formModalVisible = ref(false)
 const formModalType = ref<1 | 2>(1) // 1=应收, 2=应付
 const formModalSettlementId = ref<string | undefined>(undefined)
 const settlementList = ref<SettlementStatement[]>([])
+const filteredSettlementList = ref<SettlementStatement[]>([])
 const loading = ref(false)
 const settlementDateRange = ref<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
+const documentDateRange = ref<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
 
 const summary = reactive<SettlementSummary>({
   total_receivable: 0,
@@ -299,7 +318,7 @@ const summary = reactive<SettlementSummary>({
   invoiced_receivable: 0,
   invoiced_payable: 0,
   uninvoiced_receivable: 0,
-  uninvoiced_payable: 0
+  uninvoiced_payable: 0,
 })
 
 const searchParams = reactive<SettlementQueryParams>({
@@ -373,6 +392,15 @@ const columns = [
     key: 'total_amount',
     width: 110,
     align: 'right' as const,
+    filters: [
+      { text: '0', value: '0' },
+      { text: '不为0', value: 'not_empty' },
+    ],
+    onFilter: (value: string, record: SettlementStatement) => {
+      const val = Number(record.total_amount)
+      if (value === '0') return !val || val === 0
+      return val > 0
+    },
   },
   {
     title: '手续费',
@@ -380,6 +408,15 @@ const columns = [
     key: 'handling_fee',
     width: 100,
     align: 'right' as const,
+    filters: [
+      { text: '0', value: '0' },
+      { text: '不为0', value: 'not_empty' },
+    ],
+    onFilter: (value: string, record: SettlementStatement) => {
+      const val = Number(record.handling_fee)
+      if (value === '0') return !val || val === 0
+      return val > 0
+    },
   },
   {
     title: '已开票金额',
@@ -387,6 +424,15 @@ const columns = [
     key: 'invoiced_amount',
     width: 110,
     align: 'right' as const,
+    filters: [
+      { text: '0', value: '0' },
+      { text: '不为0', value: 'not_empty' },
+    ],
+    onFilter: (value: string, record: SettlementStatement) => {
+      const val = Number(record.invoiced_amount)
+      if (value === '0') return !val || val === 0
+      return val > 0
+    },
   },
   {
     title: '未开票金额',
@@ -394,6 +440,15 @@ const columns = [
     key: 'uninvoiced_amount',
     width: 110,
     align: 'right' as const,
+    filters: [
+      { text: '0', value: '0' },
+      { text: '不为0', value: 'not_empty' },
+    ],
+    onFilter: (value: string, record: SettlementStatement) => {
+      const val = Number(record.uninvoiced_amount)
+      if (value === '0') return !val || val === 0
+      return val > 0
+    },
   },
   {
     title: '开票状态',
@@ -437,7 +492,7 @@ const formatMoney = (value: number | undefined | null) => {
 }
 
 const pageTotals = computed(() => {
-  return settlementList.value.reduce(
+  return filteredSettlementList.value.reduce(
     (totals, item) => {
       totals.total_amount += Number(item.total_amount) || 0
       totals.handling_fee += Number(item.handling_fee) || 0
@@ -453,7 +508,9 @@ const fetchSummary = async () => {
   try {
     const params: { settlement_date_start?: string; settlement_date_end?: string } = {}
     if (settlementDateRange.value) {
-      params.settlement_date_start = settlementDateRange.value[0].startOf('month').format('YYYY-MM-DD')
+      params.settlement_date_start = settlementDateRange.value[0]
+        .startOf('month')
+        .format('YYYY-MM-DD')
       params.settlement_date_end = settlementDateRange.value[1].endOf('month').format('YYYY-MM-DD')
     }
     const res = await settlementApi.getSummary(params)
@@ -476,8 +533,15 @@ const fetchSettlementList = async () => {
     }
 
     if (settlementDateRange.value) {
-      params.settlement_date_start = settlementDateRange.value[0].startOf('month').format('YYYY-MM-DD')
+      params.settlement_date_start = settlementDateRange.value[0]
+        .startOf('month')
+        .format('YYYY-MM-DD')
       params.settlement_date_end = settlementDateRange.value[1].endOf('month').format('YYYY-MM-DD')
+    }
+
+    if (documentDateRange.value) {
+      params.document_date_start = documentDateRange.value[0].format('YYYY-MM-DD')
+      params.document_date_end = documentDateRange.value[1].format('YYYY-MM-DD')
     }
 
     if (searchParams.entity_name) {
@@ -490,6 +554,7 @@ const fetchSettlementList = async () => {
 
     const res = await settlementApi.getList(params)
     settlementList.value = res.data || []
+    filteredSettlementList.value = res.data || []
     pagination.total = res.pagination?.total || 0
   } catch (error: any) {
     message.error(error.message || '获取对账单列表失败')
@@ -511,6 +576,7 @@ const handleReset = () => {
   searchParams.settlement_date_end = undefined
   searchParams.entity_name = undefined
   settlementDateRange.value = null
+  documentDateRange.value = null
   pagination.current = 1
   fetchSummary()
   fetchSettlementList()
@@ -520,6 +586,15 @@ const handlePageChange = (page: number, pageSize: number) => {
   pagination.current = page
   pagination.pageSize = pageSize
   fetchSettlementList()
+}
+
+const handleTableChange = (
+  _pagination: any,
+  _filters: any,
+  _sorter: any,
+  { currentDataSource }: any
+) => {
+  filteredSettlementList.value = currentDataSource || []
 }
 
 const handleViewDetail = (record: SettlementStatement) => {
@@ -552,7 +627,7 @@ const handleDelete = async (record: SettlementStatement) => {
 // 导出Excel
 const exportColumns: ExportColumn[] = [
   { key: 'statement_number', title: '账单编号' },
-  { key: 'type', title: '类型', formatter: (v) => v === 1 ? '应收' : '应付' },
+  { key: 'type', title: '类型', formatter: v => (v === 1 ? '应收' : '应付') },
   { key: 'entity_name', title: '客户/供应商' },
   { key: 'settlement_date', title: '结算日期' },
   { key: 'payment_method', title: '结算方式' },
@@ -560,7 +635,11 @@ const exportColumns: ExportColumn[] = [
   { key: 'handling_fee', title: '手续费' },
   { key: 'invoiced_amount', title: '已开票金额' },
   { key: 'uninvoiced_amount', title: '未开票金额' },
-  { key: 'billing_status', title: '开票状态', formatter: (v) => v === 1 ? '已开票' : v === 2 ? '部分开票' : '未开票' },
+  {
+    key: 'billing_status',
+    title: '开票状态',
+    formatter: v => (v === 1 ? '已开票' : v === 2 ? '部分开票' : '未开票'),
+  },
   { key: 'invoice_number', title: '发票号' },
   { key: 'document_date', title: '制单日期' },
 ]
@@ -569,12 +648,20 @@ const handleExport = async () => {
   try {
     const params: any = { page: 1, pageSize: 99999 }
     if (searchParams.statement_number) params.statement_number = searchParams.statement_number
-    if (searchParams.type !== undefined && searchParams.type !== null) params.type = searchParams.type
+    if (searchParams.type !== undefined && searchParams.type !== null)
+      params.type = searchParams.type
     if (searchParams.entity_name) params.entity_name = searchParams.entity_name
-    if (searchParams.billing_status !== undefined && searchParams.billing_status !== null) params.billing_status = searchParams.billing_status
+    if (searchParams.billing_status !== undefined && searchParams.billing_status !== null)
+      params.billing_status = searchParams.billing_status
     if (settlementDateRange.value) {
-      params.settlement_date_start = settlementDateRange.value[0].startOf('month').format('YYYY-MM-DD')
+      params.settlement_date_start = settlementDateRange.value[0]
+        .startOf('month')
+        .format('YYYY-MM-DD')
       params.settlement_date_end = settlementDateRange.value[1].endOf('month').format('YYYY-MM-DD')
+    }
+    if (documentDateRange.value) {
+      params.document_date_start = documentDateRange.value[0].format('YYYY-MM-DD')
+      params.document_date_end = documentDateRange.value[1].format('YYYY-MM-DD')
     }
     const response = await settlementApi.getList(params)
     const allData = response.data || []
@@ -593,7 +680,6 @@ onMounted(() => {
 <style scoped>
 .settlement-container {
   padding: 0;
-
 }
 
 .header {

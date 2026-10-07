@@ -49,7 +49,7 @@ const updateItemBillingStatus = async (items, invoicedAmount) => {
 // 获取对账单列表
 export const getSettlementList = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, type, billing_status, billing_month, settlement_date_start, settlement_date_end, entity_name } = req.query
+    const { page = 1, pageSize = 10, type, billing_status, billing_month, settlement_date_start, settlement_date_end, document_date_start, document_date_end, entity_name } = req.query
     const where = []
     const params = []
 
@@ -84,6 +84,17 @@ export const getSettlementList = async (req, res) => {
     if (entity_name) {
       where.push('entity_name LIKE ?')
       params.push(`%${entity_name}%`)
+    }
+
+    // 制单日期范围筛选
+    if (document_date_start) {
+      where.push('document_date >= ?')
+      params.push(document_date_start)
+    }
+
+    if (document_date_end) {
+      where.push('document_date <= ?')
+      params.push(document_date_end)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''

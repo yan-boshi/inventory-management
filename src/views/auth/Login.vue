@@ -4,6 +4,7 @@
       <h1 class="title">
         旭思达ERP系统
       </h1>
+      <p class="version">beta 1.0.0</p>
       <a-form
         :model="formData"
         :rules="rules"
@@ -116,10 +117,17 @@ const handleLogin = async () => {
 
 .title {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 4px;
   color: #333;
   font-size: 28px;
   font-weight: bold;
+}
+
+.version {
+  text-align: center;
+  margin-bottom: 24px;
+  color: #999;
+  font-size: 12px;
 }
 
 .login-form {

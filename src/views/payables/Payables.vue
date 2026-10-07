@@ -73,6 +73,14 @@
             />
           </a-form-item>
 
+          <a-form-item label="入库时间">
+            <a-range-picker
+              v-model:value="warehousingDateRange"
+              format="YYYY-MM-DD"
+              :placeholder="['开始日期', '结束日期']"
+            />
+          </a-form-item>
+
           <a-form-item>
             <a-space>
               <a-button type="primary" @click="handleSearch">
@@ -98,6 +106,7 @@
         :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
         bordered
         size="small"
+        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'source_bill_type'">
@@ -149,11 +158,7 @@
           </template>
 
           <template v-else-if="column.key === 'status'">
-            <a-select
-              v-model:value="record.status"
-              style="width: 100%"
-              size="small"
-            >
+            <a-select v-model:value="record.status" style="width: 100%" size="small">
               <a-select-option :value="0">未结算</a-select-option>
               <a-select-option :value="1">部分结算</a-select-option>
               <a-select-option :value="2">已结算</a-select-option>
@@ -181,7 +186,12 @@
 
           <template v-else-if="column.key === 'actions'">
             <a-space>
-              <a-button type="primary" size="small" @click="handleSave(record)" :loading="record._saving">
+              <a-button
+                type="primary"
+                size="small"
+                @click="handleSave(record)"
+                :loading="record._saving"
+              >
                 保存
               </a-button>
               <a-popconfirm
@@ -198,7 +208,7 @@
         </template>
 
         <template #summary>
-          <a-table-summary>
+          <a-table-summary v-if="filteredPayables.length > 0">
             <a-table-summary-row>
               <a-table-summary-cell :index="0" />
               <a-table-summary-cell :index="1" :colSpan="3" align="right">
@@ -221,7 +231,9 @@
           </a-table-summary>
         </template>
 
-        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+        <template
+          #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }"
+        >
           <div style="padding: 8px">
             <a-input
               :placeholder="`搜索${column.title}`"
@@ -230,7 +242,12 @@
               @change="(e: any) => setSelectedKeys(e.target.value ? [e.target.value] : [])"
               @pressEnter="confirm()"
             />
-            <a-button type="primary" size="small" style="width: 90px; margin-right: 8px" @click="confirm()">
+            <a-button
+              type="primary"
+              size="small"
+              style="width: 90px; margin-right: 8px"
+              @click="confirm()"
+            >
               搜索
             </a-button>
             <a-button size="small" style="width: 90px" @click="clearFilters?.()">重置</a-button>
@@ -271,7 +288,12 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined, FileTextOutlined, AuditOutlined } from '@ant-design/icons-vue'
+import {
+  SearchOutlined,
+  ReloadOutlined,
+  FileTextOutlined,
+  AuditOutlined,
+} from '@ant-design/icons-vue'
 import { payablesApi } from '@/api/payables'
 import { useUserStore } from '@/stores/user'
 import SettlementFormModal from '@/views/settlement/SettlementFormModal.vue'
@@ -281,9 +303,11 @@ import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
 
 const payables = ref<Payable[]>([])
+const filteredPayables = ref<Payable[]>([])
 const loading = ref(false)
 const userStore = useUserStore()
 const dateRange = ref<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
+const warehousingDateRange = ref<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
 const selectedRowKeys = ref<string[]>([])
 const selectedRecords = ref<Payable[]>([])
 const statementModalVisible = ref(false)
@@ -338,6 +362,16 @@ const columns = [
     key: 'amount',
     width: 110,
     align: 'right',
+    filters: [
+      { text: '0', value: '0' },
+      { text: '不为0', value: 'not_empty' },
+    ],
+    onFilter: (value: string, record: Payable) => {
+      const amount = Number(record.amount) || 0
+      if (value === '0') return amount === 0
+      if (value === 'not_empty') return amount > 0
+      return true
+    },
   },
   {
     title: '已付金额',
@@ -345,6 +379,16 @@ const columns = [
     key: 'received_amount',
     width: 110,
     align: 'right',
+    filters: [
+      { text: '0', value: '0' },
+      { text: '不为0', value: 'not_empty' },
+    ],
+    onFilter: (value: string, record: Payable) => {
+      const amount = Number(record.received_amount) || 0
+      if (value === '0') return amount === 0
+      if (value === 'not_empty') return amount > 0
+      return true
+    },
   },
   {
     title: '未付余额',
@@ -352,6 +396,16 @@ const columns = [
     key: 'balance_amount',
     width: 110,
     align: 'right',
+    filters: [
+      { text: '0', value: '0' },
+      { text: '不为0', value: 'not_empty' },
+    ],
+    onFilter: (value: string, record: Payable) => {
+      const amount = Number(record.balance_amount) || 0
+      if (value === '0') return amount === 0
+      if (value === 'not_empty') return amount > 0
+      return true
+    },
   },
   {
     title: '手续费',
@@ -359,6 +413,16 @@ const columns = [
     key: 'handling_fee',
     width: 130,
     align: 'right',
+    filters: [
+      { text: '0', value: '0' },
+      { text: '不为0', value: 'not_empty' },
+    ],
+    onFilter: (value: string, record: Payable) => {
+      const amount = Number(record.handling_fee) || 0
+      if (value === '0') return amount === 0
+      if (value === 'not_empty') return amount > 0
+      return true
+    },
   },
   {
     title: '结算状态',
@@ -397,6 +461,11 @@ const columns = [
     dataIndex: 'warehousing_time',
     key: 'warehousing_time',
     width: 160,
+    sorter: (a: Payable, b: Payable) => {
+      const dateA = a.warehousing_time ? new Date(a.warehousing_time).getTime() : 0
+      const dateB = b.warehousing_time ? new Date(b.warehousing_time).getTime() : 0
+      return dateA - dateB
+    },
   },
   {
     title: '创建时间',
@@ -473,7 +542,7 @@ const formatMoney = (value: number | undefined | null) => {
 }
 
 const pageTotals = computed(() => {
-  return payables.value.reduce(
+  return filteredPayables.value.reduce(
     (totals, item) => {
       totals.amount += Number(item.amount) || 0
       totals.received_amount += Number(item.received_amount) || 0
@@ -484,6 +553,11 @@ const pageTotals = computed(() => {
     { amount: 0, received_amount: 0, balance_amount: 0, handling_fee: 0 }
   )
 })
+
+// 处理表格筛选变化
+const handleTableChange = (_pagination: any, _filters: any, _sorter: any, { currentDataSource }: any) => {
+  filteredPayables.value = currentDataSource || []
+}
 
 const fetchPayables = async () => {
   loading.value = true
@@ -510,12 +584,18 @@ const fetchPayables = async () => {
       params.end_date = dateRange.value[1].format('YYYY-MM-DD')
     }
 
+    if (warehousingDateRange.value && warehousingDateRange.value[0] && warehousingDateRange.value[1]) {
+      params.warehousing_time_start = warehousingDateRange.value[0].format('YYYY-MM-DD')
+      params.warehousing_time_end = warehousingDateRange.value[1].format('YYYY-MM-DD')
+    }
+
     const res = await payablesApi.getAll(params)
     payables.value = (res.data || []).map((item: any) => ({
       ...item,
       _due_date: item.due_date ? dayjs(item.due_date) : null,
       _saving: false,
     }))
+    filteredPayables.value = payables.value
     pagination.total = res.pagination?.total || 0
   } catch (error: any) {
     message.error(error.message || '获取应付账款列表失败')
@@ -536,6 +616,7 @@ const handleReset = () => {
   searchParams.start_date = ''
   searchParams.end_date = ''
   dateRange.value = null
+  warehousingDateRange.value = null
   pagination.current = 1
   fetchPayables()
 }
