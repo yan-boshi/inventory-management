@@ -116,4 +116,10 @@ export const profitReportApi = {
   getReport: async (params: ProfitReportParams) => {
     return instance.get<{ success: boolean; data: ProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number } }>('/profit-report', { params })
   },
+  updateSettlementDate: async (orderNumber: string, settlementDate: string | null) => {
+    return instance.put<{ success: boolean; message: string }>('/profit-report/settlement-date', {
+      order_number: orderNumber,
+      settlement_date: settlementDate,
+    })
+  },
 }

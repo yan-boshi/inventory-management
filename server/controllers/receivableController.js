@@ -3,13 +3,18 @@ import { handleDbError } from '../utils/errorHandler.js'
 
 export const getAllReceivables = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, customer_name, status, billing_status, start_date, end_date, delivery_time_start, delivery_time_end, amount_filter, received_amount_filter, balance_amount_filter, handling_fee_filter } = req.query
+    const { page = 1, pageSize = 10, customer_name, status, billing_status, start_date, end_date, delivery_time_start, delivery_time_end, amount_filter, received_amount_filter, balance_amount_filter, handling_fee_filter, source_bill_id } = req.query
     const where = []
     const params = []
 
     if (customer_name) {
       where.push('customer_name LIKE ?')
       params.push(`%${customer_name}%`)
+    }
+
+    if (source_bill_id) {
+      where.push('source_bill_id LIKE ?')
+      params.push(`%${source_bill_id}%`)
     }
 
     // 支持多选状态查询

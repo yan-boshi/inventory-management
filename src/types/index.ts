@@ -1000,6 +1000,7 @@ export interface ReceivableQueryParams {
   page?: number
   pageSize?: number
   customer_name?: string
+  source_bill_id?: string
   status?: number | number[]
   billing_status?: number | number[]
   start_date?: string
@@ -1036,6 +1037,7 @@ export interface PayableQueryParams {
   page?: number
   pageSize?: number
   supplier_name?: string
+  source_bill_id?: string
   status?: number | number[]
   billing_status?: number | number[]
   start_date?: string

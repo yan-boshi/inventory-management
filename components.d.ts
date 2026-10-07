@@ -62,6 +62,7 @@ declare module 'vue' {
     ATooltip: typeof import('ant-design-vue/es')['Tooltip']
     AUpload: typeof import('ant-design-vue/es')['Upload']
     AWeekPicker: typeof import('ant-design-vue/es/date-picker/dayjs')['WeekPicker']
+    BillDetailModal: typeof import('./src/components/BillDetailModal.vue')['default']
     BusinessCategoryForm: typeof import('./src/components/BusinessCategoryForm.vue')['default']
     ColumnConfig: typeof import('./src/components/ColumnConfig.vue')['default']
     CurrencyForm: typeof import('./src/components/CurrencyForm.vue')['default']

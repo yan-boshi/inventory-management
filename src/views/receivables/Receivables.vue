@@ -37,6 +37,14 @@
             />
           </a-form-item>
 
+          <a-form-item label="来源单据编号">
+            <a-input
+              v-model:value="searchParams.source_bill_id"
+              placeholder="请输入来源单据编号"
+              allow-clear
+            />
+          </a-form-item>
+
           <a-form-item label="结算状态">
             <a-select
               v-model:value="searchParams.status"
@@ -125,6 +133,12 @@
             <a-tag :color="getBillingStatusColor(record.billing_status)">
               {{ getBillingStatusText(record.billing_status) }}
             </a-tag>
+          </template>
+
+          <template v-else-if="column.key === 'source_bill_id'">
+            <a-button type="link" size="small" @click="handleViewBillDetail(record)">
+              {{ record.source_bill_id }}
+            </a-button>
           </template>
 
           <template v-else-if="column.key === 'amount'">
@@ -282,6 +296,12 @@
       :pre-selected-records="selectedRecords"
       @success="handleWriteOffSuccess"
     />
+
+    <BillDetailModal
+      v-model:visible="billDetailVisible"
+      :bill-type="billDetailType"
+      :order-number="billDetailOrderNumber"
+    />
   </div>
 </template>
 
@@ -298,6 +318,7 @@ import { receivablesApi } from '@/api/receivables'
 import { useUserStore } from '@/stores/user'
 import SettlementFormModal from '@/views/settlement/SettlementFormModal.vue'
 import WriteOffFormModal from '@/views/write-off/WriteOffFormModal.vue'
+import BillDetailModal from '@/components/BillDetailModal.vue'
 import type { Receivable, ReceivableQueryParams } from '@/types'
 import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
@@ -312,11 +333,15 @@ const selectedRowKeys = ref<string[]>([])
 const selectedRecords = ref<Receivable[]>([])
 const statementModalVisible = ref(false)
 const writeOffModalVisible = ref(false)
+const billDetailVisible = ref(false)
+const billDetailType = ref<'delivery' | 'outbound_return'>('delivery')
+const billDetailOrderNumber = ref('')
 
 const searchParams = reactive<ReceivableQueryParams>({
   page: 1,
   pageSize: 100,
   customer_name: '',
+  source_bill_id: '',
   status: undefined,
   billing_status: [0, 2], // 默认查询未开票和部分开票
   start_date: '',
@@ -571,6 +596,10 @@ const fetchReceivables = async () => {
       params.customer_name = searchParams.customer_name
     }
 
+    if (searchParams.source_bill_id) {
+      params.source_bill_id = searchParams.source_bill_id
+    }
+
     if (searchParams.status !== undefined && searchParams.status !== null) {
       params.status = searchParams.status
     }
@@ -611,6 +640,7 @@ const handleSearch = () => {
 
 const handleReset = () => {
   searchParams.customer_name = ''
+  searchParams.source_bill_id = ''
   searchParams.status = undefined
   searchParams.billing_status = [0, 2] // 默认查询未开票和部分开票
   searchParams.start_date = ''
@@ -731,6 +761,13 @@ const handleDeleteRecord = async (record: Receivable) => {
   } catch (error: any) {
     message.error(error.message || '删除失败')
   }
+}
+
+const handleViewBillDetail = (record: Receivable) => {
+  if (!record.source_bill_id) return
+  billDetailType.value = record.source_bill_type === 1 ? 'delivery' : 'outbound_return'
+  billDetailOrderNumber.value = record.source_bill_id
+  billDetailVisible.value = true
 }
 
 onMounted(() => {

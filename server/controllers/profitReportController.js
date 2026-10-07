@@ -38,6 +38,40 @@ function getMonthStr(dateStr) {
   return `${year}-${month}-01`
 }
 
+// 更新结算日期
+export const updateSettlementDate = async (req, res) => {
+  try {
+    const { order_number, settlement_date } = req.body
+
+    if (!order_number) {
+      return res.status(400).json({ success: false, message: '出库单号不能为空' })
+    }
+
+    // 查找对应的应收单
+    const [receivables] = await pool.query(
+      'SELECT receivable_id FROM receivables WHERE source_bill_id = ? AND source_bill_type = 1',
+      [order_number]
+    )
+
+    if (receivables.length === 0) {
+      return res.status(404).json({ success: false, message: '未找到对应的应收单' })
+    }
+
+    const receivableId = receivables[0].receivable_id
+
+    // 更新 due_date（结算日期）
+    await pool.query(
+      'UPDATE receivables SET due_date = ? WHERE receivable_id = ?',
+      [settlement_date || null, receivableId]
+    )
+
+    res.json({ success: true, message: '结算日期更新成功' })
+  } catch (error) {
+    console.error('更新结算日期失败:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+}
+
 export const getProfitReport = async (req, res) => {
   try {
     const { startDate, endDate, contractNumber, customerName, productCode, page = 1, pageSize = 50 } = req.query

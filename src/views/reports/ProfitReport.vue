@@ -89,6 +89,28 @@
           <template v-else-if="column.key === 'warehousing_date'">
             {{ formatDate(record.warehousing_date) }}
           </template>
+          <template v-else-if="column.key === 'settlement_date'">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <a-input
+                v-if="isAdmin"
+                :value="editingSettlementDates[record.order_number] !== undefined ? editingSettlementDates[record.order_number] : (record.settlement_date || '')"
+                @change="(e: any) => onSettlementDateChange(record.order_number, e.target.value)"
+                placeholder="yyyy-mm-dd"
+                size="small"
+                style="width: 110px;"
+              />
+              <span v-else>{{ record.settlement_date || '' }}</span>
+              <a-button
+                v-if="isAdmin && editingSettlementDates[record.order_number] !== undefined && editingSettlementDates[record.order_number] !== (record.settlement_date || '')"
+                type="link"
+                size="small"
+                :loading="savingRowKeys.has(record.order_number)"
+                @click="handleSaveSettlementDate(record)"
+              >
+                <template #icon><SaveOutlined /></template>
+              </a-button>
+            </div>
+          </template>
           <template v-else-if="column.key === 'settlement_status'">
             <a-tag
               :color="
@@ -349,13 +371,19 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
+import { SearchOutlined, ReloadOutlined, DownloadOutlined, SaveOutlined } from '@ant-design/icons-vue'
 import { profitReportApi } from '@/api/profitReport'
 import type { ProfitReportItem, ProfitReportParams } from '@/api/profitReport'
 import { formatDate } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import ColumnConfig from '@/components/ColumnConfig.vue'
+import { useUserStore } from '@/stores/user'
 import type { Dayjs } from 'dayjs'
+
+const userStore = useUserStore()
+const isAdmin = computed(() => userStore.isAdmin)
+const savingRowKeys = ref<Set<string>>(new Set())
+const editingSettlementDates = ref<Record<string, string>>({})
 
 const loading = ref(false)
 const exportLoading = ref(false)
@@ -1141,6 +1169,50 @@ const handlePageChange = (page: number, pageSize: number) => {
 // 处理表格筛选变化
 const handleTableChange = (_pagination: any, _filters: any, _sorter: any, { currentDataSource }: any) => {
   filteredReportData.value = currentDataSource || []
+}
+
+// 结算日期编辑
+const onSettlementDateChange = (orderNumber: string, value: string) => {
+  editingSettlementDates.value = { ...editingSettlementDates.value, [orderNumber]: value }
+}
+
+// 保存结算日期
+const handleSaveSettlementDate = async (record: ProfitReportItem) => {
+  const orderNumber = record.order_number
+  const newDate = editingSettlementDates.value[orderNumber]
+
+  // 校验日期格式
+  if (newDate && !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+    message.error('结算日期格式必须为 yyyy-mm-dd')
+    return
+  }
+
+  // 校验日期有效性
+  if (newDate) {
+    const date = new Date(newDate)
+    if (isNaN(date.getTime())) {
+      message.error('请输入有效的日期')
+      return
+    }
+  }
+
+  savingRowKeys.value = new Set([...savingRowKeys.value, orderNumber])
+  try {
+    await profitReportApi.updateSettlementDate(orderNumber, newDate || null)
+    message.success('结算日期更新成功')
+    // 更新本地数据
+    record.settlement_date = newDate || ''
+    // 清除编辑状态
+    const newEditing = { ...editingSettlementDates.value }
+    delete newEditing[orderNumber]
+    editingSettlementDates.value = newEditing
+  } catch (error: any) {
+    message.error(error?.message || '更新失败')
+  } finally {
+    const newSaving = new Set(savingRowKeys.value)
+    newSaving.delete(orderNumber)
+    savingRowKeys.value = newSaving
+  }
 }
 
 const handleExport = async () => {
