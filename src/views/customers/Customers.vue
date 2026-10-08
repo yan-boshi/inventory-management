@@ -42,7 +42,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="customer_id"
-        :scroll="{ x: 2100, y: 'calc(100vh - 300px)' }"
+        :scroll="{ x: 2100, y: 'calc(100vh - 380px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'customer_name'">

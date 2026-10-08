@@ -76,7 +76,7 @@
         rowKey="index"
         bordered
         size="small"
-        :scroll="{ x: 8000, y: 'calc(100vh - 300px)' }"
+        :scroll="{ x: 8000, y: 'calc(100vh - 380px)' }"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">

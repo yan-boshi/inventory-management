@@ -114,7 +114,7 @@
         rowKey="product_id"
         bordered
         size="small"
-        :scroll="{ x: 3500, y: 'calc(100vh - 300px)' }"
+        :scroll="{ x: 3500, y: 'calc(100vh - 380px)' }"
       >
         <template #bodyCell="{ column, record }">
           <!-- 数量列 -->

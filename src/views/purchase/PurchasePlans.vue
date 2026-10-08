@@ -73,7 +73,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="row_key"
-        :scroll="{ x: 2800, y: 'calc(100vh - 300px)' }"
+        :scroll="{ x: 2800, y: 'calc(100vh - 380px)' }"
         :row-selection="rowSelection"
       >
         <template #bodyCell="{ column, record }">

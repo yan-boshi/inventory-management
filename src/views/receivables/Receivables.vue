@@ -110,7 +110,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="receivable_id"
-        :scroll="{ y: 'calc(100vh - 300px)' }"
+        :scroll="{ y: 'calc(100vh - 380px)' }"
         :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
         bordered
         size="small"

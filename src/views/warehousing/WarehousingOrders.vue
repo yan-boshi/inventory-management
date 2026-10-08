@@ -89,7 +89,7 @@
         :pagination="pagination"
         rowKey="row_key"
         @change="handleTableChange"
-        :scroll="{ x: 1800, y: 'calc(100vh - 300px)' }"
+        :scroll="{ x: 1800, y: 'calc(100vh - 380px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">

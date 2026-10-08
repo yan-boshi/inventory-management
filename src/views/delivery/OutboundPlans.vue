@@ -74,7 +74,7 @@
         :pagination="false"
         rowKey="row_key"
         :row-selection="rowSelection"
-        :scroll="{ x: 3000, y: 'calc(100vh - 300px)' }"
+        :scroll="{ x: 3000, y: 'calc(100vh - 380px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'plan_number'">

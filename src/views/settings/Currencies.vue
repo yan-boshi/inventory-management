@@ -53,7 +53,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="currency_id"
-        :scroll="{ y: 'calc(100vh - 300px)' }"
+        :scroll="{ y: 'calc(100vh - 380px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'is_base_currency'">

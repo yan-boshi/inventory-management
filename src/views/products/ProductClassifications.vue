@@ -31,7 +31,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="product_classification_id"
-        :scroll="{ y: 'calc(100vh - 300px)' }"
+        :scroll="{ y: 'calc(100vh - 380px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'classification_data'">

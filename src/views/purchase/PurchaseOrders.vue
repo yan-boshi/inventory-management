@@ -89,7 +89,7 @@
         :loading="loading"
         :pagination="false"
         rowKey="row_key"
-        :scroll="{ x: 3600, y: 'calc(100vh - 300px)' }"
+        :scroll="{ x: 3600, y: 'calc(100vh - 380px)' }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">

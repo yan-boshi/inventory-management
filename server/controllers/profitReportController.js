@@ -53,11 +53,54 @@ export const updateSettlementDate = async (req, res) => {
       [order_number]
     )
 
-    if (receivables.length === 0) {
-      return res.status(404).json({ success: false, message: '未找到对应的应收单' })
-    }
+    let receivableId
 
-    const receivableId = receivables[0].receivable_id
+    if (receivables.length === 0) {
+      // 找不到应收单时，自动创建一个
+      const [deliveryOrders] = await pool.query(
+        'SELECT order_number, customer_name, total_amount, contract_number FROM delivery_orders WHERE order_number = ?',
+        [order_number]
+      )
+
+      if (deliveryOrders.length === 0) {
+        return res.status(404).json({ success: false, message: '未找到对应的出库单' })
+      }
+
+      const deliveryOrder = deliveryOrders[0]
+
+      // 获取销售订单的客户ID和结算方式
+      let customerId = null
+      let paymentMethod = null
+      if (deliveryOrder.contract_number) {
+        const [salesOrders] = await pool.query(
+          'SELECT customer_code, payment_method FROM sales_orders WHERE contract_number = ?',
+          [deliveryOrder.contract_number]
+        )
+        if (salesOrders.length > 0) {
+          customerId = salesOrders[0].customer_code
+          paymentMethod = salesOrders[0].payment_method
+        }
+      }
+
+      // 创建应收单
+      const [result] = await pool.query(
+        `INSERT INTO receivables (customer_id, customer_name, source_bill_type, source_bill_id, amount, received_amount, balance_amount, due_date, status, payment_method)
+         VALUES (?, ?, 1, ?, ?, 0, ?, ?, 0, ?)`,
+        [
+          customerId,
+          deliveryOrder.customer_name || '',
+          order_number,
+          parseFloat(deliveryOrder.total_amount) || 0,
+          parseFloat(deliveryOrder.total_amount) || 0,
+          settlement_date || null,
+          paymentMethod
+        ]
+      )
+
+      receivableId = result.insertId
+    } else {
+      receivableId = receivables[0].receivable_id
+    }
 
     // 更新 due_date（结算日期）
     await pool.query(
