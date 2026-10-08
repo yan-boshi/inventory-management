@@ -493,6 +493,20 @@ export const getProfitReport = async (req, res) => {
         customsRate = customsRateMap[customsKey] || orderExchangeRate
       }
 
+      // 获取销售订单
+      const salesOrder = order.contract_number ? salesOrderMap[order.contract_number] : null
+      const currentSalesOrderId = salesOrder?.sales_order_id
+
+      // 获取采购订单币种（从第一个采购订单获取）
+      let purchaseCurrency = 'CNY'
+      const purchaseOrders = salesOrder ? (purchaseOrderMap[salesOrder.sales_order_id] || []) : []
+      for (const po of purchaseOrders) {
+        if (po.currency && po.currency !== 'CNY') {
+          purchaseCurrency = po.currency
+          break
+        }
+      }
+
       // 计算采购币种的海关汇率（用于将采购金额换算成CNY）
       let purchaseCustomsRate = 1
       if (purchaseCurrency !== 'CNY') {
@@ -508,10 +522,6 @@ export const getProfitReport = async (req, res) => {
         deliveryExpenses = {}
       }
 
-      // 获取销售订单
-      const salesOrder = order.contract_number ? salesOrderMap[order.contract_number] : null
-      const currentSalesOrderId = salesOrder?.sales_order_id
-
       // 解析销售费用
       let salesExpenses = {}
       if (salesOrder) {
@@ -521,9 +531,6 @@ export const getProfitReport = async (req, res) => {
           salesExpenses = {}
         }
       }
-
-      // 获取采购订单（可能有多个）
-      const purchaseOrders = salesOrder ? (purchaseOrderMap[salesOrder.sales_order_id] || []) : []
 
       // 计算出库单总金额（用于费用分摊）
       const orderTotalAmount = filteredItems.reduce((sum, item) => {
@@ -617,13 +624,8 @@ export const getProfitReport = async (req, res) => {
       let warehousingExpensesTotal = { tariff: 0, transportationFee: 0, customsFee: 0, otherFee: 0 }
       let warehousingItemMap = {}
       let warehousingDate = null
-      let purchaseCurrency = 'CNY' // 采购订单币种（取第一个采购订单的币种）
 
       for (const po of purchaseOrders) {
-        // 获取采购订单币种
-        if (purchaseCurrency === 'CNY' && po.currency && po.currency !== 'CNY') {
-          purchaseCurrency = po.currency
-        }
         // 先计算该PO分配给当前SO的总数量（用于费用按比例分摊）
         let poTotalAllocated = 0
         let poTotalQty = 0

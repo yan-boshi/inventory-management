@@ -440,6 +440,7 @@ const productNameFilters = generateFilters('product_name')
 const productCodeFilters = generateFilters('product_code')
 const modelFilters = generateFilters('model')
 const currencyFilters = generateFilters('currency')
+const purchaseCurrencyFilters = generateFilters('purchase_currency')
 
 // 使用 computed 使列配置能响应 filters 的变化，同时支持 ColumnConfig 组件更新
 const _columnConfigOverrides = ref<any[] | null>(null)
@@ -893,6 +894,9 @@ const baseColumns = computed(() => {
       dataIndex: 'purchase_currency',
       key: 'purchase_currency',
       width: 70,
+      filters: purchaseCurrencyFilters.value,
+      onFilter: (value: string, record: ProfitReportItem) => record.purchase_currency === value,
+      filterMultiple: true,
     },
     {
       title: '销售海关汇率',
