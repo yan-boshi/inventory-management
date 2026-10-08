@@ -1,4 +1,5 @@
 import pool from '../config/database.js'
+import { generateUUID } from '../utils/uuid.js'
 
 /**
  * 毛利表Controller - 严格按照规划文档实现
@@ -83,10 +84,12 @@ export const updateSettlementDate = async (req, res) => {
       }
 
       // 创建应收单
-      const [result] = await pool.query(
-        `INSERT INTO receivables (customer_id, customer_name, source_bill_type, source_bill_id, amount, received_amount, balance_amount, due_date, status, payment_method)
-         VALUES (?, ?, 1, ?, ?, 0, ?, ?, 0, ?)`,
+      receivableId = generateUUID()
+      await pool.query(
+        `INSERT INTO receivables (receivable_id, customer_id, customer_name, source_bill_type, source_bill_id, amount, received_amount, balance_amount, due_date, status, payment_method)
+         VALUES (?, ?, ?, 1, ?, ?, 0, ?, ?, 0, ?)`,
         [
+          receivableId,
           customerId,
           deliveryOrder.customer_name || '',
           order_number,
@@ -96,8 +99,6 @@ export const updateSettlementDate = async (req, res) => {
           paymentMethod
         ]
       )
-
-      receivableId = result.insertId
     } else {
       receivableId = receivables[0].receivable_id
     }
