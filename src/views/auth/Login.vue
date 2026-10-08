@@ -1,46 +1,25 @@
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h1 class="title">
-        旭思达ERP系统
-      </h1>
-      <p class="version">beta 1.0.0</p>
-      <a-form
-        :model="formData"
-        :rules="rules"
-        class="login-form"
-        @finish="handleLogin"
-      >
+      <h1 class="title">旭思达ERP系统</h1>
+      <p class="version">beta 1.0.1</p>
+      <a-form :model="formData" :rules="rules" class="login-form" @finish="handleLogin">
         <a-form-item name="username">
-          <a-input
-            v-model:value="formData.username"
-            placeholder="请输入用户名"
-            size="large"
-          >
+          <a-input v-model:value="formData.username" placeholder="请输入用户名" size="large">
             <template #prefix>
               <UserOutlined />
             </template>
           </a-input>
         </a-form-item>
         <a-form-item name="password">
-          <a-input-password
-            v-model:value="formData.password"
-            placeholder="请输入密码"
-            size="large"
-          >
+          <a-input-password v-model:value="formData.password" placeholder="请输入密码" size="large">
             <template #prefix>
               <LockOutlined />
             </template>
           </a-input-password>
         </a-form-item>
         <a-form-item>
-          <a-button
-            type="primary"
-            html-type="submit"
-            block
-            size="large"
-            :loading="loading"
-          >
+          <a-button type="primary" html-type="submit" block size="large" :loading="loading">
             登录
           </a-button>
         </a-form-item>
@@ -63,12 +42,12 @@ const userStore = useUserStore()
 const loading = ref(false)
 const formData = reactive({
   username: '',
-  password: ''
+  password: '',
 })
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
 const handleLogin = async () => {
@@ -82,7 +61,7 @@ const handleLogin = async () => {
           username: res.data.user.username,
           role: res.data.user.role as 'admin' | 'advanced' | 'normal',
           phone: res.data.user.phone,
-          email: res.data.user.email
+          email: res.data.user.email,
         },
         res.data.token
       )
