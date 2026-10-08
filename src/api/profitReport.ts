@@ -97,14 +97,13 @@ export interface ProfitReportItem {
 
   // 汇率信息
   currency: string
-  bank_rate: number
+  purchase_currency: string
   customs_rate: number
-  sales_amount_included_cny_bank: number
-  sales_amount_excluded_cny_bank: number
-  sales_amount_included_cny_customs: number
-  sales_amount_excluded_cny_customs: number
-  exchange_diff_included: number
-  exchange_diff_excluded: number
+  purchase_customs_rate: number
+  sales_amount_included_cny: number
+  sales_amount_excluded_cny: number
+  warehousing_amount_cny: number
+  total_expense_cny: number
 
   // 其他
   commission_rate: number | null
@@ -120,6 +119,12 @@ export const profitReportApi = {
     return instance.put<{ success: boolean; message: string }>('/profit-report/settlement-date', {
       order_number: orderNumber,
       settlement_date: settlementDate,
+    })
+  },
+  updateReceivedAmount: async (orderNumber: string, receivedAmount: number) => {
+    return instance.put<{ success: boolean; message: string; data?: { settlement_status: string; balance_amount: number } }>('/profit-report/received-amount', {
+      order_number: orderNumber,
+      received_amount: receivedAmount,
     })
   },
 }

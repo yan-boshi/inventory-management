@@ -35,6 +35,14 @@
             />
           </a-form-item>
 
+          <a-form-item label="关联销售订单编号">
+            <a-input
+              v-model:value="searchParams.relatedSalesOrderNumber"
+              placeholder="请输入关联销售订单编号"
+              allow-clear
+            />
+          </a-form-item>
+
           <a-form-item label="产品代码">
             <a-input
               v-model:value="searchParams.productCode"
@@ -98,6 +106,10 @@
 
           <template v-else-if="column.key === 'contract_number'">
             <span>{{ record.contract_number || '-' }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'related_sales_order_numbers'">
+            <span>{{ record.related_sales_order_numbers?.join(', ') || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'supplier_name'">
@@ -291,6 +303,10 @@ const searchParams = reactive<PurchaseOrderQueryParams>({
   supplierName: '',
   supplierCode: '',
   contractNumber: '',
+  relatedSalesOrderNumber: '',
+  productCode: '',
+  productName: '',
+  productModel: '',
   startDate: '',
   endDate: '',
 })
@@ -361,6 +377,15 @@ const allColumns = ref([
     dataIndex: 'contract_number',
     key: 'contract_number',
     width: 150,
+  },
+  {
+    title: '关联销售订单编号',
+    dataIndex: 'related_sales_order_numbers',
+    key: 'related_sales_order_numbers',
+    width: 180,
+    customRender: ({ record }: { record: any }) => {
+      return record.related_sales_order_numbers?.join(', ') || '-'
+    },
   },
   {
     title: '供应商名称',
@@ -672,6 +697,7 @@ const handleReset = () => {
   searchParams.supplierName = ''
   searchParams.supplierCode = ''
   searchParams.contractNumber = ''
+  searchParams.relatedSalesOrderNumber = ''
   searchParams.productCode = ''
   searchParams.productName = ''
   searchParams.productModel = ''
@@ -810,6 +836,7 @@ const settlementStatusTextMap: Record<string, string> = {
 const exportColumns: ExportColumn[] = [
   { key: 'order_number', title: '默认单据编号' },
   { key: 'contract_number', title: '合同编号' },
+  { key: 'related_sales_order_numbers', title: '关联销售订单编号', formatter: (v: string[]) => v?.join(', ') || '' },
   { key: 'supplier_name', title: '供应商名称' },
   { key: 'supplier_code', title: '供应商代码' },
   { key: 'product_code', title: '产品代码' },

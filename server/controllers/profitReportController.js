@@ -17,17 +17,6 @@ function formatDateStr(date) {
   return `${year}-${month}-${day}`
 }
 
-// 获取周一日期字符串
-function getMondayStr(dateStr) {
-  if (!dateStr) return null
-  const date = new Date(dateStr)
-  if (isNaN(date.getTime())) return null
-  const day = date.getDay()
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
-  const monday = new Date(date.setDate(diff))
-  return formatDateStr(monday)
-}
-
 // 获取月份第一天日期字符串（用于匹配 effective_month）
 function getMonthStr(dateStr) {
   if (!dateStr) return null
@@ -112,6 +101,71 @@ export const updateSettlementDate = async (req, res) => {
     res.json({ success: true, message: '结算日期更新成功' })
   } catch (error) {
     console.error('更新结算日期失败:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+}
+
+// 更新已结算金额
+export const updateReceivedAmount = async (req, res) => {
+  try {
+    const { order_number, received_amount } = req.body
+
+    if (!order_number) {
+      return res.status(400).json({ success: false, message: '出库单号不能为空' })
+    }
+
+    if (received_amount === undefined || received_amount === null || received_amount < 0) {
+      return res.status(400).json({ success: false, message: '已结算金额必须为非负数' })
+    }
+
+    // 查找对应的应收单
+    const [receivables] = await pool.query(
+      'SELECT receivable_id, amount, handling_fee FROM receivables WHERE source_bill_id = ? AND source_bill_type = 1',
+      [order_number]
+    )
+
+    if (receivables.length === 0) {
+      return res.status(404).json({ success: false, message: '未找到对应的应收单，请先创建应收单' })
+    }
+
+    const receivable = receivables[0]
+    const receivableId = receivable.receivable_id
+    const amount = parseFloat(receivable.amount) || 0
+    const handlingFee = parseFloat(receivable.handling_fee) || 0
+    const totalAmount = amount + handlingFee
+
+    // 计算未结算金额
+    const balanceAmount = totalAmount - received_amount
+
+    // 计算结算状态
+    let status = 0 // 未结算
+    if (received_amount <= 0) {
+      status = 0 // 未结算
+    } else if (received_amount >= totalAmount) {
+      status = 2 // 已结算
+    } else {
+      status = 1 // 部分结算
+    }
+
+    // 更新应收单
+    await pool.query(
+      'UPDATE receivables SET received_amount = ?, balance_amount = ?, status = ? WHERE receivable_id = ?',
+      [received_amount, balanceAmount, status, receivableId]
+    )
+
+    // 返回更新后的结算状态和未结算金额
+    const settlementStatusText = status === 2 ? '已结算' : status === 1 ? '部分结算' : '未结算'
+
+    res.json({
+      success: true,
+      message: '已结算金额更新成功',
+      data: {
+        settlement_status: settlementStatusText,
+        balance_amount: Math.round(balanceAmount * 100) / 100,
+      }
+    })
+  } catch (error) {
+    console.error('更新已结算金额失败:', error)
     res.status(500).json({ success: false, message: error.message })
   }
 }
@@ -207,7 +261,7 @@ export const getProfitReport = async (req, res) => {
       const jsonConditions = salesOrderIds.map(() => `JSON_CONTAINS(related_sales_orders, JSON_OBJECT('sales_order_id', ?))`).join(' OR ')
       const [purchaseOrders] = await pool.query(
         `SELECT purchase_order_id, order_number, contract_number, purchase_person,
-                purchase_items, expenses, related_sales_order_id, related_sales_orders
+                purchase_items, expenses, related_sales_order_id, related_sales_orders, currency
          FROM purchase_orders WHERE related_sales_order_id IN (?) OR (${jsonConditions})`,
         [salesOrderIds, ...salesOrderIds]
       )
@@ -292,43 +346,12 @@ export const getProfitReport = async (req, res) => {
     }
 
     // ============ 5. 批量查询汇率 ============
-    // 收集所有出库日期，计算涉及的周一和月份
-    const weekSet = new Set()
+    // 收集所有出库日期和采购订单日期，计算涉及的月份
     const monthSet = new Set()
-    let maxEntryDate = null
     for (const order of deliveryOrders) {
       if (order.entry_date) {
-        const week = getMondayStr(order.entry_date)
         const month = getMonthStr(order.entry_date)
-        if (week) weekSet.add(week)
         if (month) monthSet.add(month)
-        const entryDateStr = formatDateStr(order.entry_date)
-        if (!maxEntryDate || entryDateStr > maxEntryDate) {
-          maxEntryDate = entryDateStr
-        }
-      }
-    }
-
-    // 查询银行汇率（支持跨月拆分记录，按 effective_week 降序）
-    // 按币种对分组存储，直接使用存储的汇率值
-    let bankRatesByCurrency = {} // 'source_target' -> [{effective_week, rate}, ...] 按 effective_week 降序
-    if (maxEntryDate) {
-      const [bankRates] = await pool.query(
-        `SELECT source_currency, target_currency, effective_week, rate
-         FROM exchange_rates
-         WHERE effective_week <= ?
-         ORDER BY source_currency, effective_week DESC`,
-        [maxEntryDate]
-      )
-      for (const r of bankRates) {
-        const pairKey = `${r.source_currency}_${r.target_currency}`
-        if (!bankRatesByCurrency[pairKey]) {
-          bankRatesByCurrency[pairKey] = []
-        }
-        bankRatesByCurrency[pairKey].push({
-          effective_week: r.effective_week,
-          rate: parseFloat(r.rate)
-        })
       }
     }
 
@@ -428,9 +451,8 @@ export const getProfitReport = async (req, res) => {
       const orderExchangeRate = parseFloat(order.exchange_rate) || 1
       const entryDate = formatDateStr(order.entry_date) || ''
 
-      // 先获取结算信息（银行汇率依赖结算日期和结算状态）
+      // 先获取结算信息
       const receivable = receivableMap[order.order_number]
-      let settlementStatus = '未结算'
       let settlementStatusText = '未结算'
       let receivableAmount = 0
       let receivedAmount = 0
@@ -447,13 +469,10 @@ export const getProfitReport = async (req, res) => {
         settlementDate = formatDateStr(receivable.due_date) || ''
 
         if (receivable.status === 2) {
-          settlementStatus = '已结算'
           settlementStatusText = '已结算'
         } else if (receivable.status === 1) {
-          settlementStatus = '部分结算'
           settlementStatusText = '部分结算'
         } else {
-          settlementStatus = '未结算'
           settlementStatusText = '未结算'
         }
 
@@ -474,26 +493,11 @@ export const getProfitReport = async (req, res) => {
         customsRate = customsRateMap[customsKey] || orderExchangeRate
       }
 
-      // 计算银行汇率（以结算日期为基础，未结算时为空）
-      let bankRate = null
-
-      if (orderCurrency !== 'CNY') {
-        if (settlementStatus === '未结算' || !settlementDate) {
-          // 未结算或无结算日期，银行汇率为空
-          bankRate = null
-        } else {
-          // 以结算日期查找银行汇率
-          const currencyRates = bankRatesByCurrency[`${orderCurrency}_CNY`]
-          if (currencyRates) {
-            const settlementMonth = settlementDate.slice(0, 7) // 'YYYY-MM'
-            const matchingRate = currencyRates.find(r =>
-              r.effective_week <= settlementDate && r.effective_week.slice(0, 7) === settlementMonth
-            )
-            bankRate = matchingRate ? matchingRate.rate : null
-          }
-        }
-      } else {
-        bankRate = 1
+      // 计算采购币种的海关汇率（用于将采购金额换算成CNY）
+      let purchaseCustomsRate = 1
+      if (purchaseCurrency !== 'CNY') {
+        const purchaseCustomsKey = `${purchaseCurrency}_CNY_${month}`
+        purchaseCustomsRate = customsRateMap[purchaseCustomsKey] || 1
       }
 
       // 解析出库费用
@@ -520,16 +524,6 @@ export const getProfitReport = async (req, res) => {
 
       // 获取采购订单（可能有多个）
       const purchaseOrders = salesOrder ? (purchaseOrderMap[salesOrder.sales_order_id] || []) : []
-
-      // 解析销售订单商品行
-      let salesItems = []
-      if (salesOrder) {
-        try {
-          salesItems = JSON.parse(salesOrder.sales_items || '[]')
-        } catch (e) {
-          salesItems = []
-        }
-      }
 
       // 计算出库单总金额（用于费用分摊）
       const orderTotalAmount = filteredItems.reduce((sum, item) => {
@@ -623,8 +617,13 @@ export const getProfitReport = async (req, res) => {
       let warehousingExpensesTotal = { tariff: 0, transportationFee: 0, customsFee: 0, otherFee: 0 }
       let warehousingItemMap = {}
       let warehousingDate = null
+      let purchaseCurrency = 'CNY' // 采购订单币种（取第一个采购订单的币种）
 
       for (const po of purchaseOrders) {
+        // 获取采购订单币种
+        if (purchaseCurrency === 'CNY' && po.currency && po.currency !== 'CNY') {
+          purchaseCurrency = po.currency
+        }
         // 先计算该PO分配给当前SO的总数量（用于费用按比例分摊）
         let poTotalAllocated = 0
         let poTotalQty = 0
@@ -713,9 +712,6 @@ export const getProfitReport = async (req, res) => {
         const unitPriceExcluded = taxIncludedPrice / (1 + taxRate / 100)
         const amountExcluded = quantity * unitPriceExcluded
 
-        // 匹配销售商品行获取结算信息
-        const matchedSalesItem = salesItems.find(si => si.product_code === productCode)
-
         // 匹配入库数据（查找包含该产品代码的采购订单的入库数据）
         let whItem = null
         for (const po of purchaseOrders) {
@@ -802,27 +798,25 @@ export const getProfitReport = async (req, res) => {
         const itemDlOther = Math.round(dlOtherFee * itemRatio * 100) / 100
         const itemDlTotal = Math.round(deliveryExpenseTotal * itemRatio * 100) / 100
 
-        // 费用合计
+        // 费用合计（原币种）
         const totalExpense = itemPoTotal + itemSlTotal + itemWhTotal + itemDlTotal
 
-        // 总成本 = 采购成本(未税) + 费用合计
-        const totalCost = warehousingAmount + totalExpense
+        // ============ 汇率换算（统一使用海关汇率） ============
+        const salesAmountIncludedCNY = amount * customsRate
+        const salesAmountExcludedCNY = amountExcluded * customsRate
 
-        // 毛利 = 销售收入(未税) - 总成本
-        const grossProfit = amountExcluded - totalCost
+        // 采购成本和费用换算成CNY
+        const warehousingAmountCNY = warehousingAmount * purchaseCustomsRate
+        const totalExpenseCNY = totalExpense * purchaseCustomsRate
 
-        // 毛利率
-        const grossProfitRate = amountExcluded > 0 ? (grossProfit / amountExcluded * 100) : 0
+        // 总成本(CNY) = 采购成本(未税,CNY) + 费用合计(CNY)
+        const totalCostCNY = warehousingAmountCNY + totalExpenseCNY
 
-        // ============ 汇率换算 ============
-        // 银行汇率为空时（未结算），CNY金额和汇率差为空/0
-        const salesAmountIncludedCNY_bank = bankRate !== null ? amount * bankRate : null
-        const salesAmountExcludedCNY_bank = bankRate !== null ? amountExcluded * bankRate : null
-        const salesAmountIncludedCNY_customs = amount * customsRate
-        const salesAmountExcludedCNY_customs = amountExcluded * customsRate
+        // 毛利(CNY) = 销售收入(未税,CNY) - 总成本(CNY)
+        const grossProfitCNY = salesAmountExcludedCNY - totalCostCNY
 
-        const exchangeDiffIncluded = bankRate !== null ? salesAmountIncludedCNY_bank - salesAmountIncludedCNY_customs : 0
-        const exchangeDiffExcluded = bankRate !== null ? salesAmountExcludedCNY_bank - salesAmountExcludedCNY_customs : 0
+        // 毛利率（基于CNY计算）
+        const grossProfitRate = salesAmountExcludedCNY > 0 ? (grossProfitCNY / salesAmountExcludedCNY * 100) : 0
 
         reportRows.push({
           // 出货信息
@@ -893,23 +887,22 @@ export const getProfitReport = async (req, res) => {
           dl_expense_customs: itemDlCustoms,
           dl_expense_other: itemDlOther,
           dl_expense_total: itemDlTotal,
-          // 费用合计
+          // 费用合计（原币种）
           total_expense: Math.round(totalExpense * 100) / 100,
-          // 总成本
-          total_cost: Math.round(totalCost * 100) / 100,
-          // 毛利
-          gross_profit: Math.round(grossProfit * 100) / 100,
+          // 总成本(CNY)
+          total_cost: Math.round(totalCostCNY * 100) / 100,
+          // 毛利(CNY)
+          gross_profit: Math.round(grossProfitCNY * 100) / 100,
           gross_profit_rate: Math.round(grossProfitRate * 100) / 100,
           // 汇率信息
           currency: orderCurrency,
-          bank_rate: Math.round(bankRate * 1000000) / 1000000,
+          purchase_currency: purchaseCurrency,
           customs_rate: Math.round(customsRate * 1000000) / 1000000,
-          sales_amount_included_cny_bank: Math.round(salesAmountIncludedCNY_bank * 100) / 100,
-          sales_amount_excluded_cny_bank: Math.round(salesAmountExcludedCNY_bank * 100) / 100,
-          sales_amount_included_cny_customs: Math.round(salesAmountIncludedCNY_customs * 100) / 100,
-          sales_amount_excluded_cny_customs: Math.round(salesAmountExcludedCNY_customs * 100) / 100,
-          exchange_diff_included: Math.round(exchangeDiffIncluded * 100) / 100,
-          exchange_diff_excluded: Math.round(exchangeDiffExcluded * 100) / 100,
+          purchase_customs_rate: Math.round(purchaseCustomsRate * 1000000) / 1000000,
+          sales_amount_included_cny: Math.round(salesAmountIncludedCNY * 100) / 100,
+          sales_amount_excluded_cny: Math.round(salesAmountExcludedCNY * 100) / 100,
+          warehousing_amount_cny: Math.round(warehousingAmountCNY * 100) / 100,
+          total_expense_cny: Math.round(totalExpenseCNY * 100) / 100,
           // 预留字段
           commission_rate: null,
           commission_amount: null,

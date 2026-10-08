@@ -17,75 +17,143 @@ export const getAllPurchaseOrders = async (req, res) => {
       productCode,
       productModel,
       startDate,
-      endDate
+      endDate,
+      relatedSalesOrderNumber
     } = req.query
 
     const where = []
     const params = []
 
     if (orderNumber) {
-      where.push('order_number LIKE ?')
+      where.push('po.order_number LIKE ?')
       params.push(`%${orderNumber}%`)
     }
 
     if (supplierName) {
-      where.push('supplier_name LIKE ?')
+      where.push('po.supplier_name LIKE ?')
       params.push(`%${supplierName}%`)
     }
 
     if (supplierCode) {
-      where.push('supplier_code LIKE ?')
+      where.push('po.supplier_code LIKE ?')
       params.push(`%${supplierCode}%`)
     }
 
     if (contractNumber) {
-      where.push('contract_number LIKE ?')
+      where.push('po.contract_number LIKE ?')
       params.push(`%${contractNumber}%`)
     }
 
     if (productName) {
-      where.push('purchase_items LIKE ?')
+      where.push('po.purchase_items LIKE ?')
       params.push(`%${productName}%`)
     }
 
     if (productCode) {
-      where.push('purchase_items LIKE ?')
+      where.push('po.purchase_items LIKE ?')
       params.push(`%${productCode}%`)
     }
 
     if (productModel) {
-      where.push('purchase_items LIKE ?')
+      where.push('po.purchase_items LIKE ?')
       params.push(`%${productModel}%`)
     }
 
     if (startDate && endDate) {
-      where.push('created_at BETWEEN ? AND ?')
+      where.push('po.created_at BETWEEN ? AND ?')
       params.push(`${startDate} 00:00:00`, `${endDate} 23:59:59`)
     } else if (startDate) {
-      where.push('created_at >= ?')
+      where.push('po.created_at >= ?')
       params.push(`${startDate} 00:00:00`)
     } else if (endDate) {
-      where.push('created_at <= ?')
+      where.push('po.created_at <= ?')
       params.push(`${endDate} 23:59:59`)
     }
 
-    const whereClause = where.length > 0 ? where.join(' AND ') : ''
-    const result = await PurchaseOrder.paginateWithStatus({
-      where: whereClause,
-      orderBy: 'entry_date DESC',
-      page,
-      pageSize,
-      params
-    })
+    // 关联销售订单编号查询
+    let joinClause = ''
+    if (relatedSalesOrderNumber) {
+      joinClause = `LEFT JOIN sales_orders so ON (po.related_sales_order_id = so.sales_order_id OR JSON_CONTAINS(po.related_sales_orders, JSON_OBJECT('sales_order_id', so.sales_order_id)))`
+      where.push('so.contract_number LIKE ?')
+      params.push(`%${relatedSalesOrderNumber}%`)
+    }
+
+    const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : ''
+
+    // 验证分页参数
+    const validPage = Math.max(1, parseInt(page) || 1)
+    const validPageSize = Math.min(1000, Math.max(1, parseInt(pageSize) || 10))
+
+    // 查询总数
+    let countQuery = `SELECT COUNT(DISTINCT po.purchase_order_id) as total FROM purchase_orders po ${joinClause} ${whereClause}`
+    const [countResult] = await pool.query(countQuery, params)
+    const total = countResult[0]?.total || 0
+
+    // 查询分页数据
+    const offset = (validPage - 1) * validPageSize
+    let query = `SELECT DISTINCT po.* FROM purchase_orders po ${joinClause} ${whereClause} ORDER BY po.entry_date DESC LIMIT ? OFFSET ?`
+    const [rows] = await pool.query(query, [...params, validPageSize, offset])
+
+    // 为每个订单计算状态和关联销售订单编号
+    const ordersWithStatus = await Promise.all(
+      rows.map(async (order) => {
+        const status = await PurchaseOrder.calculateStatus(order.purchase_order_id)
+
+        // 获取关联销售订单的合同编号
+        let relatedSalesOrderNumbers = []
+        try {
+          const relatedSalesOrderIds = new Set()
+
+          // 从 related_sales_order_id 获取
+          if (order.related_sales_order_id) {
+            relatedSalesOrderIds.add(order.related_sales_order_id)
+          }
+
+          // 从 related_sales_orders JSON 获取
+          if (order.related_sales_orders) {
+            let relatedList = []
+            try {
+              relatedList = typeof order.related_sales_orders === 'string'
+                ? JSON.parse(order.related_sales_orders)
+                : order.related_sales_orders
+            } catch {}
+            for (const rel of relatedList) {
+              if (rel.sales_order_id) {
+                relatedSalesOrderIds.add(rel.sales_order_id)
+              }
+            }
+          }
+
+          // 批量查询销售订单合同编号
+          if (relatedSalesOrderIds.size > 0) {
+            const [salesOrders] = await pool.query(
+              'SELECT contract_number FROM sales_orders WHERE sales_order_id IN (?)',
+              [Array.from(relatedSalesOrderIds)]
+            )
+            relatedSalesOrderNumbers = salesOrders
+              .map(so => so.contract_number)
+              .filter(Boolean)
+          }
+        } catch (e) {
+          console.error('获取关联销售订单编号失败:', e)
+        }
+
+        return {
+          ...order,
+          status,
+          related_sales_order_numbers: relatedSalesOrderNumbers
+        }
+      })
+    )
 
     res.json({
       success: true,
-      data: result.data,
+      data: ordersWithStatus,
       pagination: {
-        total: result.total,
-        page: result.page,
-        pageSize: result.pageSize,
-        totalPages: result.totalPages
+        total,
+        page: validPage,
+        pageSize: validPageSize,
+        totalPages: Math.ceil(total / validPageSize)
       }
     })
   } catch (error) {

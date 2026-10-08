@@ -513,6 +513,7 @@ export interface PurchaseOrder {
   purchase_person?: string
   related_sales_order_id?: string
   related_sales_orders?: string
+  related_sales_order_numbers?: string[]
   created_at: string
   updated_at: string
 }
@@ -541,6 +542,10 @@ export interface PurchaseOrderQueryParams {
   supplierCode?: string
   orderNumber?: string
   contractNumber?: string
+  relatedSalesOrderNumber?: string
+  productCode?: string
+  productName?: string
+  productModel?: string
   startDate?: string
   endDate?: string
 }

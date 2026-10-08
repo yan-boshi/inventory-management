@@ -124,6 +124,30 @@
               {{ record.settlement_status || '未结算' }}
             </a-tag>
           </template>
+          <template v-else-if="column.key === 'received_amount'">
+            <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-end;">
+              <a-input-number
+                v-if="isAdmin"
+                :value="editingReceivedAmounts[record.order_number] !== undefined ? Number(editingReceivedAmounts[record.order_number]) : (record.received_amount || 0)"
+                @change="(value: number | null) => onReceivedAmountChange(record.order_number, value)"
+                :min="0"
+                :precision="2"
+                size="small"
+                style="width: 110px;"
+                :controls="false"
+              />
+              <span v-else>{{ formatMoney(record.received_amount) }}</span>
+              <a-button
+                v-if="isAdmin && editingReceivedAmounts[record.order_number] !== undefined && Number(editingReceivedAmounts[record.order_number]) !== (record.received_amount || 0)"
+                type="link"
+                size="small"
+                :loading="savingRowKeys.has(record.order_number)"
+                @click="handleSaveReceivedAmount(record)"
+              >
+                <template #icon><SaveOutlined /></template>
+              </a-button>
+            </div>
+          </template>
           <template v-else-if="column.key === 'delivery_quantity'">
             {{ formatNumber(record.delivery_quantity) }}
           </template>
@@ -133,7 +157,7 @@
           <template v-else-if="column.key === 'write_off_count'">
             {{ formatNumber(record.write_off_count) }}
           </template>
-          <template v-else-if="column.key === 'bank_rate' || column.key === 'customs_rate'">
+          <template v-else-if="column.key === 'customs_rate'">
             {{ formatRate(record[column.key]) }}
           </template>
           <template v-else-if="column.key === 'gross_profit_rate'">
@@ -302,52 +326,38 @@
               </a-table-summary-cell>
               <!-- 57: 毛利率(%) -->
               <a-table-summary-cell :index="57" :colSpan="1" />
-              <!-- 58: 币种 -->
+              <!-- 58: 销售币种 -->
               <a-table-summary-cell :index="58" :colSpan="1" />
-              <!-- 59: 银行汇率 -->
+              <!-- 59: 采购币种 -->
               <a-table-summary-cell :index="59" :colSpan="1" />
-              <!-- 60: 海关汇率 -->
+              <!-- 60: 销售海关汇率 -->
               <a-table-summary-cell :index="60" :colSpan="1" />
-              <!-- 61: CNY销售额(银行,含税) -->
-              <a-table-summary-cell :index="61" :align="'right'">
-                <strong>{{ formatMoney(totals.sales_amount_included_cny_bank) }}</strong>
-              </a-table-summary-cell>
-              <!-- 62: CNY销售额(银行,未税) -->
+              <!-- 61: 采购海关汇率 -->
+              <a-table-summary-cell :index="61" :colSpan="1" />
+              <!-- 62: CNY销售额(含税) -->
               <a-table-summary-cell :index="62" :align="'right'">
-                <strong>{{ formatMoney(totals.sales_amount_excluded_cny_bank) }}</strong>
+                <strong>{{ formatMoney(totals.sales_amount_included_cny) }}</strong>
               </a-table-summary-cell>
-              <!-- 63: CNY销售额(海关,含税) -->
+              <!-- 63: CNY销售额(未税) -->
               <a-table-summary-cell :index="63" :align="'right'">
-                <strong>{{ formatMoney(totals.sales_amount_included_cny_customs) }}</strong>
+                <strong>{{ formatMoney(totals.sales_amount_excluded_cny) }}</strong>
               </a-table-summary-cell>
-              <!-- 64: CNY销售额(海关,未税) -->
+              <!-- 64: CNY入库金额 -->
               <a-table-summary-cell :index="64" :align="'right'">
-                <strong>{{ formatMoney(totals.sales_amount_excluded_cny_customs) }}</strong>
+                <strong>{{ formatMoney(totals.warehousing_amount_cny) }}</strong>
               </a-table-summary-cell>
-              <!-- 65: 汇率差(含税) -->
+              <!-- 65: CNY费用合计 -->
               <a-table-summary-cell :index="65" :align="'right'">
-                <strong
-                  :style="{ color: totals.exchange_diff_included >= 0 ? '#52c41a' : '#f5222d' }"
-                >
-                  {{ formatMoney(totals.exchange_diff_included) }}
-                </strong>
+                <strong>{{ formatMoney(totals.total_expense_cny) }}</strong>
               </a-table-summary-cell>
-              <!-- 66: 汇率差(未税) -->
-              <a-table-summary-cell :index="66" :align="'right'">
-                <strong
-                  :style="{ color: totals.exchange_diff_excluded >= 0 ? '#52c41a' : '#f5222d' }"
-                >
-                  {{ formatMoney(totals.exchange_diff_excluded) }}
-                </strong>
-              </a-table-summary-cell>
-              <!-- 67: 提成比例 -->
-              <a-table-summary-cell :index="67" :colSpan="1" />
-              <!-- 68: 应发提成 -->
-              <a-table-summary-cell :index="68" :align="'right'">
+              <!-- 66: 提成比例 -->
+              <a-table-summary-cell :index="66" :colSpan="1" />
+              <!-- 67: 应发提成 -->
+              <a-table-summary-cell :index="67" :align="'right'">
                 <strong>{{ formatMoney(totals.commission_amount) }}</strong>
               </a-table-summary-cell>
-              <!-- 69: 备注 -->
-              <a-table-summary-cell :index="69" :colSpan="1" />
+              <!-- 68: 备注 -->
+              <a-table-summary-cell :index="68" :colSpan="1" />
             </a-table-summary-row>
           </a-table-summary>
         </template>
@@ -384,6 +394,7 @@ const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
 const savingRowKeys = ref<Set<string>>(new Set())
 const editingSettlementDates = ref<Record<string, string>>({})
+const editingReceivedAmounts = ref<Record<string, string>>({})
 
 const loading = ref(false)
 const exportLoading = ref(false)
@@ -495,7 +506,22 @@ const baseColumns = computed(() => {
       onFilter: (value: string, record: ProfitReportItem) => record.payment_method === value,
       filterMultiple: true,
     },
-    { title: '结算日期', dataIndex: 'settlement_date', key: 'settlement_date', width: 100 },
+    {
+      title: '结算日期',
+      dataIndex: 'settlement_date',
+      key: 'settlement_date',
+      width: 100,
+      filters: [
+        { text: '有值', value: 'has_value' },
+        { text: '空值', value: 'empty' },
+      ],
+      onFilter: (value: string, record: ProfitReportItem) => {
+        if (value === 'has_value') return !!record.settlement_date
+        if (value === 'empty') return !record.settlement_date
+        return true
+      },
+      filterMultiple: true,
+    },
     {
       title: '分类',
       dataIndex: 'classification',
@@ -854,7 +880,7 @@ const baseColumns = computed(() => {
 
     // ========== 汇率换算 ==========
     {
-      title: '币种',
+      title: '销售币种',
       dataIndex: 'currency',
       key: 'currency',
       width: 70,
@@ -863,59 +889,51 @@ const baseColumns = computed(() => {
       filterMultiple: true,
     },
     {
-      title: '银行汇率',
-      dataIndex: 'bank_rate',
-      key: 'bank_rate',
-      width: 90,
-      align: 'right' as const,
+      title: '采购币种',
+      dataIndex: 'purchase_currency',
+      key: 'purchase_currency',
+      width: 70,
     },
     {
-      title: '海关汇率',
+      title: '销售海关汇率',
       dataIndex: 'customs_rate',
       key: 'customs_rate',
-      width: 90,
+      width: 100,
       align: 'right' as const,
     },
     {
-      title: 'CNY销售额(银行,含税)',
-      dataIndex: 'sales_amount_included_cny_bank',
-      key: 'sales_amount_included_cny_bank',
-      width: 150,
+      title: '采购海关汇率',
+      dataIndex: 'purchase_customs_rate',
+      key: 'purchase_customs_rate',
+      width: 100,
       align: 'right' as const,
     },
     {
-      title: 'CNY销售额(银行,未税)',
-      dataIndex: 'sales_amount_excluded_cny_bank',
-      key: 'sales_amount_excluded_cny_bank',
-      width: 150,
+      title: 'CNY销售额(含税)',
+      dataIndex: 'sales_amount_included_cny',
+      key: 'sales_amount_included_cny',
+      width: 130,
       align: 'right' as const,
     },
     {
-      title: 'CNY销售额(海关,含税)',
-      dataIndex: 'sales_amount_included_cny_customs',
-      key: 'sales_amount_included_cny_customs',
-      width: 150,
+      title: 'CNY销售额(未税)',
+      dataIndex: 'sales_amount_excluded_cny',
+      key: 'sales_amount_excluded_cny',
+      width: 130,
       align: 'right' as const,
     },
     {
-      title: 'CNY销售额(海关,未税)',
-      dataIndex: 'sales_amount_excluded_cny_customs',
-      key: 'sales_amount_excluded_cny_customs',
-      width: 150,
+      title: 'CNY入库金额',
+      dataIndex: 'warehousing_amount_cny',
+      key: 'warehousing_amount_cny',
+      width: 120,
       align: 'right' as const,
     },
     {
-      title: '汇率差(含税)',
-      dataIndex: 'exchange_diff_included',
-      key: 'exchange_diff_included',
-      width: 110,
-      align: 'right' as const,
-    },
-    {
-      title: '汇率差(未税)',
-      dataIndex: 'exchange_diff_excluded',
-      key: 'exchange_diff_excluded',
-      width: 110,
+      title: 'CNY费用合计',
+      dataIndex: 'total_expense_cny',
+      key: 'total_expense_cny',
+      width: 120,
       align: 'right' as const,
     },
 
@@ -1006,12 +1024,10 @@ const moneyKeys = new Set([
   'dl_expense_total',
   'total_expense',
   'total_cost',
-  'sales_amount_included_cny_bank',
-  'sales_amount_excluded_cny_bank',
-  'sales_amount_included_cny_customs',
-  'sales_amount_excluded_cny_customs',
-  'exchange_diff_included',
-  'exchange_diff_excluded',
+  'sales_amount_included_cny',
+  'sales_amount_excluded_cny',
+  'warehousing_amount_cny',
+  'total_expense_cny',
   'commission_amount',
 ])
 
@@ -1064,12 +1080,10 @@ const totals = computed(() => {
       acc.total_expense += item.total_expense || 0
       acc.total_cost += item.total_cost || 0
       acc.gross_profit += item.gross_profit || 0
-      acc.sales_amount_included_cny_bank += item.sales_amount_included_cny_bank || 0
-      acc.sales_amount_excluded_cny_bank += item.sales_amount_excluded_cny_bank || 0
-      acc.sales_amount_included_cny_customs += item.sales_amount_included_cny_customs || 0
-      acc.sales_amount_excluded_cny_customs += item.sales_amount_excluded_cny_customs || 0
-      acc.exchange_diff_included += item.exchange_diff_included || 0
-      acc.exchange_diff_excluded += item.exchange_diff_excluded || 0
+      acc.sales_amount_included_cny += item.sales_amount_included_cny || 0
+      acc.sales_amount_excluded_cny += item.sales_amount_excluded_cny || 0
+      acc.warehousing_amount_cny += item.warehousing_amount_cny || 0
+      acc.total_expense_cny += item.total_expense_cny || 0
       acc.commission_amount += item.commission_amount || 0
       return acc
     },
@@ -1103,12 +1117,10 @@ const totals = computed(() => {
       total_expense: 0,
       total_cost: 0,
       gross_profit: 0,
-      sales_amount_included_cny_bank: 0,
-      sales_amount_excluded_cny_bank: 0,
-      sales_amount_included_cny_customs: 0,
-      sales_amount_excluded_cny_customs: 0,
-      exchange_diff_included: 0,
-      exchange_diff_excluded: 0,
+      sales_amount_included_cny: 0,
+      sales_amount_excluded_cny: 0,
+      warehousing_amount_cny: 0,
+      total_expense_cny: 0,
       commission_amount: 0,
     }
   )
@@ -1206,6 +1218,45 @@ const handleSaveSettlementDate = async (record: ProfitReportItem) => {
     const newEditing = { ...editingSettlementDates.value }
     delete newEditing[orderNumber]
     editingSettlementDates.value = newEditing
+  } catch (error: any) {
+    message.error(error?.message || '更新失败')
+  } finally {
+    const newSaving = new Set(savingRowKeys.value)
+    newSaving.delete(orderNumber)
+    savingRowKeys.value = newSaving
+  }
+}
+
+// 已结算金额编辑
+const onReceivedAmountChange = (orderNumber: string, value: number | null) => {
+  editingReceivedAmounts.value = { ...editingReceivedAmounts.value, [orderNumber]: String(value ?? 0) }
+}
+
+// 保存已结算金额
+const handleSaveReceivedAmount = async (record: ProfitReportItem) => {
+  const orderNumber = record.order_number
+  const newAmount = Number(editingReceivedAmounts.value[orderNumber])
+
+  if (isNaN(newAmount) || newAmount < 0) {
+    message.error('已结算金额必须为非负数')
+    return
+  }
+
+  savingRowKeys.value = new Set([...savingRowKeys.value, orderNumber])
+  try {
+    const res = await profitReportApi.updateReceivedAmount(orderNumber, newAmount)
+    message.success('已结算金额更新成功')
+    // 更新本地数据
+    record.received_amount = newAmount
+    // 自动更新结算状态和未结算金额
+    if (res.data) {
+      record.settlement_status = res.data.settlement_status || record.settlement_status
+      record.balance_amount = res.data.balance_amount ?? record.balance_amount
+    }
+    // 清除编辑状态
+    const newEditing = { ...editingReceivedAmounts.value }
+    delete newEditing[orderNumber]
+    editingReceivedAmounts.value = newEditing
   } catch (error: any) {
     message.error(error?.message || '更新失败')
   } finally {

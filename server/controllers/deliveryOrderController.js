@@ -328,7 +328,8 @@ export const updateDeliveryOrder = async (req, res) => {
       contact_phone,
       remarks,
       expenses,
-      tracking_number
+      tracking_number,
+      total_amount
     } = req.body
 
     const existing = await DeliveryOrder.findById(id)
