@@ -6,6 +6,8 @@ export interface ProfitReportParams {
   contractNumber?: string
   customerName?: string
   productCode?: string
+  settlementStartDate?: string
+  settlementEndDate?: string
   page?: number
   pageSize?: number
 }

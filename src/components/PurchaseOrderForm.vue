@@ -511,7 +511,7 @@ import type {
   Currency,
 } from '@/types'
 import { getActiveCurrencies } from '@/api/currencies'
-import { getCurrentRate } from '@/api/exchangeRates'
+import { getCurrentCustomsRate } from '@/api/customsExchangeRates'
 
 const userStore = useUserStore()
 
@@ -1062,15 +1062,15 @@ const fetchCurrentRate = async (currency: string) => {
         ? form.entry_date
         : dayjs(form.entry_date).format('YYYY-MM-DD'))
       : undefined
-    const res = await getCurrentRate(currency, 'CNY', entryDate)
+    const res = await getCurrentCustomsRate(currency, 'CNY', entryDate)
     if (res.data) {
       form.exchange_rate = Number(res.data.rate)
     } else {
       form.exchange_rate = undefined
-      message.warning('该日期所在月份尚未设置该币种的汇率，请先在汇率管理中维护')
+      message.warning('该日期所在月份尚未设置该币种的海关汇率，请先在海关汇率管理中维护')
     }
   } catch (error) {
-    console.error('获取汇率失败:', error)
+    console.error('获取海关汇率失败:', error)
     form.exchange_rate = undefined
   } finally {
     exchangeRateLoading.value = false

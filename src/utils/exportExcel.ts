@@ -55,17 +55,26 @@ export function exportToExcel({ filename, columns, data, sheetName = 'Sheet1' }:
   // 构建表头
   const headers = columns.map(col => col.title)
 
+  // 记录哪些列是金额列
+  const moneyColSet = new Set<number>()
+
   // 构建数据行
   const rows = data.map(record =>
-    columns.map(col => {
+    columns.map((col, colIndex) => {
       if (col.formatter) {
-        return col.formatter(record[col.key], record)
+        const formatted = col.formatter(record[col.key], record)
+        // formatter 返回数字时保持数字类型
+        if (typeof formatted === 'number') {
+          moneyColSet.add(colIndex)
+        }
+        return formatted
       }
       const val = record[col.key]
       if (val === null || val === undefined) return ''
-      // 自动格式化金额字段
+      // 金额字段保持数字类型
       if (typeof val === 'number' && isMoneyField(col.key)) {
-        return formatMoney(val)
+        moneyColSet.add(colIndex)
+        return val
       }
       return val
     })
@@ -74,6 +83,18 @@ export function exportToExcel({ filename, columns, data, sheetName = 'Sheet1' }:
   // 创建工作表
   const wsData = [headers, ...rows]
   const ws = XLSX.utils.aoa_to_sheet(wsData)
+
+  // 为金额列设置数字格式
+  for (let r = 1; r <= data.length; r++) {
+    for (const c of moneyColSet) {
+      const cellRef = XLSX.utils.encode_cell({ r, c })
+      const cell = ws[cellRef]
+      if (cell && typeof cell.v === 'number') {
+        cell.t = 'n'
+        cell.z = '#,##0.0000'
+      }
+    }
+  }
 
   // 自动设置列宽
   ws['!cols'] = columns.map((col, i) => {

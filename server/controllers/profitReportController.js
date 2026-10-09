@@ -172,7 +172,7 @@ export const updateReceivedAmount = async (req, res) => {
 
 export const getProfitReport = async (req, res) => {
   try {
-    const { startDate, endDate, contractNumber, customerName, productCode, page = 1, pageSize = 50 } = req.query
+    const { startDate, endDate, contractNumber, customerName, productCode, settlementStartDate, settlementEndDate, page = 1, pageSize = 50 } = req.query
 
     // 构建查询条件
     const conditions = []
@@ -202,11 +202,26 @@ export const getProfitReport = async (req, res) => {
       params.push(`%${customerName}%`)
     }
 
+    // 结算日期筛选（关联应收单）
+    const joinClause = (settlementStartDate || settlementEndDate)
+      ? 'INNER JOIN receivables r ON r.source_bill_id = do.order_number AND r.source_bill_type = 1'
+      : 'LEFT JOIN receivables r ON r.source_bill_id = do.order_number AND r.source_bill_type = 1'
+
+    if (settlementStartDate) {
+      conditions.push('r.due_date >= ?')
+      params.push(settlementStartDate)
+    }
+
+    if (settlementEndDate) {
+      conditions.push('r.due_date <= ?')
+      params.push(settlementEndDate)
+    }
+
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
 
     // 查询总数
     const [countResult] = await pool.query(
-      `SELECT COUNT(*) as total FROM delivery_orders do ${whereClause}`,
+      `SELECT COUNT(*) as total FROM delivery_orders do ${joinClause} ${whereClause}`,
       params
     )
     const total = countResult[0]?.total || 0
@@ -221,6 +236,7 @@ export const getProfitReport = async (req, res) => {
               do.customer_name, do.delivery_items, do.delivery_date, do.entry_date,
               do.total_amount, do.currency, do.exchange_rate, do.expenses, do.remarks
        FROM delivery_orders do
+       ${joinClause}
        ${whereClause}
        ORDER BY do.entry_date DESC, do.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -704,8 +720,9 @@ export const getProfitReport = async (req, res) => {
         warehousingExpensesTotal.customsFee +
         warehousingExpensesTotal.otherFee
 
-      // 每个商品生成一行
-      for (const item of filteredItems) {
+      // 每个商品生成一行（应收金额等订单级别字段只在第一行显示，避免汇总时重复累加）
+      for (let itemIndex = 0; itemIndex < filteredItems.length; itemIndex++) {
+        const item = filteredItems[itemIndex]
         const productCode = item.product_code || ''
         const quantity = parseFloat(item.quantity) || 0
         const taxIncludedPrice = parseFloat(item.tax_included_price) || 0
@@ -843,9 +860,9 @@ export const getProfitReport = async (req, res) => {
           unit_price_excluded: Math.round(unitPriceExcluded * 10000) / 10000,
           sales_amount_excluded: Math.round(amountExcluded * 100) / 100,
           tax_rate: taxRate,
-          // 结算信息
+          // 结算信息（应收金额按每行销售额显示，避免汇总时重复累加）
           settlement_status: settlementStatusText,
-          receivable_amount: Math.round(receivableAmount * 100) / 100,
+          receivable_amount: Math.round(amount * 100) / 100,
           received_amount: Math.round(receivedAmount * 100) / 100,
           balance_amount: Math.round(balanceAmount * 100) / 100,
           last_write_off_date: formatDateStr(lastWriteOffDate),

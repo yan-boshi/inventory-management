@@ -41,11 +41,11 @@ export const deleteCustomsExchangeRate = (id: string) => {
   return instance.delete<{ success: boolean; message: string }>(`/customs-exchange-rates/${id}`)
 }
 
-// 查询当前月的海关汇率（给订单表单自动填充用）
-export const getCurrentCustomsRate = (source_currency: string, target_currency: string) => {
+// 查询指定日期所在月的海关汇率（给订单表单自动填充用）
+export const getCurrentCustomsRate = (source_currency: string, target_currency: string, date?: string) => {
   return instance.get<{ success: boolean; data: CustomsExchangeRate | null; message?: string }>(
     '/customs-exchange-rates/current',
-    { params: { source_currency, target_currency } }
+    { params: { source_currency, target_currency, date } }
   )
 }
 

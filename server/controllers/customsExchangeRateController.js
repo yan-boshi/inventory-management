@@ -185,10 +185,10 @@ export const deleteCustomsExchangeRate = async (req, res) => {
   }
 }
 
-// 查询指定币种对当前月的海关汇率（给订单表单用）
+// 查询指定币种对的海关汇率（给订单表单用，支持按日期查找当月汇率）
 export const getCurrentCustomsRate = async (req, res) => {
   try {
-    const { source_currency, target_currency } = req.query
+    const { source_currency, target_currency, date } = req.query
 
     if (!source_currency || !target_currency) {
       return res.status(400).json({ success: false, message: '源币种和目标币种不能为空' })
@@ -199,8 +199,9 @@ export const getCurrentCustomsRate = async (req, res) => {
       return res.json({ success: true, data: { rate: 1.0 } })
     }
 
-    const today = new Date()
-    const firstDay = getFirstDayOfMonth(today)
+    // 使用传入的日期或当前日期，取当月第一天
+    const targetDate = date ? new Date(date) : new Date()
+    const firstDay = getFirstDayOfMonth(targetDate)
 
     // 精确匹配 source->target 方向
     const rate = await CustomsExchangeRate.findRate(source_currency, target_currency, firstDay)
@@ -208,7 +209,7 @@ export const getCurrentCustomsRate = async (req, res) => {
       return res.json({ success: true, data: rate })
     }
 
-    res.json({ success: true, data: null, message: '本月尚未设置该币种对的海关汇率' })
+    res.json({ success: true, data: null, message: '该日期所在月份尚未设置该币种对的海关汇率' })
   } catch (error) {
     const { statusCode, message } = handleDbError(error, '操作海关汇率')
     res.status(statusCode).json({ success: false, message })

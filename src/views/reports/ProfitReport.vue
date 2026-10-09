@@ -43,6 +43,15 @@
             />
           </a-form-item>
 
+          <a-form-item label="结算日期">
+            <a-range-picker
+              v-model:value="settlementDateRange"
+              format="YYYY-MM-DD"
+              :placeholder="['开始日期', '结束日期']"
+              style="width: 240px"
+            />
+          </a-form-item>
+
           <a-form-item>
             <a-space>
               <a-button type="primary" @click="handleSearch" :loading="loading">
@@ -401,6 +410,7 @@ const exportLoading = ref(false)
 const reportData = ref<ProfitReportItem[]>([])
 const filteredReportData = ref<ProfitReportItem[]>([])
 const dateRange = ref<[Dayjs, Dayjs] | null>(null)
+const settlementDateRange = ref<[Dayjs, Dayjs] | null>(null)
 
 const searchParams = reactive<ProfitReportParams>({
   startDate: undefined,
@@ -1144,6 +1154,11 @@ const fetchReport = async () => {
       params.endDate = dateRange.value[1].format('YYYY-MM-DD')
     }
 
+    if (settlementDateRange.value && settlementDateRange.value[0] && settlementDateRange.value[1]) {
+      params.settlementStartDate = settlementDateRange.value[0].format('YYYY-MM-DD')
+      params.settlementEndDate = settlementDateRange.value[1].format('YYYY-MM-DD')
+    }
+
     const res = await profitReportApi.getReport(params)
     reportData.value = (res.data || []).map((item, index) => ({
       ...item,
@@ -1167,11 +1182,14 @@ const handleSearch = () => {
 
 const handleReset = () => {
   dateRange.value = null
+  settlementDateRange.value = null
   searchParams.startDate = undefined
   searchParams.endDate = undefined
   searchParams.contractNumber = undefined
   searchParams.customerName = undefined
   searchParams.productCode = undefined
+  searchParams.settlementStartDate = undefined
+  searchParams.settlementEndDate = undefined
   pagination.current = 1
   fetchReport()
 }
@@ -1277,6 +1295,10 @@ const handleExport = async () => {
     if (dateRange.value && dateRange.value[0] && dateRange.value[1]) {
       params.startDate = dateRange.value[0].format('YYYY-MM-DD')
       params.endDate = dateRange.value[1].format('YYYY-MM-DD')
+    }
+    if (settlementDateRange.value && settlementDateRange.value[0] && settlementDateRange.value[1]) {
+      params.settlementStartDate = settlementDateRange.value[0].format('YYYY-MM-DD')
+      params.settlementEndDate = settlementDateRange.value[1].format('YYYY-MM-DD')
     }
     // 获取所有数据（不分页）
     params.page = 1

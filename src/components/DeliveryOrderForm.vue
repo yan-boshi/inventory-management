@@ -361,7 +361,7 @@ import { useUserStore } from '@/stores/user'
 import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
 import { Modal } from 'ant-design-vue'
 import { getActiveCurrencies } from '@/api/currencies'
-import { getCurrentRate } from '@/api/exchangeRates'
+import { getCurrentCustomsRate } from '@/api/customsExchangeRates'
 
 dayjs.locale('zh-cn')
 
@@ -979,7 +979,7 @@ const loadCurrencies = async () => {
   }
 }
 
-// 获取当前周汇率
+// 获取当前月海关汇率
 const fetchCurrentRate = async (currency: string) => {
   if (currency === 'CNY') {
     formData.exchange_rate = 1.0
@@ -987,21 +987,21 @@ const fetchCurrentRate = async (currency: string) => {
   }
   exchangeRateLoading.value = true
   try {
-    // 传入单据日期，跨月时只匹配当月的汇率
+    // 传入单据日期，跨月时只匹配当月的海关汇率
     const entryDate = formData.entry_date
       ? (typeof formData.entry_date === 'string'
         ? formData.entry_date
         : dayjs(formData.entry_date).format('YYYY-MM-DD'))
       : undefined
-    const res = await getCurrentRate(currency, 'CNY', entryDate)
+    const res = await getCurrentCustomsRate(currency, 'CNY', entryDate)
     if (res.data) {
       formData.exchange_rate = Number(res.data.rate)
     } else {
       formData.exchange_rate = undefined
-      message.warning('该日期所在月份尚未设置该币种的汇率，请先在汇率管理中维护')
+      message.warning('该日期所在月份尚未设置该币种的海关汇率，请先在海关汇率管理中维护')
     }
   } catch (error) {
-    console.error('获取汇率失败:', error)
+    console.error('获取海关汇率失败:', error)
     formData.exchange_rate = undefined
   } finally {
     exchangeRateLoading.value = false
