@@ -317,6 +317,30 @@ export const getProfitReport = async (req, res) => {
       }
     }
 
+    // ============ 2.5 批量查询无销售订单关联的采购订单（兜底币种） ============
+    const unmatchedContractNumbers = [...new Set(
+      deliveryOrders
+        .map(o => o.contract_number)
+        .filter(cn => cn && !salesOrderMap[cn])
+    )]
+
+    let fallbackPOMap = {} // sales_contract_number -> { currency }
+    if (unmatchedContractNumbers.length > 0) {
+      // 出库单的 contract_number 就是销售合同编号，需要通过它找到关联的采购订单
+      const [fallbackPOs] = await pool.query(
+        `SELECT po.currency, so.contract_number AS sales_contract_number
+         FROM purchase_orders po
+         JOIN sales_orders so ON so.sales_order_id = po.related_sales_order_id
+         WHERE so.contract_number IN (?)`,
+        [unmatchedContractNumbers]
+      )
+      for (const po of fallbackPOs) {
+        if (po.sales_contract_number && !fallbackPOMap[po.sales_contract_number]) {
+          fallbackPOMap[po.sales_contract_number] = po
+        }
+      }
+    }
+
     // ============ 3. 批量查询入库单 ============
     const purchaseContractNumbers = [...new Set(
       Object.values(purchaseOrderMap).flat().map(po => po.contract_number).filter(Boolean)
@@ -520,6 +544,13 @@ export const getProfitReport = async (req, res) => {
         if (po.currency && po.currency !== 'CNY') {
           purchaseCurrency = po.currency
           break
+        }
+      }
+      // 兜底：当通过销售订单找不到采购订单时，通过预查询的 fallbackPOMap 获取币种
+      if (purchaseOrders.length === 0 && order.contract_number && fallbackPOMap[order.contract_number]) {
+        const fbCurrency = fallbackPOMap[order.contract_number].currency
+        if (fbCurrency && fbCurrency !== 'CNY') {
+          purchaseCurrency = fbCurrency
         }
       }
 
