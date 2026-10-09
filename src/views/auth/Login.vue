@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-card">
       <h1 class="title">旭思达ERP系统</h1>
-      <p class="version">beta 1.0.1</p>
+      <p class="version">beta 1.0.2</p>
       <a-form :model="formData" :rules="rules" class="login-form" @finish="handleLogin">
         <a-form-item name="username">
           <a-input v-model:value="formData.username" placeholder="请输入用户名" size="large">

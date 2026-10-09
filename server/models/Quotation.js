@@ -58,7 +58,7 @@ class Quotation extends BaseModel {
       status: 1,
       validity_period: data.validity_period || '自报价之日起10个工作日',
       delivery_method: data.delivery_method || '送货上门',
-      tax_rate: data.tax_rate || 13,
+      tax_rate: data.tax_rate ?? 13,
       tax_included_amount: parseFloat(taxIncludedAmount.toFixed(2)) || 0,
       currency: data.currency || 'CNY',
       payment_terms: data.payment_terms || null,

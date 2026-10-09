@@ -105,7 +105,7 @@ export const createQuotation = async (req, res) => {
       quotation_items,
       validity_period,
       delivery_method,
-      tax_rate: parseFloat(tax_rate) || 13,
+      tax_rate: parseFloat(tax_rate) ?? 13,
       currency,
       payment_terms,
       trade_terms,

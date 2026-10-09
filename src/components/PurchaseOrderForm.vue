@@ -853,7 +853,7 @@ const handleSalesOrderChange = (value: string | undefined) => {
       unit: item.unit || '',
       quantity: item.quantity || 1,
       inbound_quantity: 0,
-      tax_rate: item.tax_rate || 13,
+      tax_rate: item.tax_rate ?? 13,
       tax_included_price: item.tax_included_price || 0,
       tax_excluded_price: 0,
       tax_included_amount: 0,

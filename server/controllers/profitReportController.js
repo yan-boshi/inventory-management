@@ -676,7 +676,19 @@ export const getProfitReport = async (req, res) => {
               warehousingItemMap[mapKey] = { quantity: 0, total_price: 0, tax_included_price: 0 }
             }
             const wiTotalQty = parseFloat(wi.quantity) || 0
-            const wiPrice = parseFloat(wi.tax_included_price) || 0
+            let wiPrice = parseFloat(wi.tax_included_price) || 0
+
+            // 含税单价为空时，通过产品表的未税单价和税率反算含税单价
+            if (wiPrice === 0 && code) {
+              const product = productMap[code]
+              if (product) {
+                const whTaxRate = parseFloat(wi.tax_rate) || 0
+                const excludedPrice = parseFloat(product.tax_excluded_price) || 0
+                if (excludedPrice > 0) {
+                  wiPrice = excludedPrice * (1 + whTaxRate / 100)
+                }
+              }
+            }
 
             // 按顺序分配入库数量
             const allocatedQty = getAllocatedQty(po, code, wiTotalQty)
@@ -727,7 +739,7 @@ export const getProfitReport = async (req, res) => {
         const quantity = parseFloat(item.quantity) || 0
         const taxIncludedPrice = parseFloat(item.tax_included_price) || 0
         const amount = parseFloat(item.amount) || (quantity * taxIncludedPrice)
-        const taxRate = parseFloat(item.tax_rate) || 13
+        const taxRate = parseFloat(item.tax_rate) ?? 13
         const unitPriceExcluded = taxIncludedPrice / (1 + taxRate / 100)
         const amountExcluded = quantity * unitPriceExcluded
 
