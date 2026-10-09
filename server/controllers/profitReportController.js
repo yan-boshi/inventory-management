@@ -704,26 +704,30 @@ export const getProfitReport = async (req, res) => {
         // 统一分配比例：按顺序分配后的数量 / 总入库数量
         const expenseRatio = poTotalQty > 0 ? poTotalAllocated / poTotalQty : 1
 
-        // 入库费用按统一比例分摊
-        for (const woExpenses of woExpensesList) {
-          warehousingExpensesTotal.tariff += (parseFloat(woExpenses.tariff) || 0) * expenseRatio
-          warehousingExpensesTotal.transportationFee += (parseFloat(woExpenses.transportationFee) || 0) * expenseRatio
-          warehousingExpensesTotal.customsFee += (parseFloat(woExpenses.customsFee) || 0) * expenseRatio
-          warehousingExpensesTotal.otherFee += (parseFloat(woExpenses.otherFee) || 0) * expenseRatio
+        // 入库费用按统一比例分摊（当没有任何数量分配给当前SO时跳过，避免费用被清零）
+        if (expenseRatio > 0) {
+          for (const woExpenses of woExpensesList) {
+            warehousingExpensesTotal.tariff += (parseFloat(woExpenses.tariff) || 0) * expenseRatio
+            warehousingExpensesTotal.transportationFee += (parseFloat(woExpenses.transportationFee) || 0) * expenseRatio
+            warehousingExpensesTotal.customsFee += (parseFloat(woExpenses.customsFee) || 0) * expenseRatio
+            warehousingExpensesTotal.otherFee += (parseFloat(woExpenses.otherFee) || 0) * expenseRatio
+          }
         }
 
-        // 采购费用按统一比例分摊
-        let poExpenses = {}
-        try {
-          poExpenses = JSON.parse(po.expenses || '{}')
-        } catch (e) {
-          poExpenses = {}
+        // 采购费用按统一比例分摊（当没有任何数量分配给当前SO时跳过）
+        if (expenseRatio > 0) {
+          let poExpenses = {}
+          try {
+            poExpenses = JSON.parse(po.expenses || '{}')
+          } catch (e) {
+            poExpenses = {}
+          }
+          poTransportationFee += (parseFloat(poExpenses.transportationFee) || 0) * expenseRatio
+          poOperatingExpenses += (parseFloat(poExpenses.operatingExpenses) || 0) * expenseRatio
+          poValueAddedTax += (parseFloat(poExpenses.valueAddedTax) || 0) * expenseRatio
+          poHandlingFee += (parseFloat(poExpenses.handlingFee) || 0) * expenseRatio
+          poOtherFee += (parseFloat(poExpenses.otherFee) || 0) * expenseRatio
         }
-        poTransportationFee += (parseFloat(poExpenses.transportationFee) || 0) * expenseRatio
-        poOperatingExpenses += (parseFloat(poExpenses.operatingExpenses) || 0) * expenseRatio
-        poValueAddedTax += (parseFloat(poExpenses.valueAddedTax) || 0) * expenseRatio
-        poHandlingFee += (parseFloat(poExpenses.handlingFee) || 0) * expenseRatio
-        poOtherFee += (parseFloat(poExpenses.otherFee) || 0) * expenseRatio
       }
       purchaseExpenseTotal = poTransportationFee + poOperatingExpenses + poValueAddedTax + poHandlingFee + poOtherFee
 
