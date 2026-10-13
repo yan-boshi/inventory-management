@@ -13,7 +13,7 @@
       <div class="page-header">
         <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
         <p class="company-address">深圳市龙岗区坂田街道南坑社区五和大道（南）42号景丰大厦602</p>
-        <h2 class="document-title">出库单</h2>
+        <h2 class="document-title">出库单打印</h2>
       </div>
 
       <!-- 客户信息 -->
@@ -40,9 +40,7 @@
             </div>
             <div class="row">
               <span class="label">出库时间：</span>
-              <span class="value">{{
-                formatDate(formData.deliveryTime)
-              }}</span>
+              <span class="value">{{ formatDate(formData.deliveryTime) }}</span>
             </div>
           </div>
         </div>

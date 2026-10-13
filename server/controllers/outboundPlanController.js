@@ -215,6 +215,8 @@ export const generateFromSalesOrder = async (salesOrder) => {
       model: item.model || '',
       description: item.description || '',
       quantity: item.quantity || 0,
+      // 记录从销售订单生成出库计划时的销售数量
+      sales_quantity: item.quantity || 0,
       unit: item.unit || '',
       tax_included_price: item.tax_included_price || 0,
       tax_rate: item.tax_rate || 0,

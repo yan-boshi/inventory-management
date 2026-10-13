@@ -376,7 +376,7 @@ dayjs.locale('zh-cn')
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
-  success: []
+  success: [data?: CreateWarehousingOrderRequest]
   print: [data: any]
 }>()
 
@@ -665,12 +665,12 @@ const handleSubmit = async () => {
     if (props.isEdit && props.warehousingOrderData?.warehousing_order_id) {
       await warehousingOrdersApi.update(props.warehousingOrderData.warehousing_order_id, submitData)
       message.success('入库单更新成功')
-      emit('success')
+      emit('success', submitData)
     } else {
       await warehousingOrdersApi.create(submitData)
       message.success('入库单创建成功')
       clearDraft(DRAFT_KEY)
-      emit('success')
+      emit('success', submitData)
     }
 
     emit('update:visible', false)

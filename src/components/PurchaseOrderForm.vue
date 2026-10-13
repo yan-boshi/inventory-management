@@ -528,7 +528,7 @@ dayjs.locale('zh-cn')
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
-  success: []
+  success: [data?: CreatePurchaseOrderRequest]
 }>()
 
 // ==================== 可拖拽列宽 ====================
@@ -1011,7 +1011,7 @@ const handleSubmit = async () => {
       clearDraft(DRAFT_KEY)
     }
 
-    emit('success')
+    emit('success', submitData)
     emit('update:visible', false)
   } catch (error: any) {
     message.error(error?.message || t.value.common.error)

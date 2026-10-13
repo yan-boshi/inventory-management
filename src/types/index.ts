@@ -557,6 +557,7 @@ export interface PurchasePlanItem {
   model?: string
   description?: string
   quantity: number
+  sales_quantity?: number
   unit?: string
   delivery_date?: string
   remarks?: string
@@ -587,7 +588,7 @@ export interface PurchasePlanQueryParams {
   contractNumber?: string
   customerName?: string
   salesPerson?: string
-  status?: string
+  status?: string[]
   startDate?: string
   endDate?: string
 }
@@ -600,6 +601,7 @@ export interface InboundPlanItem {
   model?: string
   description?: string
   quantity: number
+  purchase_quantity?: number
   unit?: string
   tax_included_price?: number
   tax_rate?: number
@@ -632,7 +634,6 @@ export interface InboundPlanQueryParams {
   contractNumber?: string
   supplierName?: string
   purchasePerson?: string
-  status?: string
   statusList?: string[]
   startDate?: string
   endDate?: string
@@ -646,6 +647,7 @@ export interface OutboundPlanItem {
   model?: string
   description?: string
   quantity: number
+  sales_quantity?: number
   unit?: string
   tax_included_price?: number
   tax_rate?: number
@@ -678,7 +680,6 @@ export interface OutboundPlanQueryParams {
   contractNumber?: string
   customerName?: string
   salesPerson?: string
-  status?: string
   statusList?: string[]
   startDate?: string
   endDate?: string

@@ -34,9 +34,11 @@
           <a-form-item label="状态">
             <a-select
               v-model:value="searchParams.status"
+              mode="multiple"
               placeholder="请选择状态"
               allow-clear
-              style="width: 120px"
+              :max-tag-count="2"
+              style="width: 220px"
             >
               <a-select-option value="pending">未采购</a-select-option>
               <a-select-option value="partial">部分采购</a-select-option>
@@ -87,6 +89,11 @@
 
           <template v-else-if="column.key === 'customer_name'">
             <span>{{ record.customer_name || '-' }}</span>
+          </template>
+
+          <!-- 销售数量：仅当关联销售订单有值时才显示 -->
+          <template v-else-if="column.key === 'sales_quantity'">
+            <span>{{ record.sales_order_id ? (record.sales_quantity ?? '-') : '' }}</span>
           </template>
 
           <template v-else-if="column.key === 'status'">
@@ -156,11 +163,15 @@ const dateRange = ref<[any, any] | undefined>(undefined)
 const selectedRowKeys = ref<string[]>([])
 
 // 行选择配置（每行独立选中）
+// 已采购/已取消的计划行不允许选中，也就无法生成采购订单
 const rowSelection = computed(() => ({
   selectedRowKeys: selectedRowKeys.value,
   onChange: (keys: string[]) => {
     selectedRowKeys.value = keys
   },
+  getCheckboxProps: (record: any) => ({
+    disabled: record.status === 'purchased' || record.status === 'cancelled',
+  }),
 }))
 
 // 展开计划数据，每个明细项一行
@@ -183,6 +194,7 @@ const expandedPlans = computed(() => {
         product_name: '-',
         model: '-',
         description: '-',
+        sales_quantity: '-',
         quantity: '-',
         unit: '-',
         delivery_date: '',
@@ -201,6 +213,7 @@ const expandedPlans = computed(() => {
           product_name: item.product_name || '-',
           model: item.model || '-',
           description: item.description || '-',
+          sales_quantity: item.sales_quantity ?? '-',
           quantity: item.quantity || '-',
           unit: item.unit || '-',
           delivery_date: item.delivery_date || '',
@@ -222,7 +235,7 @@ const searchParams = reactive<PurchasePlanQueryParams>({
   planNumber: '',
   contractNumber: '',
   customerName: '',
-  status: 'pending',
+  status: ['pending', 'partial'],
   startDate: '',
   endDate: '',
 })
@@ -351,10 +364,18 @@ const allColumns = ref([
     filterMultiple: true,
   },
   {
-    title: '数量',
+    title: '销售数量',
+    dataIndex: 'sales_quantity',
+    key: 'sales_quantity',
+    width: 90,
+    align: 'right',
+    sorter: (a: any, b: any) => (Number(a.sales_quantity) || 0) - (Number(b.sales_quantity) || 0),
+  },
+  {
+    title: '待采购数量',
     dataIndex: 'quantity',
     key: 'quantity',
-    width: 80,
+    width: 100,
     align: 'right',
     sorter: (a: any, b: any) => (Number(a.quantity) || 0) - (Number(b.quantity) || 0),
   },
@@ -463,7 +484,7 @@ const loadPlans = async () => {
     if (searchParams.planNumber) params.planNumber = searchParams.planNumber
     if (searchParams.contractNumber) params.contractNumber = searchParams.contractNumber
     if (searchParams.customerName) params.customerName = searchParams.customerName
-    if (searchParams.status) params.status = searchParams.status
+    if (searchParams.status && searchParams.status.length > 0) params.status = searchParams.status.join(',')
     if (searchParams.startDate) params.startDate = searchParams.startDate
     if (searchParams.endDate) params.endDate = searchParams.endDate
 
@@ -492,7 +513,7 @@ const handleReset = () => {
   searchParams.planNumber = ''
   searchParams.contractNumber = ''
   searchParams.customerName = ''
-  searchParams.status = undefined
+  searchParams.status = ['pending', 'partial']
   searchParams.startDate = ''
   searchParams.endDate = ''
   dateRange.value = undefined
@@ -524,9 +545,14 @@ const handleGeneratePurchaseOrder = () => {
     return
   }
 
-  // 直接从 expandedPlans 中取选中的行
+  // 直接从 expandedPlans 中取选中的行（已采购/已取消的行不允许生成采购订单）
   const selectedKeySet = new Set(selectedRowKeys.value)
-  const selectedRows = expandedPlans.value.filter((r: any) => selectedKeySet.has(r.row_key))
+  const selectedRows = expandedPlans.value.filter(
+    (r: any) =>
+      selectedKeySet.has(r.row_key) &&
+      r.status !== 'purchased' &&
+      r.status !== 'cancelled'
+  )
 
   if (selectedRows.length === 0) {
     message.warning('请先选择要生成采购订单的商品行')
@@ -609,26 +635,85 @@ const handleGeneratePurchaseOrder = () => {
   purchaseOrderFormVisible.value = true
 }
 
-const handlePurchaseOrderSuccess = async () => {
+const handlePurchaseOrderSuccess = async (orderData?: any) => {
   purchaseOrderFormVisible.value = false
   purchaseOrderPrefill.value = undefined
 
-  // 更新所有选中计划的状态为已采购
-  const selectedPlanIds = [...new Set(selectedRowKeys.value.map(key => String(key).split('_')[0]))]
-  if (selectedPlanIds.length > 0) {
+  // 采购订单实际采购数量（按商品代码汇总，表单中数量可能被修改过）
+  const orderedQtyMap = new Map<string, number>()
+  const poItems: any[] = orderData?.purchase_items || []
+  poItems.forEach((item: any) => {
+    const code = item.product_code || ''
+    orderedQtyMap.set(code, (orderedQtyMap.get(code) || 0) + (Number(item.quantity) || 0))
+  })
+
+  // 按选中行扣减待采购数量（同一商品按行顺序分配采购数量）
+  const selectedKeySet = new Set(selectedRowKeys.value)
+  const selectedRows = expandedPlans.value.filter((r: any) => selectedKeySet.has(r.row_key))
+
+  // planId -> Map<明细下标, 扣减后剩余数量>
+  const planItemUpdates = new Map<string, Map<number, number>>()
+  selectedRows.forEach((row: any) => {
+    const [planId, itemIndexStr] = String(row.row_key || '').split('_')
+    const itemIndex = Number(itemIndexStr)
+    if (!planId || isNaN(itemIndex)) return
+
+    const code = row.product_code || ''
+    const pendingQty = Number(row.quantity) || 0
+    const orderedLeft = orderedQtyMap.get(code) || 0
+    const deduct = Math.min(pendingQty, orderedLeft)
+    if (deduct > 0) {
+      orderedQtyMap.set(code, orderedLeft - deduct)
+      if (!planItemUpdates.has(planId)) planItemUpdates.set(planId, new Map())
+      planItemUpdates.get(planId)!.set(itemIndex, pendingQty - deduct)
+    }
+  })
+
+  // 更新采购计划明细的待采购数量，并根据剩余数量推导计划状态
+  if (planItemUpdates.size > 0) {
     let successCount = 0
     let failCount = 0
-    for (const planId of selectedPlanIds) {
+    let partialCount = 0
+    let purchasedCount = 0
+
+    for (const [planId, itemQtyMap] of planItemUpdates) {
+      const plan = plans.value.find(p => p.purchase_plan_id === planId)
+      if (!plan) continue
+
+      let items: any[] = []
       try {
-        await purchasePlansApi.update(planId, { status: 'purchased' })
+        items = typeof plan.plan_items === 'string' ? JSON.parse(plan.plan_items) : plan.plan_items || []
+      } catch {
+        items = []
+      }
+
+      const newItems = items.map((item: any, index: number) => {
+        const originalQty = Number(item.quantity) || 0
+        const newQty = itemQtyMap.has(index) ? itemQtyMap.get(index)! : originalQty
+        return {
+          ...item,
+          quantity: newQty,
+          purchase_status: newQty <= 0 ? 'purchased' : newQty < originalQty ? 'partial' : (item.purchase_status || 'pending'),
+        }
+      })
+
+      // 全部明细待采购数量为0 → 已采购；有采购但未完成 → 部分采购
+      const allPurchased = newItems.length > 0 && newItems.every((it: any) => (Number(it.quantity) || 0) <= 0)
+      const newStatus = allPurchased ? 'purchased' : 'partial'
+
+      try {
+        await purchasePlansApi.update(planId, { status: newStatus, plan_items: newItems })
         successCount++
+        if (allPurchased) purchasedCount++
+        else partialCount++
       } catch (error) {
         console.error(`更新采购计划 ${planId} 状态失败:`, error)
         failCount++
       }
     }
+
     if (failCount === 0) {
-      message.success(`采购订单创建成功，${successCount}个采购计划状态已更新为已采购`)
+      message.success(`采购订单创建成功，${purchasedCount}个采购计划已采购，${partialCount}个部分采购`)
     } else {
       message.warning(`采购订单创建成功，${successCount}个计划更新成功，${failCount}个更新失败`)
     }
@@ -670,7 +755,8 @@ const exportColumns: ExportColumn[] = [
   { key: 'product_name', title: '产品名称' },
   { key: 'model', title: '产品型号' },
   { key: 'description', title: '产品描述' },
-  { key: 'quantity', title: '数量' },
+  { key: 'sales_quantity', title: '销售数量' },
+  { key: 'quantity', title: '待采购数量' },
   { key: 'unit', title: '单位' },
   { key: 'delivery_date', title: '交货日期', formatter: (v) => formatDate(v) },
   { key: 'currency', title: '币种' },
@@ -686,7 +772,7 @@ const handleExport = async () => {
     if (searchParams.planNumber) params.planNumber = searchParams.planNumber
     if (searchParams.contractNumber) params.contractNumber = searchParams.contractNumber
     if (searchParams.customerName) params.customerName = searchParams.customerName
-    if (searchParams.status) params.status = searchParams.status
+    if (searchParams.status && searchParams.status.length > 0) params.status = searchParams.status.join(',')
     if (searchParams.startDate) params.startDate = searchParams.startDate
     if (searchParams.endDate) params.endDate = searchParams.endDate
 
@@ -706,7 +792,7 @@ const handleExport = async () => {
         rows.push({
           ...plan,
           product_code: '-', product_name: '-', model: '-', description: '-',
-          quantity: '-', unit: '-', delivery_date: '',
+          sales_quantity: '-', quantity: '-', unit: '-', delivery_date: '',
           item_remarks: '',
         })
       } else {
@@ -717,6 +803,7 @@ const handleExport = async () => {
             product_name: item.product_name || '-',
             model: item.model || '-',
             description: item.description || '-',
+            sales_quantity: plan.sales_order_id ? (item.sales_quantity ?? '-') : '',
             quantity: item.quantity || '-',
             unit: item.unit || '-',
             delivery_date: item.delivery_date || '',

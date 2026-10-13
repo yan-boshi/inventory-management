@@ -10,7 +10,7 @@
     <div v-if="order" class="print-container">
       <div class="print-header">
         <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
-        <h2 class="order-title">入库单</h2>
+        <h2 class="order-title">入库单打印</h2>
       </div>
 
       <div class="print-info">

@@ -39,8 +39,17 @@ export const getAllPurchasePlans = async (req, res) => {
     }
 
     if (status) {
-      where.push('status = ?')
-      params.push(status)
+      // 支持多状态查询：数组或逗号分隔字符串
+      const statusList = (Array.isArray(status) ? status : String(status).split(','))
+        .map(s => String(s).trim())
+        .filter(Boolean)
+      if (statusList.length === 1) {
+        where.push('status = ?')
+        params.push(statusList[0])
+      } else if (statusList.length > 1) {
+        where.push(`status IN (${statusList.map(() => '?').join(',')})`)
+        params.push(...statusList)
+      }
     }
 
     if (startDate && endDate) {
@@ -208,6 +217,8 @@ export const generateFromSalesOrder = async (salesOrder) => {
       model: item.model || '',
       description: item.description || '',
       quantity: item.quantity || 0,
+      // 记录从销售订单生成采购计划时的销售数量
+      sales_quantity: item.quantity || 0,
       unit: item.unit || '',
       delivery_date: item.delivery_date || '',
       remarks: item.remarks || '',

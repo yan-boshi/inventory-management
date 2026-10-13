@@ -215,6 +215,8 @@ export const generateFromPurchaseOrder = async (purchaseOrder) => {
       model: item.model || '',
       description: item.description || '',
       quantity: item.quantity || 0,
+      // 记录从采购订单生成入库计划时的采购数量
+      purchase_quantity: item.quantity || 0,
       unit: item.unit || '',
       tax_included_price: item.tax_included_price || 0,
       tax_rate: item.tax_rate || 0,

@@ -376,7 +376,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
-  (e: 'success'): void
+  (e: 'success', data?: CreateDeliveryOrderRequest): void
   (e: 'print', data: any): void
 }>()
 
@@ -788,7 +788,7 @@ const handleSave = async () => {
       clearDraft(DRAFT_KEY)
     }
 
-    emit('success')
+    emit('success', submitData)
     emit('update:open', false)
   } catch (error: any) {
     console.log('error', error)
