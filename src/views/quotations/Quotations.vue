@@ -77,7 +77,7 @@
 
           <template v-else-if="column.key === 'tax_included_amount'">
             <span style="color: #f5222d; font-weight: 500">
-              {{ record.tax_included_amount }}
+              {{ formatMoney4(record.tax_included_amount) }}
             </span>
           </template>
 
@@ -151,6 +151,7 @@ import { message, Modal } from 'ant-design-vue'
 import { PlusOutlined, SearchOutlined, ReloadOutlined, DownOutlined } from '@ant-design/icons-vue'
 import { quotationsApi } from '@/api/quotations'
 import { customersApi } from '@/api/customers'
+import { formatMoney4 } from '@/utils/money'
 import type { Quotation, QuotationQueryParams } from '@/types'
 import QuotationForm from '@/components/QuotationForm.vue'
 import QuotationPrint from '@/components/QuotationPrint.vue'

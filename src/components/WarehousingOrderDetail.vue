@@ -35,7 +35,7 @@
           </div>
           <div class="detail-item">
             <label class="detail-label">总计：</label>
-            <span class="detail-value amount">{{ order.total_amount }}</span>
+            <span class="detail-value amount">{{ formatCurrency(order.total_amount) }}</span>
           </div>
           <div class="detail-item">
             <label class="detail-label">币种：</label>
@@ -61,7 +61,7 @@
             :key="item.key"
             color="blue"
           >
-            {{ item.label }}: {{ item.value.toFixed(2) }}
+            {{ item.label }}: {{ formatMoney4(item.value) }}
           </a-tag>
         </div>
       </div>
@@ -96,6 +96,7 @@ import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { getValidExpenses } from '@/utils/expense'
+import { formatMoney4 } from '@/utils/money'
 
 dayjs.locale('zh-cn')
 
@@ -125,7 +126,7 @@ const formatDateTime = (dateString: string) => {
 }
 
 const formatCurrency = (value: number) => {
-  return value ? value.toFixed(2) : '0.00'
+  return formatMoney4(value, '0.00')
 }
 
 const getParsedWarehousingItems = () => {

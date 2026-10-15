@@ -18,7 +18,7 @@
           <div class="form-item">
             <label class="form-label">销售合同编号：</label>
             <a-select
-              v-model:value="formData.contract_number"
+              v-model:value="selectedSalesOrderId"
               placeholder="选择销售合同"
               :loading="loading.salesOrders"
               show-search
@@ -28,12 +28,13 @@
               allowClear
               style="width: 100%"
             >
+              <!-- 按 sales_order_id 绑定：同一合同编号可能对应多张销售订单，用订单号区分 -->
               <a-select-option
                 v-for="order in salesOrderOptions"
-                :key="order.contract_number"
-                :value="order.contract_number"
+                :key="order.sales_order_id"
+                :value="order.sales_order_id"
               >
-                {{ order.contract_number || order.order_number }}
+                {{ order.contract_number ? `${order.contract_number}（${order.order_number}）` : order.order_number }}
               </a-select-option>
             </a-select>
           </div>
@@ -159,7 +160,7 @@
               <a-input-number
                 v-model:value="record.tax_included_price"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 style="width: 100%"
                 @change="() => calculateTotal()"
               />
@@ -174,7 +175,7 @@
               />
             </template>
             <template v-else-if="column.key === 'amount'">
-              {{ (record.quantity * (record.tax_included_price || 0)).toFixed(2) }}
+              {{ formatMoney4(record.quantity * (record.tax_included_price || 0)) }}
             </template>
             <template v-else-if="column.key === 'remarks'">
               <a-input v-model:value="record.remarks" placeholder="备注" style="width: 100%" />
@@ -207,7 +208,7 @@
             <a-input-number
               v-model:value="formData.total_amount"
               :min="0"
-              :precision="2"
+              :precision="4"
               style="width: 200px"
               :readonly="true"
             />
@@ -273,7 +274,7 @@
                 <a-input-number
                   v-model:value="formData.expenses.expressDeliveryFee"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 120px"
                   placeholder="0.00"
                 />
@@ -283,7 +284,7 @@
                 <a-input-number
                   v-model:value="formData.expenses.transportationFee"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 120px"
                   placeholder="0.00"
                 />
@@ -293,7 +294,7 @@
                 <a-input-number
                   v-model:value="formData.expenses.customsFee"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 120px"
                   placeholder="0.00"
                 />
@@ -303,7 +304,7 @@
                 <a-input-number
                   v-model:value="formData.expenses.otherFee"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 120px"
                   placeholder="0.00"
                 />
@@ -359,6 +360,7 @@ import { customersApi } from '@/api/customers'
 import type { ProductOption, CustomerOption } from '@/types/index'
 import { useUserStore } from '@/stores/user'
 import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
+import { formatMoney4 } from '@/utils/money'
 import { Modal } from 'ant-design-vue'
 import { getActiveCurrencies } from '@/api/currencies'
 import { getCurrentCustomsRate } from '@/api/customsExchangeRates'
@@ -441,6 +443,11 @@ const loading = reactive({
 })
 
 const salesOrderOptions = ref<any[]>([])
+// 当前选中的销售订单（下拉框按 sales_order_id 绑定，同一合同编号可能对应多张订单）
+const selectedSalesOrderId = ref('')
+// 是否明确知道对应的销售订单（用户手选/计划单带入/暂存恢复），
+// 仅此时才把 sales_order_id 传给后端定位明细，避免误指到别的订单
+const salesOrderIdPrecise = ref(false)
 const productOptions = ref<ProductOption[]>([])
 const customerOptions = ref<CustomerOption[]>([])
 const currencyList = ref<Currency[]>([])
@@ -499,12 +506,24 @@ const getNewOrderNumber = async () => {
   }
 }
 
+// 仅用于下拉框显示：按合同编号匹配一个销售订单（不作为后端定位依据）
+const resolveSelectedSalesOrderDisplay = () => {
+  if (!selectedSalesOrderId.value && formData.contract_number) {
+    const matched = salesOrderOptions.value.find((o: any) => o.contract_number === formData.contract_number)
+    if (matched) {
+      selectedSalesOrderId.value = matched.sales_order_id
+    }
+  }
+}
+
 // 获取可出库的销售订单
 const getSalesOrdersForDelivery = async () => {
   loading.salesOrders = true
   try {
     const response = await deliveryOrdersApi.getUndeliveredSalesOrders()
     salesOrderOptions.value = response.data || []
+    // 编辑/回显场景只有合同编号时，按合同编号匹配一个订单用于下拉框显示
+    resolveSelectedSalesOrderDisplay()
   } catch (error) {
     message.error('获取销售订单列表失败')
   }
@@ -529,10 +548,18 @@ const handleSalesOrderSearch = async (value: string) => {
   loading.salesOrders = false
 }
 
-// 选择销售订单
+// 选择销售订单（value 为 sales_order_id，同一合同编号可能对应多张订单）
 const handleSalesOrderChange = async (value: string) => {
-  const order = salesOrderOptions.value.find((o: any) => o.contract_number === value)
+  if (!value) {
+    // 清空选择
+    formData.contract_number = ''
+    salesOrderIdPrecise.value = false
+    return
+  }
+  const order = salesOrderOptions.value.find((o: any) => o.sales_order_id === value)
   if (order) {
+    formData.contract_number = order.contract_number || ''
+    salesOrderIdPrecise.value = true
     try {
       const items = JSON.parse(order.sales_items || '[]')
       // 过滤掉已全部出库的商品，计算剩余可出库数量
@@ -763,6 +790,8 @@ const handleSave = async () => {
     const submitData: CreateDeliveryOrderRequest = {
       order_number: orderNumber.value,
       contract_number: formData.contract_number || undefined,
+      // 明确选中的销售订单才传，后端据此把出库数量同步到正确的订单
+      sales_order_id: salesOrderIdPrecise.value ? selectedSalesOrderId.value : undefined,
       delivery_items: JSON.stringify(formData.delivery_items),
       delivery_time: formatDate(formData.delivery_time, 'YYYY-MM-DD'),
       delivery_date: formatDate(formData.delivery_date, 'YYYY-MM-DD'),
@@ -813,6 +842,7 @@ const handlePrint = () => {
     delivery_person: formData.delivery_person,
     contact_phone: formData.contact_phone,
     remarks: formData.remarks,
+    tracking_number: formData.tracking_number,
   })
 }
 
@@ -849,6 +879,8 @@ const handleClose = () => {
 // 重置表单
 const resetForm = () => {
   formData.contract_number = ''
+  selectedSalesOrderId.value = ''
+  salesOrderIdPrecise.value = false
   formData.delivery_items = []
   formData.delivery_time = dayjs()
   formData.delivery_date = dayjs()
@@ -871,6 +903,7 @@ const DRAFT_KEY = 'delivery_order'
 const handleSaveDraft = () => {
   const draftData = {
     sales_order_number: formData.contract_number,
+    sales_order_id: salesOrderIdPrecise.value ? selectedSalesOrderId.value : '',
     customer_name: formData.customer_name,
     customer_address: formData.customer_address,
     delivery_items: formData.delivery_items,
@@ -908,6 +941,10 @@ const restoreDraft = () => {
   const draft = loadDraft(DRAFT_KEY)
   if (!draft) return
   formData.contract_number = draft.data.sales_order_number || ''
+  if (draft.data.sales_order_id) {
+    selectedSalesOrderId.value = draft.data.sales_order_id
+    salesOrderIdPrecise.value = true
+  }
   formData.customer_name = draft.data.customer_name || ''
   formData.customer_address = draft.data.customer_address || ''
   formData.delivery_items = draft.data.delivery_items || []
@@ -1022,6 +1059,11 @@ watch(
           // 从计划单生成时，应用预填充数据
           resetForm()
           formData.contract_number = props.deliveryOrderData.contract_number || ''
+          // 计划单带入的具体销售订单，用于后端精确同步出库数量
+          if (props.deliveryOrderData.sales_order_id) {
+            selectedSalesOrderId.value = props.deliveryOrderData.sales_order_id
+            salesOrderIdPrecise.value = true
+          }
           formData.customer_name = props.deliveryOrderData.customer_name || ''
           formData.customer_address = props.deliveryOrderData.customer_address || ''
           formData.currency = props.deliveryOrderData.currency || 'CNY'
@@ -1124,6 +1166,7 @@ watch(
             console.error('加载当前销售订单失败:', e)
           }
         }
+        resolveSelectedSalesOrderDisplay()
       }
     }
   }

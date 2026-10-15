@@ -222,7 +222,7 @@
                   <a-input-number
                     v-model:value="record.tax_included_price"
                     :min="0"
-                    :precision="2"
+                    :precision="4"
                     style="width: 100%"
                     @change="() => taxIncludedPriceRowTotal(index)"
                     class="invisible-input"
@@ -304,15 +304,13 @@
                   <a-input-number
                     v-model:value="record.settlement_amount"
                     :min="0"
-                    :precision="2"
+                    :precision="4"
                     style="width: 100%"
                     class="invisible-input"
                     @change="
                       () => {
-                        record.unsettled_amount = parseFloat(
-                          (
-                            (record.tax_included_amount || 0) - (record.settlement_amount || 0)
-                          ).toFixed(2)
+                        record.unsettled_amount = round4(
+                          (record.tax_included_amount || 0) - (record.settlement_amount || 0)
                         )
                         record.settlement_status =
                           record.unsettled_amount === 0
@@ -328,10 +326,10 @@
                 <template v-else-if="column.key === 'unsettled_amount'">
                   <a-input
                     :value="
-                      (
+                      formatMoney4(
                         record.unsettled_amount ??
                         (record.tax_included_amount || 0) - (record.settlement_amount || 0)
-                      ).toFixed(2)
+                      )
                     "
                     disabled
                     style="width: 100%"
@@ -375,7 +373,7 @@
                     <a-input-number
                       v-model:value="totalAmount"
                       :min="0"
-                      :precision="2"
+                      :precision="4"
                       style="width: 150px"
                       class="invisible-input"
                     />
@@ -405,7 +403,7 @@
                   <a-input-number
                     v-model:value="form.expenses.transportationFee"
                     :min="0"
-                    :precision="2"
+                    :precision="4"
                     style="width: 100%"
                     class="expense-input"
                   />
@@ -415,7 +413,7 @@
                   <a-input-number
                     v-model:value="form.expenses.handlingFee"
                     :min="0"
-                    :precision="2"
+                    :precision="4"
                     style="width: 100%"
                     class="expense-input"
                   />
@@ -425,7 +423,7 @@
                   <a-input-number
                     v-model:value="form.expenses.otherFee"
                     :min="0"
-                    :precision="2"
+                    :precision="4"
                     style="width: 100%"
                     class="expense-input"
                   />
@@ -468,6 +466,7 @@ import { paymentMethodsApi } from '@/api/paymentMethods'
 import { businessCategoriesApi } from '@/api/businessCategories'
 import { useUserStore } from '@/stores/user'
 import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
+import { round4, formatMoney4 } from '@/utils/money'
 import { Modal } from 'ant-design-vue'
 import { getLocale, type Lang } from '@/locales'
 import type {
@@ -655,10 +654,10 @@ const totalAmount = computed({
       if (currentTotal > 0) {
         const ratio = value / currentTotal
         form.sales_items.forEach(item => {
-          item.tax_included_amount = parseFloat((item.tax_included_amount || 0 * ratio).toFixed(2))
+          item.tax_included_amount = round4((item.tax_included_amount || 0) * ratio)
           if (item.quantity > 0) {
-            item.tax_included_price = parseFloat(
-              (item.tax_included_amount / item.quantity).toFixed(2)
+            item.tax_included_price = round4(
+              item.tax_included_amount / item.quantity
             )
           }
         })
@@ -839,21 +838,21 @@ const taxIncludedPriceRowTotal = (index: number) => {
   const item = form.sales_items[index]
   const taxRateDecimal = Number(item.tax_rate) / 100
   if (item.tax_included_price) {
-    item.tax_excluded_price = parseFloat(
-      (Number(item.tax_included_price) / (1 + taxRateDecimal)).toFixed(2)
+    item.tax_excluded_price = round4(
+      Number(item.tax_included_price) / (1 + taxRateDecimal)
     )
   } else {
     item.tax_excluded_price = Number(item.tax_included_price)
   }
   if (item.quantity && item.tax_included_price) {
-    item.tax_included_amount = parseFloat(
-      (Number(item.quantity) * Number(item.tax_included_price)).toFixed(2)
+    item.tax_included_amount = round4(
+      Number(item.quantity) * Number(item.tax_included_price)
     )
-    item.tax_excluded_amount = parseFloat(
-      (Number(item.quantity) * item.tax_excluded_price).toFixed(2)
+    item.tax_excluded_amount = round4(
+      Number(item.quantity) * item.tax_excluded_price
     )
-    item.tax_amount = parseFloat(
-      ((item.tax_included_amount / (1 + taxRateDecimal)) * taxRateDecimal).toFixed(2)
+    item.tax_amount = round4(
+      (item.tax_included_amount / (1 + taxRateDecimal)) * taxRateDecimal
     )
   } else {
     item.tax_included_amount = 0

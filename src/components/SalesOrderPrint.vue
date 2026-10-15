@@ -289,6 +289,7 @@ import type { SalesOrder } from '@/types'
 import { useUserStore } from '@/stores/user'
 import { customersApi } from '@/api/customers'
 import { getLocale, type Lang } from '@/locales'
+import { round4, formatMoney4, amountToChinese, amountToEnglish } from '@/utils/money'
 
 const lang = ref<Lang>('zh')
 const t = computed(() => getLocale(lang.value))
@@ -434,119 +435,9 @@ const numberToWords = (num: number): string => {
   return numberToChinese(num)
 }
 
-const numberToChinese = (num: number): string => {
-  const digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖']
-  const units = ['', '拾', '佰', '仟', '万', '亿']
-  let str = ''
-  let unitIndex = 0
-  // @ts-expect-error - zeroFlag is used in logic
-  let zeroFlag = false
+const numberToChinese = (num: number): string => amountToChinese(num)
 
-  if (num === 0) {
-    return '零元整'
-  }
-
-  const numStr = Math.floor(num).toString()
-
-  for (let i = 0; i < numStr.length; i++) {
-    const digit = parseInt(numStr[i])
-    if (digit === 0) {
-      zeroFlag = true
-    } else {
-      zeroFlag = false
-      const currentDigit = digits[digit] || ''
-      if (unitIndex > 0) {
-        str += units[unitIndex]
-      }
-      str += currentDigit
-      unitIndex++
-    }
-  }
-
-  str += '元'
-  if (numStr.includes('.')) {
-    const decimal = numStr.split('.')[1]
-    if (decimal) {
-      str += digits[parseInt(decimal[0])] + '角'
-      if (decimal.length > 1) {
-        str += digits[parseInt(decimal[1])] + '分'
-      }
-    }
-  }
-
-  return str + '整'
-}
-
-const numberToEnglish = (num: number): string => {
-  if (num === 0) return 'Zero'
-
-  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
-  const teens = [
-    'Ten',
-    'Eleven',
-    'Twelve',
-    'Thirteen',
-    'Fourteen',
-    'Fifteen',
-    'Sixteen',
-    'Seventeen',
-    'Eighteen',
-    'Nineteen',
-  ]
-  const tens = [
-    '',
-    '',
-    'Twenty',
-    'Thirty',
-    'Forty',
-    'Fifty',
-    'Sixty',
-    'Seventy',
-    'Eighty',
-    'Ninety',
-  ]
-
-  const convertHundreds = (n: number): string => {
-    let result = ''
-    if (n >= 100) {
-      result += ones[Math.floor(n / 100)] + ' Hundred '
-      n %= 100
-    }
-    if (n >= 10 && n < 20) {
-      result += teens[n - 10]
-    } else {
-      if (n >= 20) {
-        result += tens[Math.floor(n / 10)] + ' '
-        n %= 10
-      }
-      if (n > 0) {
-        result += ones[n]
-      }
-    }
-    return result.trim()
-  }
-
-  const intPart = Math.floor(num)
-  const decPart = Math.round((num - intPart) * 100)
-
-  let result = ''
-  if (intPart >= 1000000) {
-    result += convertHundreds(Math.floor(intPart / 1000000)) + ' Million '
-  }
-  if (intPart >= 1000) {
-    result += convertHundreds(Math.floor((intPart % 1000000) / 1000)) + ' Thousand '
-  }
-  if (intPart % 1000 > 0 || intPart === 0) {
-    result += convertHundreds(intPart % 1000)
-  }
-
-  result = result.trim()
-  if (decPart > 0) {
-    result += ' Point ' + convertHundreds(decPart)
-  }
-
-  return result
-}
+const numberToEnglish = (num: number): string => amountToEnglish(num)
 
 const initializeFormData = () => {
   if (!orderData.value) return
@@ -564,7 +455,7 @@ const initializeFormData = () => {
   const taxTotal = items.reduce((sum: number, item: any) => {
     return sum + (parseFloat(item.tax_amount) || 0)
   }, 0)
-  formData.taxTotal = Math.round(taxTotal * 100) / 100
+  formData.taxTotal = round4(taxTotal)
 
   formData.sellerContact = user?.username || ''
   formData.sellerPhone = user?.phone || ''
@@ -617,7 +508,7 @@ const formatDate = (date: string | undefined) => {
 
 const formatPrice = (price: number | string | undefined) => {
   const numPrice = typeof price === 'string' ? parseFloat(price) : price || 0
-  return `￥${numPrice.toFixed(2)}`
+  return '￥' + formatMoney4(numPrice)
 }
 
 const handleEdit = (field: string) => {

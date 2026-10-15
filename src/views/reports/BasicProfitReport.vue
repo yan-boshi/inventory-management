@@ -209,6 +209,7 @@ import { formatDate } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import type { Dayjs } from 'dayjs'
+import { formatMoney4 } from '@/utils/money'
 
 const loading = ref(false)
 const exportLoading = ref(false)
@@ -506,7 +507,7 @@ const isMoneyColumn = (key: string) => moneyKeys.has(key)
 
 const formatMoney = (value: number | null | undefined) => {
   if (value === null || value === undefined) return ''
-  return value.toFixed(2)
+  return formatMoney4(value, '')
 }
 
 const formatNumber = (value: number | null | undefined) => {

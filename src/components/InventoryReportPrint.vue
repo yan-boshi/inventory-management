@@ -146,6 +146,7 @@ const groupKeys: Record<string, string[]> = {
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { InventoryReportItem } from '@/types'
+import { formatMoney4Grouped } from '@/utils/money'
 
 const props = withDefaults(defineProps<{
   visible: boolean
@@ -211,7 +212,7 @@ const formatNumber = (value: number) => {
 }
 
 const formatMoney = (value: number) => {
-  return value != null ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'
+  return formatMoney4Grouped(value, '0.00')
 }
 
 const handleCancel = () => {

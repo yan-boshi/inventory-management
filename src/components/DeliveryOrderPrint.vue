@@ -13,7 +13,7 @@
       <div class="page-header">
         <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
         <p class="company-address">深圳市龙岗区坂田街道南坑社区五和大道（南）42号景丰大厦602</p>
-        <h2 class="document-title">出库单打印</h2>
+        <h2 class="document-title">出库单</h2>
       </div>
 
       <!-- 客户信息 -->
@@ -83,6 +83,7 @@
         <div class="footer-row">
           <span class="footer-label">快递单号：</span>
           <span class="footer-value">{{ orderData?.tracking_number || '-' }}</span>
+          <!-- 快递单号同步出库单的快递单号，不可编辑 -->
         </div>
         <div class="footer-row">
           <span class="footer-label">件数：</span>
@@ -165,7 +166,6 @@ const formData = reactive({
   remarks: '',
   total: 0,
   currency: 'CNY',
-  expressNumber: '',
   packages: '',
   deliveryPerson: '',
   contactPhone: '',
@@ -183,7 +183,6 @@ const editFieldTitle = computed(() => {
     quantity: '数量',
     total: '总计',
     currency: '币种',
-    expressNumber: '快递单号',
     packages: '件数',
     remarks: '备注',
   }
@@ -201,7 +200,6 @@ const initializeFormData = () => {
   formData.remarks = ''
   formData.total = order.total_amount || 0
   formData.currency = order.currency || 'CNY'
-  formData.expressNumber = ''
   formData.deliveryPerson = order.delivery_person || user?.username || ''
   formData.contactPhone = order.contact_phone || user?.phone || ''
   initOrderItems()
@@ -247,9 +245,6 @@ const handleEdit = (field: string, rowIndex?: number) => {
     case 'currency':
       editValue.value = formData.currency
       break
-    case 'expressNumber':
-      editValue.value = formData.expressNumber
-      break
     case 'packages':
       editValue.value = formData.packages
       break
@@ -277,9 +272,6 @@ const handleEditConfirm = () => {
       break
     case 'currency':
       formData.currency = editValue.value
-      break
-    case 'expressNumber':
-      formData.expressNumber = editValue.value
       break
     case 'packages':
       formData.packages = editValue.value
@@ -327,7 +319,7 @@ const handlePrint = () => {
   }
 
   .document-title {
-    font-size: 12px;
+    font-size: 15px;
     font-weight: normal;
     margin: 8px 0 0 0;
     color: #000;

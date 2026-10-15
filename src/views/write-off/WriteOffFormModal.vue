@@ -167,7 +167,7 @@
                 v-model:value="record.write_off_amount"
                 :min="0"
                 :max="record.balance_amount"
-                :precision="2"
+                :precision="4"
                 style="width: 100%"
                 placeholder="本次核销金额"
                 size="small"
@@ -234,6 +234,7 @@ import { paymentMethodsApi } from '@/api/paymentMethods'
 import { formatDate } from '@/utils/date'
 import type { PendingRecord } from '@/types'
 import dayjs from 'dayjs'
+import { formatMoney4Grouped } from '@/utils/money'
 
 const props = defineProps<{
   visible: boolean
@@ -291,11 +292,7 @@ const totalWriteOffAmount = computed(() => {
 })
 
 const formatMoney = (value: number | undefined | null) => {
-  if (value === undefined || value === null) return '0.00'
-  return Number(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+  return formatMoney4Grouped(value, '0.00')
 }
 
 // 客户名称下拉选项

@@ -122,7 +122,7 @@
 
           <template v-else-if="column.key === 'total_amount'">
             <span style="color: #f5222d; font-weight: 500">
-              {{ record.amount }}
+              {{ formatMoney(record.amount) }}
             </span>
           </template>
 
@@ -189,6 +189,16 @@
     <PurchaseOrderDetail v-model:visible="detailVisible" :order="currentOrder" />
 
     <PurchaseOrderPrint v-model:visible="printVisible" :order="currentOrder" />
+
+    <DeleteWithRestoreModal
+      :open="deleteModalOpen"
+      :order-number="deleteTarget?.order_number || ''"
+      doc-label="采购订单"
+      plan-label="采购计划"
+      @cancel="deleteModalOpen = false"
+      @delete="handleDeleteConfirm(false)"
+      @delete-with-restore="handleDeleteConfirm(true)"
+    />
   </div>
 </template>
 
@@ -207,6 +217,7 @@ import type { PurchaseOrder, PurchaseOrderQueryParams } from '@/types'
 import PurchaseOrderForm from '@/components/PurchaseOrderForm.vue'
 import PurchaseOrderDetail from '@/components/PurchaseOrderDetail.vue'
 import PurchaseOrderPrint from '@/components/PurchaseOrderPrint.vue'
+import DeleteWithRestoreModal from '@/components/DeleteWithRestoreModal.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
@@ -220,6 +231,8 @@ const printVisible = ref(false)
 const isEdit = ref(false)
 const currentOrder = ref<PurchaseOrder | undefined>(undefined)
 const dateRange = ref<[any, any] | undefined>(undefined)
+const deleteModalOpen = ref(false)
+const deleteTarget = ref<PurchaseOrder | undefined>(undefined)
 
 // 展开订单数据，每个商品一行
 const expandedOrders = computed(() => {
@@ -741,21 +754,25 @@ const handleViewDetail = (order: PurchaseOrder) => {
 }
 
 const handleDelete = (order: PurchaseOrder) => {
-  Modal.confirm({
-    title: '确认删除',
-    content: `确定要删除采购订单 ${order.order_number} 吗？`,
-    okText: '确认',
-    cancelText: '取消',
-    onOk: async () => {
-      try {
-        await purchaseOrdersApi.delete(order.purchase_order_id)
-        message.success('删除成功')
-        loadOrders()
-      } catch (error) {
-        message.error('删除失败')
-      }
-    },
-  })
+  deleteTarget.value = order
+  deleteModalOpen.value = true
+}
+
+const handleDeleteConfirm = async (restorePlan: boolean) => {
+  const target = deleteTarget.value
+  if (!target) return
+  try {
+    const res = await purchaseOrdersApi.delete(target.purchase_order_id, { restorePlan })
+    let successMsg = res?.message || '删除成功'
+    if (restorePlan && res?.data?.unmatchedQty) {
+      successMsg += `，${res.data.unmatchedQty} 件数量未匹配到计划明细`
+    }
+    message.success(successMsg)
+    deleteModalOpen.value = false
+    loadOrders()
+  } catch (error: any) {
+    message.error(error?.message || '删除失败')
+  }
 }
 
 const handleStatusChange = (order: PurchaseOrder, status: string) => {

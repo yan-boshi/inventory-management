@@ -1,4 +1,5 @@
 import pool from '../config/database.js'
+import { round4 } from '../utils/round.js'
 
 /**
  * 基础毛利表Controller
@@ -429,21 +430,21 @@ export const getBasicProfitReport = async (req, res) => {
           model: item.model || product?.model || '',
           quantity: quantity,
           currency: salesCurrency,
-          unit_price: Math.round(taxIncludedPrice * 10000) / 10000,
-          amount: Math.round(amount * 100) / 100,
+          unit_price: round4(taxIncludedPrice),
+          amount: round4(amount),
           sales_customs_rate: salesCurrency !== 'CNY' ? Math.round(salesCustomsRate * 1000000) / 1000000 : 1,
-          sales_amount_cny: Math.round(salesAmountCNY * 100) / 100,
+          sales_amount_cny: round4(salesAmountCNY),
           purchase_contract_number: purchaseContractNumber,
           supplier_name: supplierName,
           purchase_person: purchasePerson,
           purchase_quantity: Math.round(purchaseQuantity * 100) / 100,
           purchase_currency: purchaseCurrency,
-          purchase_unit_price: Math.round(purchaseUnitPrice * 10000) / 10000,
-          purchase_amount: Math.round(purchaseAmount * 100) / 100,
+          purchase_unit_price: round4(purchaseUnitPrice),
+          purchase_amount: round4(purchaseAmount),
           purchase_customs_rate: purchaseCurrency && purchaseCurrency !== 'CNY' ? Math.round(purchaseCustomsRate * 1000000) / 1000000 : (purchaseCurrency === 'CNY' ? 1 : null),
-          purchase_amount_cny: Math.round(purchaseAmountCNY * 100) / 100,
-          purchase_expense_cny: Math.round(purchaseExpenseCNY * 100) / 100,
-          gross_profit: Math.round(grossProfit * 100) / 100,
+          purchase_amount_cny: round4(purchaseAmountCNY),
+          purchase_expense_cny: round4(purchaseExpenseCNY),
+          gross_profit: round4(grossProfit),
           gross_profit_rate: Math.round(grossProfitRate * 100) / 100,
           remarks: so.remarks || '',
         })

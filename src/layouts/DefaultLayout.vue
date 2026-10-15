@@ -233,7 +233,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useUserStore } from '@/stores/user'
@@ -298,15 +298,54 @@ const onTabChange = (activeKey: string) => {
   }
 }
 
-// 监听路由变化，自动添加标签
+// 用 scroll 事件（capture）持续追踪所有滚动元素的位置
+// keep-alive 切换时 DOM 节点被保留，所以元素引用可以直接复用来恢复 scrollLeft/Top
+const liveScrollMap = new Map<Element, { left: number; top: number }>()
+document.addEventListener(
+  'scroll',
+  (e) => {
+    const el = e.target as HTMLElement | null
+    if (el && typeof el.scrollLeft === 'number') {
+      liveScrollMap.set(el, { left: el.scrollLeft, top: el.scrollTop })
+    }
+  },
+  true // capture：捕获所有层级的 scroll 事件
+)
+
+// 按路由路径保存滚动快照
+const routeScrollSnapshots = new Map<string, Map<Element, { left: number; top: number }>>()
+
+// 监听路由变化，自动添加标签并恢复滚动位置
 watch(
   () => route.path,
-  () => {
+  (newPath, oldPath) => {
+    // 路由已切换但 DOM 尚未更新，此时滚动位置仍是旧页面的
+    if (oldPath) {
+      routeScrollSnapshots.set(oldPath, new Map(liveScrollMap))
+    }
+
     if (route.name) {
       const routeName = route.name as string
       selectedKeys.value = [routeName]
       tabsStore.addTab(routeName, route.path)
     }
+
+    // 等浏览器完成 keep-alive 换页的 reflow 后再恢复滚动位置
+    const restore = () => {
+      const snapshot = routeScrollSnapshots.get(newPath)
+      if (!snapshot) return
+      for (const [el, pos] of snapshot) {
+        el.scrollLeft = pos.left
+        el.scrollTop = pos.top
+      }
+    }
+    nextTick(() => {
+      requestAnimationFrame(() => {
+        restore()
+        // 二次兜底：部分浏览器 reflow 晚于 rAF
+        setTimeout(restore, 50)
+      })
+    })
   },
   { immediate: true }
 )

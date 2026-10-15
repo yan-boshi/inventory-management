@@ -1,8 +1,10 @@
 import PurchaseOrder from '../models/PurchaseOrder.js'
 import SalesOrder from '../models/SalesOrder.js'
+import PurchasePlan from '../models/PurchasePlan.js'
 import pool from '../config/database.js'
 import { generateFromPurchaseOrder } from './inboundPlanController.js'
 import { handleDbError } from '../utils/errorHandler.js'
+import { PURCHASE_PLAN_KEYS, restoreQuantitiesToPlans } from '../utils/planRestore.js'
 
 export const getAllPurchaseOrders = async (req, res) => {
   try {
@@ -344,6 +346,21 @@ export const deletePurchaseOrder = async (req, res) => {
 
     const relatedSalesOrderId = existing.related_sales_order_id
 
+    // 可选：把单据商品数量回补到采购计划（按合同编号匹配）。
+    // 回补失败会阻断删除，此时库中数据未被改动，可原样重试；
+    // 自动生成的入库计划不在此处理
+    let planRestore = null
+    const restorePlan = req.query.restorePlan === '1' || req.query.restorePlan === 'true'
+    if (restorePlan && existing.contract_number) {
+      const docItems = JSON.parse(existing.purchase_items || '[]')
+      planRestore = await restoreQuantitiesToPlans(
+        PurchasePlan,
+        PURCHASE_PLAN_KEYS,
+        existing.contract_number,
+        docItems
+      )
+    }
+
     await PurchaseOrder.delete(id)
 
     // 删除后更新关联销售订单商品的采购状态
@@ -351,7 +368,7 @@ export const deletePurchaseOrder = async (req, res) => {
       await updateSalesOrderPurchaseStatus(relatedSalesOrderId)
     }
 
-    res.json({ success: true, message: 'Purchase order deleted successfully' })
+    res.json({ success: true, message: 'Purchase order deleted successfully', data: planRestore })
   } catch (error) {
     const { statusCode, message } = handleDbError(error, '操作采购订单')
     res.status(statusCode).json({ success: false, message })

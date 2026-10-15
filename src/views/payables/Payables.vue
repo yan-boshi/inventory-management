@@ -149,7 +149,7 @@
             <a-input-number
               v-model:value="record.received_amount"
               :min="0"
-              :precision="2"
+              :precision="4"
               style="width: 100%"
               size="small"
               @change="() => handleReceivedAmountChange(record)"
@@ -315,6 +315,7 @@ import {
   AuditOutlined,
 } from '@ant-design/icons-vue'
 import { payablesApi } from '@/api/payables'
+import { round4 } from '@/utils/money'
 import { useUserStore } from '@/stores/user'
 import SettlementFormModal from '@/views/settlement/SettlementFormModal.vue'
 import WriteOffFormModal from '@/views/write-off/WriteOffFormModal.vue'
@@ -660,7 +661,7 @@ const handlePageChange = (page: number, pageSize: number) => {
 const handleReceivedAmountChange = (record: any) => {
   const amount = Number(record.amount) || 0
   const received = Number(record.received_amount) || 0
-  record.balance_amount = parseFloat((amount - received).toFixed(2))
+  record.balance_amount = round4(amount - received)
   // 自动更新结算状态
   if (received <= 0) {
     record.status = 0

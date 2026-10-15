@@ -139,6 +139,7 @@ import { ArrowLeftOutlined } from '@ant-design/icons-vue'
 import { writeOffApi } from '@/api/writeOff'
 import type { WriteOffDetail as WriteOffDetailType } from '@/types'
 import { formatDate } from '@/utils/date'
+import { formatMoney4Grouped } from '@/utils/money'
 
 const router = useRouter()
 const route = useRoute()
@@ -178,11 +179,7 @@ const totalWriteOffAmount = computed(() => {
 })
 
 const formatMoney = (value: number | undefined | null) => {
-  if (value === undefined || value === null) return '0.00'
-  return Number(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+  return formatMoney4Grouped(value, '0.00')
 }
 
 const fetchDetail = async () => {

@@ -1,6 +1,7 @@
 import BaseModel from './BaseModel.js'
 import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
+import { round4 } from '../utils/round.js'
 
 class PurchaseOrder extends BaseModel {
   constructor() {
@@ -37,22 +38,22 @@ class PurchaseOrder extends BaseModel {
 
   calculateTaxExcludedPrice(taxIncludedPrice, taxRate) {
     if (!taxIncludedPrice || !taxRate) return 0
-    return parseFloat((taxIncludedPrice / (1 + taxRate)).toFixed(2))
+    return round4(taxIncludedPrice / (1 + taxRate))
   }
 
   calculateTaxIncludedAmount(quantity, taxIncludedPrice) {
     if (!quantity || !taxIncludedPrice) return 0
-    return parseFloat((quantity * taxIncludedPrice).toFixed(2))
+    return round4(quantity * taxIncludedPrice)
   }
 
   calculateTaxExcludedAmount(quantity, taxExcludedPrice) {
     if (!quantity || !taxExcludedPrice) return 0
-    return parseFloat((quantity * taxExcludedPrice).toFixed(2))
+    return round4(quantity * taxExcludedPrice)
   }
 
   calculateTaxAmount(taxIncludedAmount, taxRate) {
     if (!taxIncludedAmount || !taxRate) return 0
-    return parseFloat(((taxIncludedAmount / (1 + taxRate)) * taxRate).toFixed(2))
+    return round4((taxIncludedAmount / (1 + taxRate)) * taxRate)
   }
 
   async updateStatus(id, status) {

@@ -1,4 +1,5 @@
 import pool from '../config/database.js'
+import { round4 } from '../utils/round.js'
 
 export const getDeliveryExpenseReport = async (req, res) => {
   try {
@@ -175,7 +176,7 @@ export const getDeliveryExpenseReport = async (req, res) => {
           unit: item.unit || '',
           quantity,
           tax_included_price: taxIncludedPrice,
-          total_price: Math.round(totalPrice * 100) / 100,
+          total_price: round4(totalPrice),
           // 出库费用
           express_delivery_fee: expressDeliveryFee,
           transportation_fee: dlTransportationFee,
@@ -257,7 +258,7 @@ export const getDeliveryExpenseReport = async (req, res) => {
           unit: item.unit || '',
           quantity,
           tax_included_price: taxIncludedPrice,
-          total_price: Math.round(totalPrice * 100) / 100,
+          total_price: round4(totalPrice),
           // 出库费用（退货单无出库费用）
           express_delivery_fee: 0,
           transportation_fee: 0,

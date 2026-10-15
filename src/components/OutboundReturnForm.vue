@@ -77,7 +77,7 @@
               {{ record.unit_price }}
             </template>
             <template v-else-if="column.key === 'amount_with_tax'">
-              {{ record.amount_with_tax ? record.amount_with_tax.toFixed(2) : '0.00' }}
+              {{ formatMoney4(record.amount_with_tax) }}
             </template>
             <template v-else-if="column.key === 'actions'">
               <a-button type="link" size="small" danger @click="deleteItem(index)"> 删除 </a-button>
@@ -101,7 +101,7 @@
           <a-input-number
             v-model:value="form.total_amount"
             :min="0"
-            :precision="2"
+            :precision="4"
             style="width: 200px"
             class="invisible-input"
           />
@@ -164,6 +164,7 @@ import { ref, reactive, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import { createOutboundReturn, updateOutboundReturn, getNewOutboundReturnOrderNumber } from '@/api/outboundReturns'
+import { formatMoney4 } from '@/utils/money'
 
 const props = defineProps<{
   visible: boolean

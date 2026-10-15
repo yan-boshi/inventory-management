@@ -3,6 +3,16 @@ import WarehousingOrder from '../models/WarehousingOrder.js'
 import PurchaseOrder from '../models/PurchaseOrder.js'
 import Payable from '../models/Payable.js'
 import pool from '../config/database.js'
+import { round4 } from '../utils/round.js'
+import {
+  PURCHASE_ORDER_KEYS,
+  loadContractOrders,
+  findItemByProduct,
+  findItemForRollback,
+  itemsToDeltaMap,
+  buildQuantityDeltaMap,
+  syncQuantityDeltaToOrders
+} from '../utils/contractOrderLookup.js'
 
 export const getAllInboundReturns = async (req, res) => {
   try {
@@ -177,53 +187,59 @@ export const createInboundReturn = async (req, res) => {
         if (newTaxExcludedPrice !== null) {
           await pool.query(
             'UPDATE products SET stock = ?, tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
-            [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, Math.round(newTaxExcludedPrice * 10000) / 10000, item.product_code]
+            [newStock.toFixed(2), round4(newTaxIncludedPrice), round4(newTaxExcludedPrice), item.product_code]
           )
         } else {
           await pool.query(
             'UPDATE products SET stock = ?, tax_included_price = ? WHERE product_code = ?',
-            [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, item.product_code]
+            [newStock.toFixed(2), round4(newTaxIncludedPrice), item.product_code]
           )
         }
       }
     }
 
     // 回退采购单入库数量
+    // 同一采购合同编号可能对应多张采购订单，回退到实际收过货（入库数量 > 0）的订单
     if (contract_number) {
-      const purchaseOrder = await PurchaseOrder.findOne('contract_number = ?', [contract_number])
-      if (purchaseOrder) {
-        const purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]')
+      const { orders, itemsMap } = await loadContractOrders(PurchaseOrder, contract_number, PURCHASE_ORDER_KEYS)
+
+      if (orders.length > 0) {
+        const touchedOrders = new Map()
 
         for (const returnItem of parsedItems) {
-          const targetItem = purchaseItems.find(pi => pi.product_code === returnItem.product_code)
-          if (targetItem) {
-            const currentInbound = targetItem.inbound_quantity || 0
-            targetItem.inbound_quantity = Math.max(0, currentInbound - returnItem.quantity)
+          const match = findItemForRollback(orders, itemsMap, returnItem.product_code, PURCHASE_ORDER_KEYS)
+          if (!match) continue
 
-            // 更新行状态
-            if (targetItem.inbound_quantity === 0) {
-              targetItem.status = 1 // 未入库
-            } else if (targetItem.inbound_quantity < targetItem.quantity) {
-              targetItem.status = 3 // 已部分入库
-            } else if (targetItem.inbound_quantity === targetItem.quantity) {
-              targetItem.status = 2 // 已全部入库
-            }
+          const currentInbound = match.targetItem.inbound_quantity || 0
+          match.targetItem.inbound_quantity = Math.max(0, currentInbound - returnItem.quantity)
+
+          // 更新行状态
+          if (match.targetItem.inbound_quantity === 0) {
+            match.targetItem.status = 1 // 未入库
+          } else if (match.targetItem.inbound_quantity < match.targetItem.quantity) {
+            match.targetItem.status = 3 // 已部分入库
+          } else if (match.targetItem.inbound_quantity === match.targetItem.quantity) {
+            match.targetItem.status = 2 // 已全部入库
           }
+
+          touchedOrders.set(match.order.purchase_order_id, match)
         }
 
-        // 重新计算订单整体状态
-        const statuses = purchaseItems.map(item => item.status || 1)
-        let orderStatus = 1
-        if (statuses.every(s => s === 2)) {
-          orderStatus = 2
-        } else if (statuses.some(s => s === 2 || s === 3)) {
-          orderStatus = 3
-        }
+        // 重新计算订单整体状态并更新采购订单
+        for (const match of touchedOrders.values()) {
+          const statuses = match.items.map(item => item.status || 1)
+          let orderStatus = 1
+          if (statuses.every(s => s === 2)) {
+            orderStatus = 2
+          } else if (statuses.some(s => s === 2 || s === 3)) {
+            orderStatus = 3
+          }
 
-        await PurchaseOrder.update(purchaseOrder.purchase_order_id, {
-          purchase_items: JSON.stringify(purchaseItems),
-          status: orderStatus
-        })
+          await PurchaseOrder.update(match.order.purchase_order_id, {
+            purchase_items: JSON.stringify(match.items),
+            status: orderStatus
+          })
+        }
       }
     }
 
@@ -293,6 +309,29 @@ export const updateInboundReturn = async (req, res) => {
       }
     }
 
+    // 同步入库数量到采购订单：退货数量增加 → 订单入库数量减少（差量取反）
+    if (updateData.return_items !== undefined || updateData.contract_number !== undefined) {
+      try {
+        const oldReturnItems = JSON.parse(existing.return_items || '[]')
+        const newReturnItems = updateData.return_items !== undefined
+          ? (typeof updateData.return_items === 'string' ? JSON.parse(updateData.return_items) : updateData.return_items)
+          : oldReturnItems
+        const oldContractNumber = existing.contract_number || ''
+        const newContractNumber = updateData.contract_number !== undefined ? (updateData.contract_number || '') : oldContractNumber
+
+        if (oldContractNumber !== newContractNumber) {
+          // 合同变更：旧合同恢复旧退货明细占用的入库数量，新合同扣减新退货明细
+          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, oldContractNumber, itemsToDeltaMap(oldReturnItems, 1))
+          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, itemsToDeltaMap(newReturnItems, -1))
+        } else {
+          // 同一合同：差量同步（退货增加 → 订单入库减少）
+          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, buildQuantityDeltaMap(oldReturnItems, newReturnItems, -1))
+        }
+      } catch (syncErr) {
+        console.error('同步采购订单入库数量失败（不影响入库退货单更新）:', syncErr.message)
+      }
+    }
+
     const order = await InboundReturnOrder.update(id, updateData)
     res.json({ success: true, data: order })
   } catch (error) {
@@ -339,48 +378,54 @@ export const deleteInboundReturn = async (req, res) => {
         if (newTaxExcludedPrice !== null) {
           await pool.query(
             'UPDATE products SET stock = ?, tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
-            [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, Math.round(newTaxExcludedPrice * 10000) / 10000, item.product_code]
+            [newStock.toFixed(2), round4(newTaxIncludedPrice), round4(newTaxExcludedPrice), item.product_code]
           )
         } else {
           await pool.query(
             'UPDATE products SET stock = ?, tax_included_price = ? WHERE product_code = ?',
-            [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, item.product_code]
+            [newStock.toFixed(2), round4(newTaxIncludedPrice), item.product_code]
           )
         }
       }
     }
 
     // 恢复采购单入库数量
+    // 同一采购合同编号可能对应多张采购订单，恢复到剩余可入库数量大于 0 的订单
     if (existing.contract_number) {
-      const purchaseOrder = await PurchaseOrder.findOne('contract_number = ?', [existing.contract_number])
-      if (purchaseOrder) {
-        const purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]')
+      const { orders, itemsMap } = await loadContractOrders(PurchaseOrder, existing.contract_number, PURCHASE_ORDER_KEYS)
+
+      if (orders.length > 0) {
+        const touchedOrders = new Map()
 
         for (const returnItem of returnItems) {
-          const targetItem = purchaseItems.find(pi => pi.product_code === returnItem.product_code)
-          if (targetItem) {
-            targetItem.inbound_quantity = (targetItem.inbound_quantity || 0) + returnItem.quantity
+          const match = findItemByProduct(orders, itemsMap, returnItem.product_code, PURCHASE_ORDER_KEYS)
+          if (!match) continue
 
-            if (targetItem.inbound_quantity >= targetItem.quantity) {
-              targetItem.status = 2
-            } else if (targetItem.inbound_quantity > 0) {
-              targetItem.status = 3
-            }
+          match.targetItem.inbound_quantity = (match.targetItem.inbound_quantity || 0) + returnItem.quantity
+
+          if (match.targetItem.inbound_quantity >= match.targetItem.quantity) {
+            match.targetItem.status = 2
+          } else if (match.targetItem.inbound_quantity > 0) {
+            match.targetItem.status = 3
           }
+
+          touchedOrders.set(match.order.purchase_order_id, match)
         }
 
-        const statuses = purchaseItems.map(item => item.status || 1)
-        let orderStatus = 1
-        if (statuses.every(s => s === 2)) {
-          orderStatus = 2
-        } else if (statuses.some(s => s === 2 || s === 3)) {
-          orderStatus = 3
-        }
+        for (const match of touchedOrders.values()) {
+          const statuses = match.items.map(item => item.status || 1)
+          let orderStatus = 1
+          if (statuses.every(s => s === 2)) {
+            orderStatus = 2
+          } else if (statuses.some(s => s === 2 || s === 3)) {
+            orderStatus = 3
+          }
 
-        await PurchaseOrder.update(purchaseOrder.purchase_order_id, {
-          purchase_items: JSON.stringify(purchaseItems),
-          status: orderStatus
-        })
+          await PurchaseOrder.update(match.order.purchase_order_id, {
+            purchase_items: JSON.stringify(match.items),
+            status: orderStatus
+          })
+        }
       }
     }
 

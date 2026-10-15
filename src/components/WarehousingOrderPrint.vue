@@ -10,7 +10,7 @@
     <div v-if="order" class="print-container">
       <div class="print-header">
         <h1 class="company-name">深圳市旭思达光电科技有限公司</h1>
-        <h2 class="order-title">入库单打印</h2>
+        <h2 class="order-title">入库单</h2>
       </div>
 
       <div class="print-info">
@@ -111,6 +111,7 @@
 import { computed } from 'vue'
 import dayjs from 'dayjs'
 import type { WarehousingOrder } from '@/types'
+import { formatMoney4 } from '@/utils/money'
 
 const props = defineProps<{
   visible: boolean
@@ -151,7 +152,7 @@ const hasExpenses = () => {
 }
 
 const formatCurrency = (value: number) => {
-  return value ? value.toFixed(2) : '0.00'
+  return formatMoney4(value, '0.00')
 }
 
 const formatDateTime = (dateString: string) => {
@@ -356,7 +357,7 @@ const handlePrint = () => {
     }
 
     .order-title {
-      font-size: 12px;
+      font-size: 14px;
     }
   }
 

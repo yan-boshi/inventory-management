@@ -143,7 +143,7 @@
                 <a-input-number
                   v-model:value="record.unit_price"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 100%"
                   @change="() => calculateRowTotal(index)"
                   class="invisible-input"
@@ -308,6 +308,7 @@ import type { CreateQuotationRequest, QuotationItem, CustomerOption, ProductOpti
 import type { Quotation } from '@/types'
 import { getLocale, type Lang } from '@/locales'
 import { scrollTopbar } from '@/directives/scrollTopbar'
+import { round4 } from '@/utils/money'
 import { getActiveCurrencies } from '@/api/currencies'
 
 const props = defineProps<{
@@ -446,7 +447,7 @@ const calculateRowTotal = (index: number) => {
   const item = form.quotation_items[index]
   // 如果数量是纯数字，则自动计算合计
   if (item.quantity && item.unit_price && !isNaN(Number(item.quantity))) {
-    item.total_amount = parseFloat((Number(item.quantity) * item.unit_price).toFixed(2))
+    item.total_amount = round4(Number(item.quantity) * item.unit_price)
   } else {
     item.total_amount = 0
   }

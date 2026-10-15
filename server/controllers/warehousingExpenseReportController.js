@@ -1,4 +1,5 @@
 import pool from '../config/database.js'
+import { round4 } from '../utils/round.js'
 
 export const getWarehousingExpenseReport = async (req, res) => {
   try {
@@ -176,7 +177,7 @@ export const getWarehousingExpenseReport = async (req, res) => {
           unit: item.unit || '',
           quantity,
           tax_included_price: taxIncludedPrice,
-          total_price: Math.round(totalPrice * 100) / 100,
+          total_price: round4(totalPrice),
           // 入库费用
           tariff: whTariff,
           transportation_fee: whTransportationFee,
@@ -261,7 +262,7 @@ export const getWarehousingExpenseReport = async (req, res) => {
           unit: item.unit || '',
           quantity,
           tax_included_price: taxIncludedPrice,
-          total_price: Math.round(totalPrice * 100) / 100,
+          total_price: round4(totalPrice),
           // 入库费用（退货单无入库费用）
           tariff: 0,
           transportation_fee: 0,

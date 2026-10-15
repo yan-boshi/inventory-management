@@ -169,6 +169,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { message, Modal } from 'ant-design-vue'
+import { formatMoney4 } from '@/utils/money'
 import {
   PlusOutlined,
   SearchOutlined,
@@ -277,6 +278,7 @@ const columns = computed(() => [
     key: 'total_value',
     width: 120,
     align: 'right' as const,
+    customRender: ({ text }: { text: number }) => formatMoney4(text),
   },
   {
     title: '操作',
@@ -320,12 +322,14 @@ const itemColumns = [
     dataIndex: 'unit_value',
     key: 'unit_value',
     width: 100,
+    customRender: ({ text }: { text: number }) => formatMoney4(text),
   },
   {
     title: '金额',
     dataIndex: 'total_value',
     key: 'total_value',
     width: 120,
+    customRender: ({ text }: { text: number }) => formatMoney4(text),
   },
 ]
 
@@ -534,7 +538,7 @@ const parseInvoiceItems = (items: string | any[]) => {
 
 const formatMoney = (amount: number | string) => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount
-  return (num || 0).toFixed(2)
+  return formatMoney4(num)
 }
 
 onMounted(() => {

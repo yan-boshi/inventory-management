@@ -1,5 +1,5 @@
 import instance from '@/utils/request'
-import type { PurchaseOrder, CreatePurchaseOrderRequest, UpdatePurchaseOrderRequest, PurchaseOrderQueryParams, PaginatedResponse } from '@/types'
+import type { PurchaseOrder, CreatePurchaseOrderRequest, UpdatePurchaseOrderRequest, PurchaseOrderQueryParams, PaginatedResponse, PlanRestoreSummary } from '@/types'
 
 const API_BASE_URL = '/purchase-orders'
 
@@ -20,8 +20,10 @@ export const purchaseOrdersApi = {
     return instance.put<PurchaseOrder>(`${API_BASE_URL}/${id}`, data)
   },
 
-  delete: async (id: string) => {
-    return instance.delete<{ message: string }>(`${API_BASE_URL}/${id}`)
+  delete: async (id: string, options?: { restorePlan?: boolean }): Promise<{ message: string; data?: PlanRestoreSummary | null }> => {
+    return instance.delete(`${API_BASE_URL}/${id}`, {
+      params: options?.restorePlan ? { restorePlan: 1 } : undefined
+    })
   },
 
   updateStatus: async (id: string, status: 1 | 2 | 3 | 4) => {

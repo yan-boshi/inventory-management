@@ -87,7 +87,7 @@
 
           <template v-else-if="column.key === 'total_amount'">
             <span style="color: #f5222d; font-weight: 500">
-              {{ record.amount }}
+              {{ formatMoney4(record.amount) }}
             </span>
           </template>
 
@@ -134,6 +134,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { inboundReturnsApi } from '@/api/inboundReturns'
+import { formatMoney4 } from '@/utils/money'
 import type { InboundReturnOrder, InboundReturnQueryParams } from '@/types'
 import InboundReturnForm from '@/components/InboundReturnForm.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'

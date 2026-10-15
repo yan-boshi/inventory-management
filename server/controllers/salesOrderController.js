@@ -298,23 +298,35 @@ export const getSalesItemsByContractNumber = async (req, res) => {
       return res.status(404).json({ success: false, message: '未找到该合同号的销售订单' })
     }
 
-    // 获取最新的订单
-    const order = orders[0]
+    // 同一合同编号可能对应多张销售订单（分批生成），
+    // 需要合并所有订单的商品（同一商品的数量累加），否则会漏掉其他订单里的商品
+    const mergedItems = new Map()
+    let fallbackKey = 0
+    for (const order of orders) {
+      let items = []
+      try {
+        items = JSON.parse(order.sales_items || '[]')
+      } catch (e) {
+        console.error('解析销售商品列表失败:', e)
+      }
 
-    // 解析销售商品列表
-    let salesItems = []
-    try {
-      salesItems = JSON.parse(order.sales_items || '[]')
-    } catch (e) {
-      console.error('解析销售商品列表失败:', e)
+      for (const item of items) {
+        const key = item.product_code || item.product_name || `__no_code_${fallbackKey++}`
+        const existing = mergedItems.get(key)
+        if (existing) {
+          existing.quantity = (parseFloat(existing.quantity) || 0) + (parseFloat(item.quantity) || 0)
+        } else {
+          mergedItems.set(key, { ...item })
+        }
+      }
     }
 
     res.json({
       success: true,
       data: {
-        order_number: order.order_number,
-        customer_name: order.customer_name,
-        sales_items: salesItems
+        order_number: orders[0].order_number,
+        customer_name: orders[0].customer_name,
+        sales_items: Array.from(mergedItems.values())
       }
     })
   } catch (error) {

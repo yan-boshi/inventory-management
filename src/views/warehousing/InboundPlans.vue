@@ -562,6 +562,7 @@ const handleGenerateWarehousingOrder = (record: any) => {
 
   warehousingOrderPrefill.value = {
     contract_number: plan.contract_number || '',
+    purchase_order_id: plan.purchase_order_id || '',
     customer_name: plan.supplier_name || '',
     currency: plan.currency || 'CNY',
     warehousing_items: warehousingItems,
@@ -593,12 +594,14 @@ const handleBatchGenerateWarehousingOrder = () => {
   const allItems: any[] = []
   const sourceRows: { planId: string; itemIndex: number; product_code: string; quantity: number }[] = []
   let firstPlan: any = null
+  const planPurchaseOrderIds = new Set<string>()
 
   selectedPlanIds.forEach(planId => {
     const plan = plans.value.find(p => p.inbound_plan_id === planId)
     if (!plan) return
 
     if (!firstPlan) firstPlan = plan
+    if (plan.purchase_order_id) planPurchaseOrderIds.add(plan.purchase_order_id)
 
     let items: any[] = []
     try {
@@ -658,6 +661,8 @@ const handleBatchGenerateWarehousingOrder = () => {
 
   warehousingOrderPrefill.value = {
     contract_number: firstPlan.contract_number || '',
+    // 仅当所有选中计划都属于同一张采购订单时才带入，否则由后端按合同下订单明细自行定位
+    purchase_order_id: planPurchaseOrderIds.size === 1 ? Array.from(planPurchaseOrderIds)[0] : '',
     customer_name: firstPlan.supplier_name || '',
     currency: firstPlan.currency || 'CNY',
     warehousing_items: warehousingItems,

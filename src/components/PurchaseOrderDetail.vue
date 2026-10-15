@@ -38,7 +38,7 @@
           <h4>采购费用登记</h4>
           <div v-if="getValidExpenses(order.expenses).length > 0" style="display: flex; gap: 20px; padding: 12px; background: #f5f7fa; border-radius: 4px;">
             <a-tag v-for="item in getValidExpenses(order.expenses)" :key="item.key" color="blue">
-              {{ item.label }}: {{ item.value.toFixed(2) }}
+              {{ item.label }}: {{ formatMoney4(item.value) }}
             </a-tag>
           </div>
           <span v-else style="color: #999;">无费用登记</span>
@@ -97,6 +97,7 @@ import { computed } from 'vue'
 import dayjs from 'dayjs'
 import { getValidExpenses } from '@/utils/expense'
 import type { PurchaseOrder, PurchaseItem } from '@/types'
+import { formatMoney4, formatMoney4Grouped } from '@/utils/money'
 
 const props = defineProps<{
   visible: boolean
@@ -140,7 +141,7 @@ const formatDateTime = (dateString: string) => {
 }
 
 const formatMoney = (value: number) => {
-  return value != null ? value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'
+  return formatMoney4Grouped(value, '0.00')
 }
 
 const getStatusColor = (status: number | string) => {

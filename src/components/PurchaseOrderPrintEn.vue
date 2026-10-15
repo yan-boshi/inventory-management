@@ -219,6 +219,7 @@ import dayjs from 'dayjs'
 import type { PurchaseOrder } from '@/types'
 import { useUserStore } from '@/stores/user'
 import { suppliersApi } from '@/api/suppliers'
+import { formatMoney4 } from '@/utils/money'
 
 interface Props {
   visible: boolean
@@ -321,7 +322,7 @@ const formatDate = (date: string | undefined) => {
 
 const formatPrice = (price: number | string | undefined) => {
   const numPrice = typeof price === 'string' ? parseFloat(price) : price || 0
-  return `￥${numPrice.toFixed(2)}`
+  return '￥' + formatMoney4(numPrice)
 }
 
 const calculateAmount = () => {

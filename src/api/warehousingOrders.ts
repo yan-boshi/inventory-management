@@ -1,5 +1,5 @@
 import instance from '@/utils/request'
-import type { WarehousingOrder, CreateWarehousingOrderRequest, UpdateWarehousingOrderRequest, WarehousingOrderQueryParams, PaginatedResponse } from '@/types'
+import type { WarehousingOrder, CreateWarehousingOrderRequest, UpdateWarehousingOrderRequest, WarehousingOrderQueryParams, PaginatedResponse, PlanRestoreSummary } from '@/types'
 
 const API_BASE_URL = '/warehousing-orders'
 
@@ -20,8 +20,10 @@ export const warehousingOrdersApi = {
     return instance.put<WarehousingOrder>(`${API_BASE_URL}/${id}`, data)
   },
 
-  delete: async (id: string) => {
-    return instance.delete<{ message: string }>(`${API_BASE_URL}/${id}`)
+  delete: async (id: string, options?: { restorePlan?: boolean }): Promise<{ message: string; data?: PlanRestoreSummary | null }> => {
+    return instance.delete(`${API_BASE_URL}/${id}`, {
+      params: options?.restorePlan ? { restorePlan: 1 } : undefined
+    })
   },
 
   getNewOrderNumber: async () => {

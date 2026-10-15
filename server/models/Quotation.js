@@ -1,6 +1,7 @@
 import BaseModel from './BaseModel.js'
 import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
+import { round4 } from '../utils/round.js'
 
 class Quotation extends BaseModel {
   constructor() {
@@ -59,7 +60,7 @@ class Quotation extends BaseModel {
       validity_period: data.validity_period || '自报价之日起10个工作日',
       delivery_method: data.delivery_method || '送货上门',
       tax_rate: data.tax_rate ?? 13,
-      tax_included_amount: parseFloat(taxIncludedAmount.toFixed(2)) || 0,
+      tax_included_amount: round4(taxIncludedAmount) || 0,
       currency: data.currency || 'CNY',
       payment_terms: data.payment_terms || null,
       trade_terms: data.trade_terms || null,
@@ -78,7 +79,7 @@ class Quotation extends BaseModel {
         taxIncludedAmount = items.reduce((sum, item) => {
           return sum + (parseFloat(item.total_amount) || 0)
         }, 0)
-        data.tax_included_amount = parseFloat(taxIncludedAmount.toFixed(2)) || 0
+        data.tax_included_amount = round4(taxIncludedAmount) || 0
       } catch (e) {
         console.error('Error parsing quotation_items:', e)
       }

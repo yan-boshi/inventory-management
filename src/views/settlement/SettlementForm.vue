@@ -161,7 +161,7 @@
               <a-input-number
                 v-model:value="formData.handling_fee"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 style="width: 100%"
                 placeholder="请输入手续费"
                 size="small"
@@ -235,7 +235,7 @@
               <a-input-number
                 v-model:value="formData.invoiced_amount"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 style="width: 100%"
                 placeholder="请输入已开票金额"
                 size="small"
@@ -247,7 +247,7 @@
               <a-input-number
                 v-model:value="formData.uninvoiced_amount"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 style="width: 100%"
                 placeholder="请输入未开票金额"
                 size="small"
@@ -293,6 +293,7 @@ import { paymentMethodsApi } from '@/api/paymentMethods'
 import type { SettlementStatement, SettlementStatementItem } from '@/types'
 import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
+import { formatMoney4Grouped } from '@/utils/money'
 
 const route = useRoute()
 const router = useRouter()
@@ -366,11 +367,7 @@ const totalAmount = computed(() => {
 })
 
 const formatMoney = (value: number | undefined | null) => {
-  if (value === undefined || value === null) return '0.00'
-  return Number(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+  return formatMoney4Grouped(value, '0.00')
 }
 
 // 客户名称下拉选项

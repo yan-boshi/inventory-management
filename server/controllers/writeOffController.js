@@ -1,6 +1,7 @@
 import pool from '../config/database.js'
 import WriteOffDocument from '../models/WriteOffDocument.js'
 import WriteOffItem from '../models/WriteOffItem.js'
+import { round4 } from '../utils/round.js'
 
 // 同步核销信息到销售订单/采购订单的商品信息
 async function syncOrderSettlementInfo(connection, type, sourceBillId, writeOffDate, afterReceived, balanceAmount, calcStatus) {
@@ -15,12 +16,12 @@ async function syncOrderSettlementInfo(connection, type, sourceBillId, writeOffD
     )
     if (deliveryRows.length > 0 && deliveryRows[0].contract_number) {
       const contractNumber = deliveryRows[0].contract_number
+      // 同一销售合同编号可能对应多张销售订单，全部同步
       const [salesRows] = await connection.query(
         'SELECT sales_order_id, sales_items FROM sales_orders WHERE contract_number = ? FOR UPDATE',
         [contractNumber]
       )
-      if (salesRows.length > 0) {
-        const salesOrder = salesRows[0]
+      for (const salesOrder of salesRows) {
         let salesItems = []
         try { salesItems = JSON.parse(salesOrder.sales_items || '[]') } catch { }
 
@@ -46,12 +47,12 @@ async function syncOrderSettlementInfo(connection, type, sourceBillId, writeOffD
     )
     if (warehousingRows.length > 0 && warehousingRows[0].contract_number) {
       const contractNumber = warehousingRows[0].contract_number
+      // 同一采购合同编号可能对应多张采购订单，全部同步
       const [purchaseRows] = await connection.query(
         'SELECT purchase_order_id, purchase_items FROM purchase_orders WHERE contract_number = ? FOR UPDATE',
         [contractNumber]
       )
-      if (purchaseRows.length > 0) {
-        const purchaseOrder = purchaseRows[0]
+      for (const purchaseOrder of purchaseRows) {
         let purchaseItems = []
         try { purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]') } catch { }
 
@@ -340,7 +341,7 @@ export const createWriteOff = async (req, res) => {
       const currentReceived = parseFloat(record.received_amount || 0)
       const writeOffAmount = parseFloat(item.write_off_amount)
 
-      if (currentReceived + writeOffAmount > receivableTotal + 0.0001) {
+      if (currentReceived + writeOffAmount > receivableTotal + 0.00001) {
         await connection.rollback()
         return res.status(400).json({
           success: false,
@@ -507,7 +508,7 @@ export const updateWriteOff = async (req, res) => {
         const currentReceived = parseFloat(record.received_amount || 0)
         const writeOffAmount = parseFloat(item.write_off_amount)
 
-        if (currentReceived + writeOffAmount > receivableTotal + 0.0001) {
+        if (currentReceived + writeOffAmount > receivableTotal + 0.00001) {
           await connection.rollback()
           return res.status(400).json({
             success: false,
@@ -612,7 +613,7 @@ export const voidWriteOff = async (req, res) => {
         const currentReceived = parseFloat(record.received_amount || 0)
         const writeOffAmount = parseFloat(item.write_off_amount)
 
-        if (currentReceived < writeOffAmount - 0.0001) {
+        if (currentReceived < writeOffAmount - 0.00001) {
           await connection.rollback()
           return res.status(400).json({ success: false, message: '数据异常，当前已核销金额小于回滚金额' })
         }

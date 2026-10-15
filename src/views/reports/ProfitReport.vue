@@ -140,7 +140,7 @@
                 :value="editingReceivedAmounts[record.order_number] !== undefined ? Number(editingReceivedAmounts[record.order_number]) : (record.received_amount || 0)"
                 @change="(value: number | null) => onReceivedAmountChange(record.order_number, value)"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 size="small"
                 style="width: 110px;"
                 :controls="false"
@@ -398,6 +398,7 @@ import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { useUserStore } from '@/stores/user'
 import type { Dayjs } from 'dayjs'
+import { formatMoney4 } from '@/utils/money'
 
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
@@ -1049,7 +1050,7 @@ const isMoneyColumn = (key: string) => moneyKeys.has(key)
 
 const formatMoney = (value: number | null | undefined) => {
   if (value === null || value === undefined) return ''
-  return value.toFixed(2)
+  return formatMoney4(value, '')
 }
 
 const formatNumber = (value: number | null | undefined) => {

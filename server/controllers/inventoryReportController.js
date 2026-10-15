@@ -1,4 +1,5 @@
 import pool from '../config/database.js'
+import { round4 } from '../utils/round.js'
 
 export const getInventoryReport = async (req, res) => {
   try {
@@ -208,17 +209,17 @@ export const getInventoryReport = async (req, res) => {
       const closingStock = openingStock + inbound - outbound
       const taxIncludedPrice = parseFloat(product.tax_included_price) || 0
       // 如果未税单价为空，则根据含税单价和默认税率(13%)计算
-      const taxExcludedPrice = parseFloat(product.tax_excluded_price) || (taxIncludedPrice > 0 ? Math.round(taxIncludedPrice / 1.13 * 10000) / 10000 : 0)
+      const taxExcludedPrice = parseFloat(product.tax_excluded_price) || (taxIncludedPrice > 0 ? round4(taxIncludedPrice / 1.13) : 0)
 
       // 计算各项目的金额
-      const openingStockIncludedAmount = Math.round(openingStock * taxIncludedPrice * 100) / 100
-      const openingStockExcludedAmount = Math.round(openingStock * taxExcludedPrice * 100) / 100
-      const inboundIncludedAmount = Math.round(inbound * taxIncludedPrice * 100) / 100
-      const inboundExcludedAmount = Math.round(inbound * taxExcludedPrice * 100) / 100
-      const outboundIncludedAmount = Math.round(outbound * taxIncludedPrice * 100) / 100
-      const outboundExcludedAmount = Math.round(outbound * taxExcludedPrice * 100) / 100
-      const closingIncludedAmount = Math.round(closingStock * taxIncludedPrice * 100) / 100
-      const closingExcludedAmount = Math.round(closingStock * taxExcludedPrice * 100) / 100
+      const openingStockIncludedAmount = round4(openingStock * taxIncludedPrice)
+      const openingStockExcludedAmount = round4(openingStock * taxExcludedPrice)
+      const inboundIncludedAmount = round4(inbound * taxIncludedPrice)
+      const inboundExcludedAmount = round4(inbound * taxExcludedPrice)
+      const outboundIncludedAmount = round4(outbound * taxIncludedPrice)
+      const outboundExcludedAmount = round4(outbound * taxExcludedPrice)
+      const closingIncludedAmount = round4(closingStock * taxIncludedPrice)
+      const closingExcludedAmount = round4(closingStock * taxExcludedPrice)
 
       return {
         product_id: product.product_id,

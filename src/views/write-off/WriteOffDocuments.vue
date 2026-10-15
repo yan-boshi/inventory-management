@@ -16,7 +16,7 @@
           <a-statistic
             title="应收核销总额"
             :value="summary.total_receivable_write_off"
-            :precision="2"
+            :precision="4"
             :value-style="{ color: '#1890ff' }"
           >
             <template #prefix>¥</template>
@@ -28,7 +28,7 @@
           <a-statistic
             title="应付核销总额"
             :value="summary.total_payable_write_off"
-            :precision="2"
+            :precision="4"
             :value-style="{ color: '#fa8c16' }"
           >
             <template #prefix>¥</template>
@@ -40,7 +40,7 @@
           <a-statistic
             title="净核销额"
             :value="summary.net_write_off"
-            :precision="2"
+            :precision="4"
             :value-style="{ color: summary.net_write_off >= 0 ? '#52c41a' : '#f5222d' }"
           >
             <template #prefix>¥</template>
@@ -52,7 +52,7 @@
           <a-statistic
             title="有效核销总额"
             :value="summary.active_total"
-            :precision="2"
+            :precision="4"
             :value-style="{ color: '#52c41a' }"
           >
             <template #prefix>¥</template>
@@ -64,7 +64,7 @@
           <a-statistic
             title="已作废总额"
             :value="summary.voided_total"
-            :precision="2"
+            :precision="4"
             :value-style="{ color: '#f5222d' }"
           >
             <template #prefix>¥</template>
@@ -267,6 +267,7 @@ import { formatDate } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import WriteOffFormModal from './WriteOffFormModal.vue'
 import dayjs from 'dayjs'
+import { formatMoney4Grouped } from '@/utils/money'
 
 const router = useRouter()
 
@@ -404,11 +405,7 @@ const columns = [
 ]
 
 const formatMoney = (value: number | undefined | null) => {
-  if (value === undefined || value === null) return '0.00'
-  return Number(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+  return formatMoney4Grouped(value, '0.00')
 }
 
 const pageTotals = computed(() => {

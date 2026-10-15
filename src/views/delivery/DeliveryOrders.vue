@@ -185,12 +185,22 @@
       :sourceOrder="returnSourceOrder"
       @success="loadOrders"
     />
+
+    <DeleteWithRestoreModal
+      :open="deleteModalOpen"
+      :order-number="deleteTarget?.order_number || ''"
+      doc-label="出库单"
+      plan-label="出库计划"
+      @cancel="deleteModalOpen = false"
+      @delete="handleDeleteConfirm(false)"
+      @delete-with-restore="handleDeleteConfirm(true)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { message, Modal } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 import { PlusOutlined, SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { deliveryOrdersApi } from '@/api/deliveryOrders'
 import type { DeliveryOrder, DeliveryOrderQueryParams } from '@/types'
@@ -198,10 +208,12 @@ import DeliveryOrderForm from '@/components/DeliveryOrderForm.vue'
 import DeliveryOrderPrint from '@/components/DeliveryOrderPrint.vue'
 import DeliveryOrderDetail from '@/components/DeliveryOrderDetail.vue'
 import OutboundReturnForm from '@/components/OutboundReturnForm.vue'
+import DeleteWithRestoreModal from '@/components/DeleteWithRestoreModal.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate, formatDateTime } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import dayjs from 'dayjs'
+import { formatMoney4 } from '@/utils/money'
 
 const orders = ref<DeliveryOrder[]>([])
 const loading = ref(false)
@@ -214,6 +226,8 @@ const currentOrder = ref<DeliveryOrder | null>(null)
 const printOrder = ref<DeliveryOrder | null>(null)
 const returnSourceOrder = ref<any>(null)
 const dateRange = ref<[any, any] | undefined>(undefined)
+const deleteModalOpen = ref(false)
+const deleteTarget = ref<DeliveryOrder | null>(null)
 
 // 展开订单数据，每个商品一行
 const expandedOrders = computed(() => {
@@ -529,21 +543,25 @@ const handleViewDetail = (order: DeliveryOrder) => {
 }
 
 const handleDelete = (order: DeliveryOrder) => {
-  Modal.confirm({
-    title: '确认删除',
-    content: `确定要删除出库单 ${order.order_number} 吗？`,
-    okText: '确认',
-    cancelText: '取消',
-    onOk: async () => {
-      try {
-        await deliveryOrdersApi.delete(order.delivery_order_id)
-        message.success('删除成功')
-        loadOrders()
-      } catch (error) {
-        message.error('删除失败')
-      }
-    },
-  })
+  deleteTarget.value = order
+  deleteModalOpen.value = true
+}
+
+const handleDeleteConfirm = async (restorePlan: boolean) => {
+  const target = deleteTarget.value
+  if (!target) return
+  try {
+    const res = await deliveryOrdersApi.delete(target.delivery_order_id, { restorePlan })
+    let successMsg = res?.message || '删除成功'
+    if (restorePlan && res?.data?.unmatchedQty) {
+      successMsg += `，${res.data.unmatchedQty} 件数量未匹配到计划明细`
+    }
+    message.success(successMsg)
+    deleteModalOpen.value = false
+    loadOrders()
+  } catch (error: any) {
+    message.error(error?.message || '删除失败')
+  }
 }
 
 const handleReturn = (order: DeliveryOrder) => {
@@ -589,7 +607,7 @@ const formatShippingFee = (expenses: string | object | null | undefined) => {
     const expressFee = Number(data.expressDeliveryFee) || 0
     const transportFee = Number(data.transportationFee) || 0
     const total = expressFee + transportFee
-    return total > 0 ? total.toFixed(2) : '-'
+    return total > 0 ? formatMoney4(total) : '-'
   } catch {
     return '-'
   }

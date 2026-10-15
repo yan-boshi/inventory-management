@@ -123,6 +123,7 @@ import { ArrowLeftOutlined } from '@ant-design/icons-vue'
 import { settlementApi } from '@/api/settlement'
 import type { SettlementDetail } from '@/types'
 import { formatDate } from '@/utils/date'
+import { formatMoney4Grouped } from '@/utils/money'
 
 const route = useRoute()
 const router = useRouter()
@@ -152,11 +153,7 @@ const itemColumns = computed(() => {
 })
 
 const formatMoney = (value: number | undefined | null) => {
-  if (value === undefined || value === null) return '0.00'
-  return Number(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+  return formatMoney4Grouped(value, '0.00')
 }
 
 const fetchDetail = async () => {

@@ -218,6 +218,8 @@ const expandedPlans = computed(() => {
           unit: item.unit || '-',
           delivery_date: item.delivery_date || '',
           item_remarks: item.remarks || '',
+          // 状态取明细自身的采购状态，不能用计划级状态（否则同一计划下已采购的行会显示成部分采购）
+          status: plan.status === 'cancelled' ? 'cancelled' : (item.purchase_status || 'pending'),
           _isFirstRow: index === 0,
           _rowCount: items.length,
           _planIndex: planIndex,
@@ -808,6 +810,7 @@ const handleExport = async () => {
             unit: item.unit || '-',
             delivery_date: item.delivery_date || '',
             item_remarks: item.remarks || '',
+            status: plan.status === 'cancelled' ? 'cancelled' : (item.purchase_status || 'pending'),
           })
         })
       }

@@ -145,13 +145,13 @@
                   v-model:value="item.unit_value"
                   size="small"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 100%"
                   @change="calculateItemTotal(index)"
                 />
               </td>
               <td>
-                <span class="total-value">{{ item.total_value || 0 }}</span>
+                <span class="total-value">{{ formatMoney4(item.total_value) }}</span>
               </td>
               <td v-if="source !== 'sales'">
                 <a-input v-model:value="item.contract_number" size="small" placeholder="合同号" />
@@ -173,7 +173,7 @@
       <div class="bottom-section">
         <div class="info-item">
           <span class="label">Total value:</span>
-          <span class="value" style="font-weight: bold;">{{ totalValue }}</span>
+          <span class="value" style="font-weight: bold;">{{ formatMoney4(totalValue) }}</span>
         </div>
         <div class="info-item">
           <span class="label">Trade terms成交方式：</span>
@@ -297,6 +297,7 @@ import { message } from 'ant-design-vue'
 import { useUserStore } from '@/stores/user'
 import { invoicesApi } from '@/api/invoices'
 import { customersApi } from '@/api/customers'
+import { formatMoney4 } from '@/utils/money'
 
 interface Props {
   visible: boolean

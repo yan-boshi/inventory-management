@@ -1,8 +1,39 @@
 import WarehousingOrder from '../models/WarehousingOrder.js'
 import PurchaseOrder from '../models/PurchaseOrder.js'
 import Payable from '../models/Payable.js'
+import InboundPlan from '../models/InboundPlan.js'
 import pool from '../config/database.js'
 import { handleDbError } from '../utils/errorHandler.js'
+import { round4 } from '../utils/round.js'
+import {
+  PURCHASE_ORDER_KEYS,
+  loadContractOrders,
+  findItemByProduct,
+  findItemForRollback,
+  itemsToDeltaMap,
+  buildQuantityDeltaMap,
+  syncQuantityDeltaToOrders
+} from '../utils/contractOrderLookup.js'
+import { INBOUND_PLAN_KEYS, restoreQuantitiesToPlans } from '../utils/planRestore.js'
+
+// 按采购合同编号加载全部采购订单及其明细（同一合同编号可能对应多张采购订单）
+const loadContractPurchaseOrders = (contractNumber) =>
+  loadContractOrders(PurchaseOrder, contractNumber, PURCHASE_ORDER_KEYS)
+
+// 在该合同下的多张采购订单中查找包含指定商品的明细行
+// 优先匹配剩余可入库数量大于 0 的订单，避免把入库数量同步到已全部入库的订单上
+const findPoItemByProduct = (orders, itemsMap, productCode, preferPurchaseOrderId) => {
+  const match = findItemByProduct(orders, itemsMap, productCode, PURCHASE_ORDER_KEYS, preferPurchaseOrderId)
+  if (!match) return null
+  return { purchaseOrder: match.order, purchaseItems: match.items, targetItem: match.targetItem }
+}
+
+// 删除入库单回退入库数量时，优先回退到入库数量大于 0 的订单（即真正收过货的订单）
+const findPoItemForRollback = (orders, itemsMap, productCode) => {
+  const match = findItemForRollback(orders, itemsMap, productCode, PURCHASE_ORDER_KEYS)
+  if (!match) return null
+  return { purchaseOrder: match.order, purchaseItems: match.items, targetItem: match.targetItem }
+}
 
 export const getAllWarehousingOrders = async (req, res) => {
   try {
@@ -105,6 +136,8 @@ export const createWarehousingOrder = async (req, res) => {
   try {
     const {
       contract_number,
+      // 前端选择的具体采购订单（同一合同编号可能对应多张采购订单，仅用于定位明细，不入库）
+      purchase_order_id,
       warehousing_items,
       warehousing_time,
       entry_date,
@@ -122,38 +155,34 @@ export const createWarehousingOrder = async (req, res) => {
 
     // 如果关联了采购订单，先验证入库数量
     if (contract_number) {
-      const purchaseOrder = await PurchaseOrder.findOne('contract_number = ?', [contract_number])
-      console.log('找到采购订单:', purchaseOrder ? purchaseOrder.order_number : '未找到')
+      const { orders, itemsMap } = await loadContractPurchaseOrders(contract_number)
+      console.log('找到采购订单:', orders.length > 0 ? orders.map(o => o.order_number).join(', ') : '未找到')
 
-      if (purchaseOrder && warehousing_items) {
-        const purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]')
+      if (orders.length > 0 && warehousing_items) {
         const parsedWarehousingItems = typeof warehousing_items === 'string'
           ? JSON.parse(warehousing_items)
           : warehousing_items
 
-        // 遍历入库项，验证数量
+        // 遍历入库项，验证数量（同一合同下有多张采购订单时，商品只要在其中一张中存在即可）
         for (const warehousingItem of parsedWarehousingItems) {
-          const targetItem = purchaseItems.find(
-            pi => pi.product_code === warehousingItem.product_code
-          )
+          const match = findPoItemByProduct(orders, itemsMap, warehousingItem.product_code, purchase_order_id)
 
-          if (!targetItem) {
+          if (!match) {
             return res.status(400).json({
               success: false,
               message: `商品 ${warehousingItem.product_code} 不在采购订单中`
             })
           }
 
-          const currentInbound = targetItem.inbound_quantity || 0
-          const newInbound = currentInbound + warehousingItem.quantity
-
-          // 超量校验
-          if (newInbound > targetItem.quantity) {
-            return res.status(400).json({
-              success: false,
-              message: `商品 ${targetItem.product_name} 已超出采购数量，订单数量: ${targetItem.quantity}，已入库: ${currentInbound}，本次入库: ${warehousingItem.quantity}`
-            })
-          }
+          // 超量校验（暂不启用）
+          // const currentInbound = match.targetItem.inbound_quantity || 0
+          // const newInbound = currentInbound + warehousingItem.quantity
+          // if (newInbound > match.targetItem.quantity) {
+          //   return res.status(400).json({
+          //     success: false,
+          //     message: `商品 ${match.targetItem.product_name} 已超出采购数量，订单数量: ${match.targetItem.quantity}，已入库: ${currentInbound}，本次入库: ${warehousingItem.quantity}`
+          //   })
+          // }
         }
       }
     }
@@ -212,12 +241,12 @@ export const createWarehousingOrder = async (req, res) => {
           if (newTaxExcludedPrice !== null) {
             await pool.query(
               'UPDATE products SET stock = ?, tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
-              [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, Math.round(newTaxExcludedPrice * 10000) / 10000, item.product_code]
+              [newStock.toFixed(2), round4(newTaxIncludedPrice), round4(newTaxExcludedPrice), item.product_code]
             )
           } else {
             await pool.query(
               'UPDATE products SET stock = ?, tax_included_price = ? WHERE product_code = ?',
-              [newStock.toFixed(2), Math.round(newTaxIncludedPrice * 10000) / 10000, item.product_code]
+              [newStock.toFixed(2), round4(newTaxIncludedPrice), item.product_code]
             )
           }
         } else {
@@ -228,61 +257,64 @@ export const createWarehousingOrder = async (req, res) => {
 
     // 如果关联了采购订单，同步入库数量到采购订单
     if (contract_number) {
-      const purchaseOrder = await PurchaseOrder.findOne('contract_number = ?', [contract_number])
+      const { orders, itemsMap } = await loadContractPurchaseOrders(contract_number)
 
-      if (purchaseOrder && warehousing_items) {
-        const purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]')
+      if (orders.length > 0 && warehousing_items) {
         const parsedWarehousingItems = typeof warehousing_items === 'string'
           ? JSON.parse(warehousing_items)
           : warehousing_items
 
+        // 同一合同下可能有多张采购订单，按商品所在的具体订单同步
+        const touchedOrders = new Map()
+
         // 遍历入库项，同步数量
         for (const warehousingItem of parsedWarehousingItems) {
-          const targetItem = purchaseItems.find(
-            pi => pi.product_code === warehousingItem.product_code
-          )
+          const match = findPoItemByProduct(orders, itemsMap, warehousingItem.product_code, purchase_order_id)
+          if (!match) continue
 
-          if (targetItem) {
-            // 更新入库数量
-            targetItem.inbound_quantity = (targetItem.inbound_quantity || 0) + warehousingItem.quantity
+          // 更新入库数量
+          match.targetItem.inbound_quantity = (match.targetItem.inbound_quantity || 0) + warehousingItem.quantity
 
-            // 更新行状态
-            if (targetItem.inbound_quantity === targetItem.quantity) {
-              targetItem.status = 2 // 已全部入库
-            } else if (targetItem.inbound_quantity > 0) {
-              targetItem.status = 3 // 已部分入库
-            }
+          // 更新行状态
+          if (match.targetItem.inbound_quantity === match.targetItem.quantity) {
+            match.targetItem.status = 2 // 已全部入库
+          } else if (match.targetItem.inbound_quantity > 0) {
+            match.targetItem.status = 3 // 已部分入库
           }
-        }
 
-        // 计算订单整体状态
-        const statuses = purchaseItems.map(item => item.status || 1)
-        let orderStatus = 1
-        if (statuses.every(s => s === 2)) {
-          orderStatus = 2 // 全部入库
-        } else if (statuses.some(s => s === 2 || s === 3)) {
-          orderStatus = 3 // 部分入库
+          touchedOrders.set(match.purchaseOrder.purchase_order_id, match)
         }
 
         // 更新采购订单
-        try {
-          await PurchaseOrder.update(purchaseOrder.purchase_order_id, {
-            purchase_items: JSON.stringify(purchaseItems),
-            status: orderStatus
-          })
-        } catch (syncErr) {
-          console.error('同步采购订单入库数量失败（不影响入库单创建）:', syncErr.message)
+        for (const match of touchedOrders.values()) {
+          const statuses = match.purchaseItems.map(item => item.status || 1)
+          let orderStatus = 1
+          if (statuses.every(s => s === 2)) {
+            orderStatus = 2 // 全部入库
+          } else if (statuses.some(s => s === 2 || s === 3)) {
+            orderStatus = 3 // 部分入库
+          }
+
+          try {
+            await PurchaseOrder.update(match.purchaseOrder.purchase_order_id, {
+              purchase_items: JSON.stringify(match.purchaseItems),
+              status: orderStatus
+            })
+          } catch (syncErr) {
+            console.error('同步采购订单入库数量失败（不影响入库单创建）:', syncErr.message)
+          }
         }
 
         // 创建应付账款记录
         try {
           const totalAmount = parseFloat(order.total_amount) || 0
 
-          // 获取供应商名称
-          const supplierName = purchaseOrder.supplier_name
+          // 获取供应商名称（取本次入库商品所在的采购订单）
+          const primaryMatch = touchedOrders.values().next().value
+          const supplierName = primaryMatch ? primaryMatch.purchaseOrder.supplier_name : undefined
 
           await Payable.create({
-            supplier_id: purchaseOrder.supplier_code,
+            supplier_id: primaryMatch ? primaryMatch.purchaseOrder.supplier_code : undefined,
             supplier_name: supplierName,
             source_bill_type: 1, // 入库单
             source_bill_id: order.order_number,
@@ -313,6 +345,8 @@ export const updateWarehousingOrder = async (req, res) => {
     const {
       order_number,
       contract_number,
+      // 编辑时带入的具体采购订单，用于后端精确定位入库数量同步的目标订单
+      purchase_order_id,
       warehousing_items,
       warehousing_time,
       entry_date,
@@ -334,9 +368,11 @@ export const updateWarehousingOrder = async (req, res) => {
     }
 
     // 如果入库商品发生变化，同步更新库存
+    const oldItems = JSON.parse(existing.warehousing_items || '[]')
+    const newItems = warehousing_items !== undefined
+      ? (typeof warehousing_items === 'string' ? JSON.parse(warehousing_items) : warehousing_items)
+      : oldItems
     if (warehousing_items !== undefined) {
-      const oldItems = JSON.parse(existing.warehousing_items || '[]')
-      const newItems = typeof warehousing_items === 'string' ? JSON.parse(warehousing_items) : warehousing_items
 
       // 计算每个产品的新旧数量差
       const quantityDelta = new Map()
@@ -377,15 +413,33 @@ export const updateWarehousingOrder = async (req, res) => {
           if (newTaxExcludedPrice !== null) {
             await pool.query(
               'UPDATE products SET stock = ?, tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
-              [newStock.toFixed(2), Math.round(newPrice * 10000) / 10000, Math.round(newTaxExcludedPrice * 10000) / 10000, productCode]
+              [newStock.toFixed(2), round4(newPrice), round4(newTaxExcludedPrice), productCode]
             )
           } else {
             await pool.query(
               'UPDATE products SET stock = ?, tax_included_price = ? WHERE product_code = ?',
-              [newStock.toFixed(2), Math.round(newPrice * 10000) / 10000, productCode]
+              [newStock.toFixed(2), round4(newPrice), productCode]
             )
           }
         }
+      }
+    }
+
+    // 同步入库数量到采购订单：编辑时不回写会导致订单上的入库数量与单据不一致
+    const oldContractNumber = existing.contract_number || ''
+    const newContractNumber = contract_number !== undefined ? (contract_number || '') : oldContractNumber
+    if (warehousing_items !== undefined || contract_number !== undefined) {
+      try {
+        if (oldContractNumber !== newContractNumber) {
+          // 合同变更：旧合同按旧明细全部回退，新合同按新明细全部累加
+          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, oldContractNumber, itemsToDeltaMap(oldItems, -1))
+          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, itemsToDeltaMap(newItems, 1), purchase_order_id)
+        } else {
+          // 同一合同：按新旧明细差量调整
+          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, buildQuantityDeltaMap(oldItems, newItems), purchase_order_id)
+        }
+      } catch (syncErr) {
+        console.error('同步采购订单入库数量失败（不影响入库单更新）:', syncErr.message)
       }
     }
 
@@ -446,52 +500,69 @@ export const deleteWarehousingOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: '入库单不存在' })
     }
 
+    // 可选：把单据商品数量回补到入库计划（按采购合同编号匹配）。
+    // 回补失败会阻断删除，此时库中数据未被改动，可原样重试
+    let planRestore = null
+    const restorePlan = req.query.restorePlan === '1' || req.query.restorePlan === 'true'
+    if (restorePlan && existing.contract_number) {
+      const docItems = JSON.parse(existing.warehousing_items || '[]')
+      planRestore = await restoreQuantitiesToPlans(
+        InboundPlan,
+        INBOUND_PLAN_KEYS,
+        existing.contract_number,
+        docItems
+      )
+    }
+
     // 如果关联了采购订单，回退出库数量
     if (existing.contract_number) {
-      const purchaseOrder = await PurchaseOrder.findOne('contract_number = ?', [existing.contract_number])
+      const { orders, itemsMap } = await loadContractPurchaseOrders(existing.contract_number)
 
-      if (purchaseOrder) {
-        const purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]')
+      if (orders.length > 0) {
         const warehousingItems = JSON.parse(existing.warehousing_items || '[]')
+
+        // 同一合同下可能有多张采购订单，回退到实际收过货（入库数量 > 0）的订单
+        const touchedOrders = new Map()
 
         // 遍历被删除入库单的商品，回退数量
         for (const warehousingItem of warehousingItems) {
-          const targetItem = purchaseItems.find(
-            pi => pi.product_code === warehousingItem.product_code
-          )
+          const match = findPoItemForRollback(orders, itemsMap, warehousingItem.product_code)
+          if (!match) continue
 
-          if (targetItem) {
-            const currentInbound = targetItem.inbound_quantity || 0
-            const newInbound = Math.max(0, currentInbound - warehousingItem.quantity)
+          const currentInbound = match.targetItem.inbound_quantity || 0
+          const newInbound = Math.max(0, currentInbound - warehousingItem.quantity)
 
-            // 更新入库数量
-            targetItem.inbound_quantity = newInbound
+          // 更新入库数量
+          match.targetItem.inbound_quantity = newInbound
 
-            // 更新行状态
-            if (newInbound === 0) {
-              targetItem.status = 1 // 未入库
-            } else if (newInbound < targetItem.quantity) {
-              targetItem.status = 3 // 已部分入库
-            } else if (newInbound === targetItem.quantity) {
-              targetItem.status = 2 // 已全部入库
-            }
+          // 更新行状态
+          if (newInbound === 0) {
+            match.targetItem.status = 1 // 未入库
+          } else if (newInbound < match.targetItem.quantity) {
+            match.targetItem.status = 3 // 已部分入库
+          } else if (newInbound === match.targetItem.quantity) {
+            match.targetItem.status = 2 // 已全部入库
           }
-        }
 
-        // 重新计算订单整体状态
-        const statuses = purchaseItems.map(item => item.status || 1)
-        let orderStatus = 1
-        if (statuses.every(s => s === 2)) {
-          orderStatus = 2 // 全部入库
-        } else if (statuses.some(s => s === 2 || s === 3)) {
-          orderStatus = 3 // 部分入库
+          touchedOrders.set(match.purchaseOrder.purchase_order_id, match)
         }
 
         // 更新采购订单
-        await PurchaseOrder.update(purchaseOrder.purchase_order_id, {
-          purchase_items: JSON.stringify(purchaseItems),
-          status: orderStatus
-        })
+        for (const match of touchedOrders.values()) {
+          // 重新计算订单整体状态
+          const statuses = match.purchaseItems.map(item => item.status || 1)
+          let orderStatus = 1
+          if (statuses.every(s => s === 2)) {
+            orderStatus = 2 // 全部入库
+          } else if (statuses.some(s => s === 2 || s === 3)) {
+            orderStatus = 3 // 部分入库
+          }
+
+          await PurchaseOrder.update(match.purchaseOrder.purchase_order_id, {
+            purchase_items: JSON.stringify(match.purchaseItems),
+            status: orderStatus
+          })
+        }
       }
     }
 
@@ -530,7 +601,7 @@ export const deleteWarehousingOrder = async (req, res) => {
     }
 
     await WarehousingOrder.delete(id)
-    res.json({ success: true, message: '入库单删除成功' })
+    res.json({ success: true, message: '入库单删除成功', data: planRestore })
   } catch (error) {
     const { statusCode, message } = handleDbError(error, '操作入库单')
     res.status(statusCode).json({ success: false, message })

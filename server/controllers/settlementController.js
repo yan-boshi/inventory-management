@@ -6,6 +6,7 @@ import Receivable from '../models/Receivable.js'
 import Payable from '../models/Payable.js'
 import { handleDbError } from '../utils/errorHandler.js'
 import { generateUUID } from '../utils/uuid.js'
+import { round4 } from '../utils/round.js'
 
 // 获取下一个对账单编号
 export const getNextStatementNumber = async (req, res) => {
@@ -296,7 +297,7 @@ export const createSettlement = async (req, res) => {
 
       // 将手续费均分给每个应收/应付单
       if (handling_fee && handling_fee > 0 && items.length > 0) {
-        const feePerItem = parseFloat((handling_fee / items.length).toFixed(2))
+        const feePerItem = round4(handling_fee / items.length)
 
         for (const item of items) {
           if (item.source_type === 1) {
@@ -414,7 +415,7 @@ export const updateSettlement = async (req, res) => {
 
       // 将手续费均分给每个应收/应付单
       if (handling_fee && handling_fee > 0 && items.length > 0) {
-        const feePerItem = parseFloat((handling_fee / items.length).toFixed(2))
+        const feePerItem = round4(handling_fee / items.length)
 
         for (const item of items) {
           if (item.source_type === 1) {

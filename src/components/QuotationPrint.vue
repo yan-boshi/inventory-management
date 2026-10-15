@@ -176,6 +176,7 @@ import dayjs from 'dayjs'
 import type { Quotation, QuotationItem } from '@/types'
 import { customersApi } from '@/api/customers'
 import { getLocale, type Lang } from '@/locales'
+import { formatMoney4, amountToChinese } from '@/utils/money'
 
 interface Props {
   visible: boolean
@@ -240,48 +241,7 @@ const amountInWords = computed(() => {
   return numberToChinese(totalAmount.value)
 })
 
-const numberToChinese = (num: number): string => {
-  const digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖']
-  const units = ['', '拾', '佰', '仟', '万', '亿']
-  let str = ''
-  let unitIndex = 0
-  // @ts-expect-error - zeroFlag is used in logic
-  let zeroFlag = false
-
-  if (num === 0) {
-    return '零元整'
-  }
-
-  const numStr = Math.floor(num).toString()
-
-  for (let i = 0; i < numStr.length; i++) {
-    const digit = parseInt(numStr[i])
-    if (digit === 0) {
-      zeroFlag = true
-    } else {
-      zeroFlag = false
-      const currentDigit = digits[digit] || ''
-      if (unitIndex > 0) {
-        str += units[unitIndex]
-      }
-      str += currentDigit
-      unitIndex++
-    }
-  }
-
-  str += '元'
-  if (numStr.includes('.')) {
-    const decimal = numStr.split('.')[1]
-    if (decimal) {
-      str += digits[parseInt(decimal[0])] + '角'
-      if (decimal.length > 1) {
-        str += digits[parseInt(decimal[1])] + '分'
-      }
-    }
-  }
-
-  return str + '整'
-}
+const numberToChinese = (num: number): string => amountToChinese(num)
 
 const formatDate = (date: string | undefined) => {
   if (!date) return '-'
@@ -290,7 +250,7 @@ const formatDate = (date: string | undefined) => {
 
 const formatPrice = (price: number | undefined) => {
   const numPrice = price || 0
-  return `￥${numPrice.toFixed(2)}`
+  return '￥' + formatMoney4(numPrice)
 }
 
 const getStatusText = (status: number) => {

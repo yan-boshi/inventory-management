@@ -20,7 +20,7 @@
           <div class="form-item">
             <label class="form-label">采购合同编号：</label>
             <a-select
-              v-model:value="form.contract_number"
+              v-model:value="selectedPurchaseOrderId"
               placeholder="请选择采购合同编号"
               :loading="loading.purchaseOrders"
               show-search
@@ -29,12 +29,13 @@
               @change="handlePurchaseOrderChange"
               class="invisible-select purchase-order-input"
             >
+              <!-- 按 purchase_order_id 绑定：同一合同编号可能对应多张采购订单，用订单号区分 -->
               <a-select-option
                 v-for="order in purchaseOrderOptions"
                 :key="order.purchase_order_id"
-                :value="order.contract_number"
+                :value="order.purchase_order_id"
               >
-                {{ order.contract_number || order.order_number }}
+                {{ order.contract_number ? `${order.contract_number}（${order.order_number}）` : order.order_number }}
               </a-select-option>
             </a-select>
           </div>
@@ -166,7 +167,7 @@
               <a-input-number
                 v-model:value="record.tax_included_price"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 @change="() => calculateTotal()"
                 style="width: 100%"
                 class="invisible-input"
@@ -243,7 +244,7 @@
           <a-input-number
             v-model:value="form.total_amount"
             :min="0"
-            :precision="2"
+            :precision="4"
             style="width: 200px"
             class="invisible-input"
           />
@@ -272,7 +273,7 @@
               <a-input-number
                 v-model:value="form.expenses.tariff"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 style="width: 120px"
                 placeholder="0.00"
               />
@@ -282,7 +283,7 @@
               <a-input-number
                 v-model:value="form.expenses.transportationFee"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 style="width: 120px"
                 placeholder="0.00"
               />
@@ -292,7 +293,7 @@
               <a-input-number
                 v-model:value="form.expenses.customsFee"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 style="width: 120px"
                 placeholder="0.00"
               />
@@ -302,7 +303,7 @@
               <a-input-number
                 v-model:value="form.expenses.otherFee"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 style="width: 120px"
                 placeholder="0.00"
               />
@@ -439,6 +440,11 @@ const loading = reactive({
 })
 
 const purchaseOrderOptions = ref<any[]>([])
+// 当前选中的采购订单（下拉框按 purchase_order_id 绑定，同一合同编号可能对应多张订单）
+const selectedPurchaseOrderId = ref('')
+// 是否明确知道对应的采购订单（用户手选/计划单带入/暂存恢复），
+// 仅此时才把 purchase_order_id 传给后端定位明细，避免误指到别的订单
+const purchaseOrderIdPrecise = ref(false)
 const currencyList = ref<Currency[]>([])
 const exchangeRateLoading = ref(false)
 
@@ -495,6 +501,13 @@ const getPurchaseOrdersForWarehousing = async () => {
   try {
     const response = await warehousingOrdersApi.getPurchaseOrdersForWarehousing()
     purchaseOrderOptions.value = response.data || []
+    // 编辑/回显场景只有合同编号时，按合同编号匹配一个订单用于下拉框显示（不作为后端定位依据）
+    if (!selectedPurchaseOrderId.value && form.contract_number) {
+      const matched = purchaseOrderOptions.value.find((o: any) => o.contract_number === form.contract_number)
+      if (matched) {
+        selectedPurchaseOrderId.value = matched.purchase_order_id
+      }
+    }
   } catch (error) {
     message.error('获取采购订单列表失败')
   }
@@ -519,10 +532,11 @@ const handlePurchaseOrderSearch = async (value: string) => {
   loading.purchaseOrders = false
 }
 
-// 选择采购订单
+// 选择采购订单（value 为 purchase_order_id，同一合同编号可能对应多张订单）
 const handlePurchaseOrderChange = async (value: string) => {
-  const order = purchaseOrderOptions.value.find((o: any) => o.contract_number === value)
+  const order = purchaseOrderOptions.value.find((o: any) => o.purchase_order_id === value)
   if (order) {
+    purchaseOrderIdPrecise.value = true
     try {
       const items = JSON.parse(order.purchase_items || '[]')
       // 过滤掉已全部入库的商品，计算剩余可入库数量
@@ -647,6 +661,8 @@ const handleSubmit = async () => {
     const submitData: CreateWarehousingOrderRequest = {
       order_number: orderNumber.value,
       contract_number: form.contract_number,
+      // 明确选中的采购订单才传，后端据此把入库数量同步到正确的订单
+      purchase_order_id: purchaseOrderIdPrecise.value ? selectedPurchaseOrderId.value : undefined,
       warehousing_items: JSON.stringify(form.warehousing_items),
       warehousing_time: formatDate(form.warehousing_time),
       entry_date: formatDateOnly(form.entry_date),
@@ -757,6 +773,11 @@ watch(
           // 从计划单生成时，应用预填充数据
           resetForm()
           form.contract_number = props.warehousingOrderData.contract_number || ''
+          // 计划单带入的具体采购订单，用于后端精确同步入库数量
+          if (props.warehousingOrderData.purchase_order_id) {
+            selectedPurchaseOrderId.value = props.warehousingOrderData.purchase_order_id
+            purchaseOrderIdPrecise.value = true
+          }
           form.customer_name = props.warehousingOrderData.customer_name || ''
           form.currency = props.warehousingOrderData.currency || 'CNY'
           form.remarks = props.warehousingOrderData.remarks || ''
@@ -775,6 +796,10 @@ watch(
       } else if (props.warehousingOrderData) {
         orderNumber.value = props.warehousingOrderData.order_number || ''
         form.contract_number = props.warehousingOrderData.contract_number || ''
+        // 编辑回显：合同编号对应的订单仅用于下拉框显示（编辑不重新同步入库数量，无需精确定位）
+        if (props.warehousingOrderData.purchase_order_id) {
+          selectedPurchaseOrderId.value = props.warehousingOrderData.purchase_order_id
+        }
         form.customer_name = props.warehousingOrderData.customer_name || ''
         form.customer_address = props.warehousingOrderData.customer_address || ''
         form.total_amount = props.warehousingOrderData.total_amount || 0
@@ -828,6 +853,8 @@ watch(
 // 重置表单
 const resetForm = () => {
   form.contract_number = ''
+  selectedPurchaseOrderId.value = ''
+  purchaseOrderIdPrecise.value = false
   form.warehousing_items = []
   form.warehousing_time = dayjs()
   form.entry_date = dayjs()
@@ -854,6 +881,7 @@ const DRAFT_KEY = 'warehousing_order'
 const handleSaveDraft = () => {
   const draftData = {
     contract_number: form.contract_number,
+    purchase_order_id: purchaseOrderIdPrecise.value ? selectedPurchaseOrderId.value : '',
     customer_name: form.customer_name,
     customer_address: form.customer_address,
     warehousing_items: form.warehousing_items,
@@ -887,6 +915,10 @@ const restoreDraft = () => {
   const draft = loadDraft(DRAFT_KEY)
   if (!draft) return
   form.contract_number = draft.data.contract_number || ''
+  if (draft.data.purchase_order_id) {
+    selectedPurchaseOrderId.value = draft.data.purchase_order_id
+    purchaseOrderIdPrecise.value = true
+  }
   form.customer_name = draft.data.customer_name || ''
   form.customer_address = draft.data.customer_address || ''
   form.warehousing_items = draft.data.warehousing_items || []

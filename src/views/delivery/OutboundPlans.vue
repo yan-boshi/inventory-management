@@ -593,6 +593,7 @@ const handleGenerateDeliveryOrder = (record: any) => {
 
   deliveryOrderPrefill.value = {
     contract_number: plan.contract_number || '',
+    sales_order_id: plan.sales_order_id || '',
     customer_name: plan.customer_name || '',
     currency: plan.currency || 'CNY',
     delivery_items: deliveryItems,
@@ -638,12 +639,14 @@ const handleBatchGenerateDeliveryOrder = () => {
   const allItems: any[] = []
   const sourceRows: { planId: string; itemIndex: number; product_code: string; quantity: number }[] = []
   let firstPlan: any = null
+  const planSalesOrderIds = new Set<string>()
 
   selectedPlanIds.forEach(planId => {
     const plan = plans.value.find(p => p.outbound_plan_id === planId)
     if (!plan) return
 
     if (!firstPlan) firstPlan = plan
+    if (plan.sales_order_id) planSalesOrderIds.add(plan.sales_order_id)
 
     let items: any[] = []
     try {
@@ -704,6 +707,8 @@ const handleBatchGenerateDeliveryOrder = () => {
 
   deliveryOrderPrefill.value = {
     contract_number: firstPlan.contract_number || '',
+    // 仅当所有选中计划都属于同一张销售订单时才带入，否则由后端按合同下订单明细自行定位
+    sales_order_id: planSalesOrderIds.size === 1 ? Array.from(planSalesOrderIds)[0] : '',
     customer_name: firstPlan.customer_name || '',
     currency: firstPlan.currency || 'CNY',
     delivery_items: deliveryItems,

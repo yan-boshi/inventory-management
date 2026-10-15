@@ -106,7 +106,7 @@
 
           <template v-else-if="column.key === 'total_amount'">
             <span style="color: #f5222d; font-weight: 500">
-              {{ record.amount }}
+              {{ formatMoney4(record.amount) }}
             </span>
           </template>
 
@@ -153,19 +153,31 @@
       :sourceOrder="returnSourceOrder"
       @success="loadOrders"
     />
+
+    <DeleteWithRestoreModal
+      :open="deleteModalOpen"
+      :order-number="deleteTarget?.order_number || ''"
+      doc-label="入库单"
+      plan-label="入库计划"
+      @cancel="deleteModalOpen = false"
+      @delete="handleDeleteConfirm(false)"
+      @delete-with-restore="handleDeleteConfirm(true)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { message, Modal } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 import { PlusOutlined, SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import { warehousingOrdersApi } from '@/api/warehousingOrders'
+import { formatMoney4 } from '@/utils/money'
 import type { WarehousingOrder, WarehousingOrderQueryParams } from '@/types'
 import WarehousingOrderForm from '@/components/WarehousingOrderForm.vue'
 import WarehousingOrderPrint from '@/components/WarehousingOrderPrint.vue'
 import WarehousingOrderDetail from '@/components/WarehousingOrderDetail.vue'
 import InboundReturnForm from '@/components/InboundReturnForm.vue'
+import DeleteWithRestoreModal from '@/components/DeleteWithRestoreModal.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate, formatDateTime } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
@@ -181,6 +193,8 @@ const isEdit = ref(false)
 const currentOrder = ref<WarehousingOrder | undefined>(undefined)
 const printOrder = ref<any>(undefined)
 const returnSourceOrder = ref<any>(undefined)
+const deleteModalOpen = ref(false)
+const deleteTarget = ref<WarehousingOrder | undefined>(undefined)
 const dateRange = ref<[any, any] | undefined>(undefined)
 
 // 展开订单数据，每个商品一行
@@ -487,21 +501,25 @@ const handleViewDetail = (order: WarehousingOrder) => {
 }
 
 const handleDelete = (order: WarehousingOrder) => {
-  Modal.confirm({
-    title: '确认删除',
-    content: `确定要删除入库单 ${order.order_number} 吗？`,
-    okText: '确认',
-    cancelText: '取消',
-    onOk: async () => {
-      try {
-        await warehousingOrdersApi.delete(order.warehousing_order_id)
-        message.success('删除成功')
-        loadOrders()
-      } catch (error) {
-        message.error('删除失败')
-      }
-    },
-  })
+  deleteTarget.value = order
+  deleteModalOpen.value = true
+}
+
+const handleDeleteConfirm = async (restorePlan: boolean) => {
+  const target = deleteTarget.value
+  if (!target) return
+  try {
+    const res = await warehousingOrdersApi.delete(target.warehousing_order_id, { restorePlan })
+    let successMsg = res?.message || '删除成功'
+    if (restorePlan && res?.data?.unmatchedQty) {
+      successMsg += `，${res.data.unmatchedQty} 件数量未匹配到计划明细`
+    }
+    message.success(successMsg)
+    deleteModalOpen.value = false
+    loadOrders()
+  } catch (error: any) {
+    message.error(error?.message || '删除失败')
+  }
 }
 
 const handleReturn = (order: WarehousingOrder) => {

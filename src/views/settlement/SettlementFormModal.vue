@@ -149,7 +149,7 @@
               <a-input-number
                 v-model:value="formData.handling_fee"
                 :min="0"
-                :precision="2"
+                :precision="4"
                 style="width: 100%"
                 placeholder="请输入手续费"
                 size="small"
@@ -300,6 +300,7 @@ import { suppliersApi } from '@/api/suppliers'
 import { paymentMethodsApi } from '@/api/paymentMethods'
 import { formatDate } from '@/utils/date'
 import dayjs from 'dayjs'
+import { formatMoney4Grouped as sharedFormatMoney4Grouped } from '@/utils/money'
 
 const props = defineProps<{
   visible: boolean
@@ -416,11 +417,7 @@ const removeInvoiceRecord = (index: number) => {
 
 // 格式化金额（4位小数）
 const formatMoney4 = (value: number | undefined | null) => {
-  if (value === undefined || value === null) return '0.0000'
-  return Number(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4,
-  })
+  return sharedFormatMoney4Grouped(value, '0.0000')
 }
 
 // 计算每行未开票金额：总额 - 累计已开票金额
@@ -467,11 +464,7 @@ const billingStatusColor = computed(() => {
 })
 
 const formatMoney = (value: number | undefined | null) => {
-  if (value === undefined || value === null) return '0.00'
-  return Number(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+  return sharedFormatMoney4Grouped(value, '0.00')
 }
 
 // 客户名称下拉选项

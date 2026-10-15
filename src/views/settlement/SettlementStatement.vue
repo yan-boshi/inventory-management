@@ -15,7 +15,7 @@
           <a-statistic
             title="应收总额"
             :value="summary.total_receivable"
-            :precision="2"
+            :precision="4"
             :value-style="{ color: '#1890ff' }"
           >
             <template #prefix>¥</template>
@@ -27,7 +27,7 @@
           <a-statistic
             title="应付总额"
             :value="summary.total_payable"
-            :precision="2"
+            :precision="4"
             :value-style="{ color: '#fa8c16' }"
           >
             <template #prefix>¥</template>
@@ -39,7 +39,7 @@
           <a-statistic
             title="净额"
             :value="summary.net_amount"
-            :precision="2"
+            :precision="4"
             :value-style="{ color: summary.net_amount >= 0 ? '#52c41a' : '#f5222d' }"
           >
             <template #prefix>¥</template>
@@ -51,7 +51,7 @@
           <a-statistic
             title="已开票应收"
             :value="summary.invoiced_receivable"
-            :precision="2"
+            :precision="4"
             :value-style="{ color: '#52c41a' }"
           >
             <template #prefix>¥</template>
@@ -63,7 +63,7 @@
           <a-statistic
             title="未开票应收"
             :value="summary.uninvoiced_receivable"
-            :precision="2"
+            :precision="4"
             :value-style="{ color: '#f5222d' }"
           >
             <template #prefix>¥</template>
@@ -298,6 +298,7 @@ import { formatDate } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import SettlementFormModal from './SettlementFormModal.vue'
 import dayjs from 'dayjs'
+import { formatMoney4Grouped } from '@/utils/money'
 
 const router = useRouter()
 
@@ -484,11 +485,7 @@ const columns = [
 ]
 
 const formatMoney = (value: number | undefined | null) => {
-  if (value === undefined || value === null) return '0.00'
-  return Number(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
+  return formatMoney4Grouped(value, '0.00')
 }
 
 const pageTotals = computed(() => {

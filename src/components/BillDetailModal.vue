@@ -54,7 +54,7 @@
           >
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'amount'">
-                {{ ((record.quantity || 0) * (record.tax_included_price || 0)).toFixed(2) }}
+                {{ formatMoney4((record.quantity || 0) * (record.tax_included_price || 0)) }}
               </template>
             </template>
           </a-table>
@@ -284,6 +284,7 @@ import { deliveryOrdersApi } from '@/api/deliveryOrders'
 import { warehousingOrdersApi } from '@/api/warehousingOrders'
 import { outboundReturnsApi } from '@/api/outboundReturns'
 import { inboundReturnsApi } from '@/api/inboundReturns'
+import { formatMoney4 } from '@/utils/money'
 
 type BillType = 'delivery' | 'warehousing' | 'outbound_return' | 'inbound_return'
 
@@ -362,8 +363,7 @@ const parseItems = (items: string | any[] | undefined) => {
 }
 
 const formatMoney = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return '-'
-  return Number(value).toFixed(2)
+  return formatMoney4(value, '-')
 }
 
 const getCurrencyName = (currency: string) => {

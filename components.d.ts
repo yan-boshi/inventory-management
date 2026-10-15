@@ -68,6 +68,7 @@ declare module 'vue' {
     CurrencyForm: typeof import('./src/components/CurrencyForm.vue')['default']
     CustomerForm: typeof import('./src/components/CustomerForm.vue')['default']
     CustomsExchangeRateForm: typeof import('./src/components/CustomsExchangeRateForm.vue')['default']
+    DeleteWithRestoreModal: typeof import('./src/components/DeleteWithRestoreModal.vue')['default']
     DeliveryExpenseReportPrint: typeof import('./src/components/DeliveryExpenseReportPrint.vue')['default']
     DeliveryOrderDetail: typeof import('./src/components/DeliveryOrderDetail.vue')['default']
     DeliveryOrderForm: typeof import('./src/components/DeliveryOrderForm.vue')['default']

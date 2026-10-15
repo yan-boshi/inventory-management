@@ -209,7 +209,7 @@
                 <a-input-number
                   v-model:value="record.tax_included_price"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 100%"
                   @change="() => calculateRowTotal(index)"
                   class="invisible-input"
@@ -217,7 +217,7 @@
               </template>
               <template v-else-if="column.key === 'tax_excluded_price'">
                 <a-input
-                  :value="record.tax_excluded_price?.toFixed(2)"
+                  :value="formatMoney4(record.tax_excluded_price)"
                   disabled
                   style="width: 100%"
                   class="invisible-input"
@@ -226,7 +226,7 @@
 
               <template v-else-if="column.key === 'tax_included_amount'">
                 <a-input
-                  :value="record.tax_included_amount?.toFixed(2)"
+                  :value="formatMoney4(record.tax_included_amount)"
                   disabled
                   style="width: 100%"
                   class="invisible-input"
@@ -234,7 +234,7 @@
               </template>
               <template v-else-if="column.key === 'tax_excluded_amount'">
                 <a-input
-                  :value="record.tax_excluded_amount?.toFixed(2)"
+                  :value="formatMoney4(record.tax_excluded_amount)"
                   disabled
                   style="width: 100%"
                   class="invisible-input"
@@ -242,7 +242,7 @@
               </template>
               <template v-else-if="column.key === 'tax_amount'">
                 <a-input
-                  :value="record.tax_amount?.toFixed(2)"
+                  :value="formatMoney4(record.tax_amount)"
                   disabled
                   style="width: 100%"
                   class="invisible-input"
@@ -291,15 +291,13 @@
                 <a-input-number
                   v-model:value="record.settlement_amount"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 100%"
                   class="invisible-input"
                   @change="
                     () => {
-                      record.unsettled_amount = parseFloat(
-                        (
-                          (record.tax_included_amount || 0) - (record.settlement_amount || 0)
-                        ).toFixed(2)
+                      record.unsettled_amount = round4(
+                        (record.tax_included_amount || 0) - (record.settlement_amount || 0)
                       )
                       record.settlement_status =
                         record.unsettled_amount === 0
@@ -315,10 +313,10 @@
               <template v-else-if="column.key === 'unsettled_amount'">
                 <a-input
                   :value="
-                    (
+                    formatMoney4(
                       record.unsettled_amount ??
                       (record.tax_included_amount || 0) - (record.settlement_amount || 0)
-                    ).toFixed(2)
+                    )
                   "
                   disabled
                   style="width: 100%"
@@ -350,7 +348,7 @@
 
               <template v-else-if="column.key === 'total_price'">
                 <a-input
-                  :value="record.total_price?.toFixed(2)"
+                  :value="formatMoney4(record.total_price)"
                   disabled
                   style="width: 100%"
                   class="invisible-input"
@@ -369,7 +367,7 @@
                 <div class="total-row">
                   <span class="total-label">{{ t.purchaseOrder.totalWithTax }}</span>
                   <a-input
-                    :value="totalAmount.toFixed(2)"
+                    :value="formatMoney4(totalAmount)"
                     disabled
                     style="width: 150px"
                     class="invisible-input"
@@ -420,7 +418,7 @@
                 <a-input-number
                   v-model:value="form.expenses.transportationFee"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 100%"
                   class="expense-input"
                 />
@@ -430,7 +428,7 @@
                 <a-input-number
                   v-model:value="form.expenses.valueAddedTax"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 100%"
                   class="expense-input"
                 />
@@ -440,7 +438,7 @@
                 <a-input-number
                   v-model:value="form.expenses.handlingFee"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 100%"
                   class="expense-input"
                 />
@@ -450,7 +448,7 @@
                 <a-input-number
                   v-model:value="form.expenses.operatingExpenses"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 100%"
                   class="expense-input"
                 />
@@ -460,7 +458,7 @@
                 <a-input-number
                   v-model:value="form.expenses.otherFee"
                   :min="0"
-                  :precision="2"
+                  :precision="4"
                   style="width: 100%"
                   class="expense-input"
                 />
@@ -499,6 +497,7 @@ import { productsApi } from '@/api/products'
 import { businessCategoriesApi } from '@/api/businessCategories'
 import { useUserStore } from '@/stores/user'
 import { saveDraft, loadDraft, clearDraft, hasDraft, formatDraftTime } from '@/utils/draft'
+import { round4, formatMoney4 } from '@/utils/money'
 import { Modal } from 'ant-design-vue'
 import { getLocale, type Lang } from '@/locales'
 import type {
@@ -890,14 +889,14 @@ const calculateRowTotal = (index: number) => {
   const item = form.purchase_items[index]
   const taxRateDecimal = item.tax_rate / 100
 
-  item.tax_excluded_price = parseFloat((item.tax_included_price / (1 + taxRateDecimal)).toFixed(2))
+  item.tax_excluded_price = round4(item.tax_included_price / (1 + taxRateDecimal))
 
-  item.tax_included_amount = parseFloat((item.quantity * item.tax_included_price).toFixed(2))
+  item.tax_included_amount = round4(item.quantity * item.tax_included_price)
 
-  item.tax_excluded_amount = parseFloat((item.quantity * item.tax_excluded_price).toFixed(2))
+  item.tax_excluded_amount = round4(item.quantity * item.tax_excluded_price)
 
-  item.tax_amount = parseFloat(
-    ((item.tax_included_amount / (1 + taxRateDecimal)) * taxRateDecimal).toFixed(2)
+  item.tax_amount = round4(
+    (item.tax_included_amount / (1 + taxRateDecimal)) * taxRateDecimal
   )
 
   item.total_price = item.tax_included_amount

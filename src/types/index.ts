@@ -685,6 +685,13 @@ export interface OutboundPlanQueryParams {
   endDate?: string
 }
 
+// 删除单据时回补计划数量的摘要（DELETE ?restorePlan=1 响应的 data）
+export interface PlanRestoreSummary {
+  restoredPlans: number
+  restoredQty: number
+  unmatchedQty: number
+}
+
 export interface User {
   user_id: string
   username: string
@@ -863,6 +870,8 @@ export interface WarehousingOrder {
 
 export interface CreateWarehousingOrderRequest {
   contract_number?: string
+  /** 具体采购订单（同一合同编号可能对应多张采购订单，仅用于后端定位明细） */
+  purchase_order_id?: string
   warehousing_items?: WarehousingItem[]
   warehousing_time?: string
   entry_date?: string
@@ -940,6 +949,8 @@ export interface DeliveryOrder {
 
 export interface CreateDeliveryOrderRequest {
   contract_number?: string
+  /** 具体销售订单（同一合同编号可能对应多张销售订单，仅用于后端定位明细） */
+  sales_order_id?: string
   customer_name: string
   customer_address: string
   delivery_items: DeliveryItem[] | string

@@ -6,7 +6,8 @@ import type {
   UpdateDeliveryOrderRequest,
   DeliveryOrderQueryParams,
   PaginatedResponse,
-  UndeliveredSalesOrder
+  UndeliveredSalesOrder,
+  PlanRestoreSummary
 } from '@/types'
 
 const API_BASE_URL = '/delivery-orders'
@@ -28,8 +29,10 @@ export const deliveryOrdersApi = {
     return instance.put(`${API_BASE_URL}/${id}`, data)
   },
 
-  delete: async (id: string): Promise<{ message: string }> => {
-    return instance.delete(`${API_BASE_URL}/${id}`)
+  delete: async (id: string, options?: { restorePlan?: boolean }): Promise<{ message: string; data?: PlanRestoreSummary | null }> => {
+    return instance.delete(`${API_BASE_URL}/${id}`, {
+      params: options?.restorePlan ? { restorePlan: 1 } : undefined
+    })
   },
 
   getNewOrderNumber: async () => {

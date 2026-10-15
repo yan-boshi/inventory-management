@@ -67,6 +67,14 @@ class OutboundPlan extends BaseModel {
     })
   }
 
+  async findByContractNumber(contractNumber) {
+    return this.findAll({
+      where: 'contract_number = ?',
+      orderBy: 'created_at ASC, plan_number ASC',
+      params: [contractNumber],
+    })
+  }
+
   async deleteBySalesOrderId(salesOrderId) {
     const connection = await pool.getConnection()
     try {
