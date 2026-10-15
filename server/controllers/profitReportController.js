@@ -703,16 +703,17 @@ export const getProfitReport = async (req, res) => {
             // 使用采购订单ID+产品代码作为key，避免不同PO的同产品数据混合
             const mapKey = `${po.purchase_order_id}_${code}`
             if (!warehousingItemMap[mapKey]) {
-              warehousingItemMap[mapKey] = { quantity: 0, total_price: 0, tax_included_price: 0 }
+              warehousingItemMap[mapKey] = { quantity: 0, total_price: 0, total_price_excluded: 0, tax_included_price: 0 }
             }
             const wiTotalQty = parseFloat(wi.quantity) || 0
             let wiPrice = parseFloat(wi.tax_included_price) || 0
+            // 未税换算使用入库明细自身的税率（不同采购行税率可能不同），不能用销售侧税率
+            const whTaxRate = parseFloat(wi.tax_rate) || 0
 
             // 含税单价为空时，通过产品表的未税单价和税率反算含税单价
             if (wiPrice === 0 && code) {
               const product = productMap[code]
               if (product) {
-                const whTaxRate = parseFloat(wi.tax_rate) || 0
                 const excludedPrice = parseFloat(product.tax_excluded_price) || 0
                 if (excludedPrice > 0) {
                   wiPrice = excludedPrice * (1 + whTaxRate / 100)
@@ -722,6 +723,7 @@ export const getProfitReport = async (req, res) => {
 
             warehousingItemMap[mapKey].quantity += wiTotalQty
             warehousingItemMap[mapKey].total_price += wiTotalQty * wiPrice
+            warehousingItemMap[mapKey].total_price_excluded += (wiTotalQty * wiPrice) / (1 + whTaxRate / 100)
             warehousingItemMap[mapKey].tax_included_price = wiPrice
           }
         }
@@ -811,18 +813,22 @@ export const getProfitReport = async (req, res) => {
         const quantity = parseFloat(item.quantity) || 0
         const taxIncludedPrice = parseFloat(item.tax_included_price) || 0
         const amount = parseFloat(item.amount) || (quantity * taxIncludedPrice)
-        const taxRate = parseFloat(item.tax_rate) ?? 13
+        // 税率缺失/非法时兜底13（?? 13 对 NaN/0 无效，需显式判断；0 是合法税率如出口免税）
+        const parsedTaxRate = parseFloat(item.tax_rate)
+        const taxRate = Number.isFinite(parsedTaxRate) ? parsedTaxRate : 13
         const unitPriceExcluded = taxIncludedPrice / (1 + taxRate / 100)
         const amountExcluded = quantity * unitPriceExcluded
 
         // 匹配入库数据（汇总所有包含该产品代码的采购订单的入库数据）
         let totalWhQty = 0
         let totalWhPrice = 0
+        let totalWhPriceExcluded = 0
         for (const po of purchaseOrders) {
           const mapKey = `${po.purchase_order_id}_${productCode}`
           if (warehousingItemMap[mapKey] && warehousingItemMap[mapKey].quantity > 0) {
             totalWhQty += warehousingItemMap[mapKey].quantity
             totalWhPrice += warehousingItemMap[mapKey].total_price
+            totalWhPriceExcluded += warehousingItemMap[mapKey].total_price_excluded || 0
           }
         }
         const hasWarehousing = totalWhQty > 0
@@ -836,9 +842,9 @@ export const getProfitReport = async (req, res) => {
 
         if (hasWarehousing) {
           warehousingQuantity = quantity
-          // 使用加权平均单价：总金额 / 总数量
+          // 使用加权平均单价：总金额 / 总数量（未税金额按入库明细各自税率逐行去税后汇总）
           warehousingUnitPriceIncluded = totalWhQty > 0 ? (totalWhPrice / totalWhQty) : 0
-          warehousingUnitPriceExcluded = warehousingUnitPriceIncluded / (1 + taxRate / 100)
+          warehousingUnitPriceExcluded = totalWhQty > 0 ? (totalWhPriceExcluded / totalWhQty) : 0
           warehousingAmountIncluded = quantity * warehousingUnitPriceIncluded
           warehousingAmount = quantity * warehousingUnitPriceExcluded
         } else {
