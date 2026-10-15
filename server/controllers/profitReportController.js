@@ -813,6 +813,10 @@ export const getProfitReport = async (req, res) => {
         const quantity = parseFloat(item.quantity) || 0
         const taxIncludedPrice = parseFloat(item.tax_included_price) || 0
         const amount = parseFloat(item.amount) || (quantity * taxIncludedPrice)
+        // 单据级结算金额按行金额占出库单总金额的比例拆分（总金额为0时按行数均分）
+        const settlementShare = deliveryTotalAmount > 0
+          ? amount / deliveryTotalAmount
+          : (filteredItems.length > 0 ? 1 / filteredItems.length : 0)
         // 税率缺失/非法时兜底13（?? 13 对 NaN/0 无效，需显式判断；0 是合法税率如出口免税）
         const parsedTaxRate = parseFloat(item.tax_rate)
         const taxRate = Number.isFinite(parsedTaxRate) ? parsedTaxRate : 13
@@ -953,11 +957,14 @@ export const getProfitReport = async (req, res) => {
           unit_price_excluded: round4(unitPriceExcluded),
           sales_amount_excluded: round4(amountExcluded),
           tax_rate: taxRate,
-          // 结算信息（应收金额按每行销售额显示，避免汇总时重复累加）
+          // 结算信息（应收金额=本行销售额；已结算/待结算按行金额占单据总金额的比例拆分，避免汇总时重复累加）
           settlement_status: settlementStatusText,
           receivable_amount: round4(amount),
-          received_amount: round4(receivedAmount),
-          balance_amount: round4(balanceAmount),
+          received_amount: round4(receivedAmount * settlementShare),
+          balance_amount: round4(balanceAmount * settlementShare),
+          // 单据级原值（已结算金额按出库单编辑，展示与合计用拆分值）
+          order_received_amount: round4(receivedAmount),
+          order_balance_amount: round4(balanceAmount),
           last_write_off_date: formatDateStr(lastWriteOffDate),
           last_write_off_number: lastWriteOffNumber,
           write_off_count: writeOffCount,

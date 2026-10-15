@@ -137,7 +137,7 @@
             <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-end;">
               <a-input-number
                 v-if="isAdmin"
-                :value="editingReceivedAmounts[record.order_number] !== undefined ? Number(editingReceivedAmounts[record.order_number]) : (record.received_amount || 0)"
+                :value="editingReceivedAmounts[record.order_number] !== undefined ? Number(editingReceivedAmounts[record.order_number]) : (record.order_received_amount || 0)"
                 @change="(value: number | null) => onReceivedAmountChange(record.order_number, value)"
                 :min="0"
                 :precision="4"
@@ -147,7 +147,7 @@
               />
               <span v-else>{{ formatMoney(record.received_amount) }}</span>
               <a-button
-                v-if="isAdmin && editingReceivedAmounts[record.order_number] !== undefined && Number(editingReceivedAmounts[record.order_number]) !== (record.received_amount || 0)"
+                v-if="isAdmin && editingReceivedAmounts[record.order_number] !== undefined && Number(editingReceivedAmounts[record.order_number]) !== (record.order_received_amount || 0)"
                 type="link"
                 size="small"
                 :loading="savingRowKeys.has(record.order_number)"
@@ -1267,19 +1267,14 @@ const handleSaveReceivedAmount = async (record: ProfitReportItem) => {
 
   savingRowKeys.value = new Set([...savingRowKeys.value, orderNumber])
   try {
-    const res = await profitReportApi.updateReceivedAmount(orderNumber, newAmount)
+    await profitReportApi.updateReceivedAmount(orderNumber, newAmount)
     message.success('已结算金额更新成功')
-    // 更新本地数据
-    record.received_amount = newAmount
-    // 自动更新结算状态和未结算金额
-    if (res.data) {
-      record.settlement_status = res.data.settlement_status || record.settlement_status
-      record.balance_amount = res.data.balance_amount ?? record.balance_amount
-    }
     // 清除编辑状态
     const newEditing = { ...editingReceivedAmounts.value }
     delete newEditing[orderNumber]
     editingReceivedAmounts.value = newEditing
+    // 已结算金额是出库单级字段，各行拆分值（received_amount/balance_amount）随行金额占比变化，重新拉取保证一致
+    await fetchReport()
   } catch (error: any) {
     message.error(error?.message || '更新失败')
   } finally {

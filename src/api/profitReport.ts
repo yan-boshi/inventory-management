@@ -38,11 +38,13 @@ export interface ProfitReportItem {
   sales_amount_excluded: number
   tax_rate: number
 
-  // 结算信息
+  // 结算信息（received_amount/balance_amount 按行金额占比拆分，order_* 为单据级原值供编辑）
   settlement_status: string
   receivable_amount: number
   received_amount: number
   balance_amount: number
+  order_received_amount: number
+  order_balance_amount: number
   last_write_off_date: string | null
   last_write_off_number: string
   write_off_count: number
