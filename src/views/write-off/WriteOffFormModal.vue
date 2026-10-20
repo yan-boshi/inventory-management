@@ -166,12 +166,10 @@
               <a-input-number
                 v-model:value="record.write_off_amount"
                 :min="0"
-                :max="record.balance_amount"
                 :precision="4"
                 style="width: 100%"
                 placeholder="本次核销金额"
                 size="small"
-                @change="() => handleWriteOffAmountChange(record)"
               />
             </template>
 
@@ -448,13 +446,6 @@ const buildPendingItemsFromSelected = () => {
   pendingItems.value = records
 }
 
-const handleWriteOffAmountChange = (record: any) => {
-  if (record.write_off_amount > record.balance_amount) {
-    record.write_off_amount = record.balance_amount
-    message.warning('核销金额不能超过待核销余额')
-  }
-}
-
 const handleViewSourceBill = (record: any) => {
   // 可以跳转到对应的出库单或入库单详情
   message.info(`查看来源单据: ${record.source_bill_id}`)
@@ -534,6 +525,19 @@ const loadFromPreSelectedRecords = async () => {
   const paymentMethodRecord = props.preSelectedRecords.find(r => r.payment_method)
   if (paymentMethodRecord) {
     formData.payment_method = paymentMethodRecord.payment_method
+  }
+
+  // 同步结算日期到核销日期（取第一条待核销记录的结算日期）
+  const settlementDateRecord = props.preSelectedRecords.find(
+    r => r.status !== 2 && (r._due_date || r.due_date)
+  )
+  if (settlementDateRecord) {
+    const dueDate =
+      settlementDateRecord._due_date ||
+      (settlementDateRecord.due_date ? dayjs(settlementDateRecord.due_date) : null)
+    if (dueDate) {
+      formData.write_off_date = dueDate
+    }
   }
 
   // 直接从预选记录构建待核销列表

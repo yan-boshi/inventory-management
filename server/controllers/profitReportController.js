@@ -504,17 +504,26 @@ export const getProfitReport = async (req, res) => {
     // ============ 7. 组装报表数据 ============
 
     // 预计算每个销售合同的出库总额，用于同一SO拆分多出库单时按比例分摊成本费用
+    // 分母必须取合同的全量出库总额（不带查询/筛选条件）：若只统计当前查询结果，
+    // 按结算日期等条件筛出部分出库单时分母被裁剪，soShare 被放大，
+    // 整条销售链的采购/入库/销售费用会全部砸进筛出的出库单
     const contractTotalAmountMap = {} // contract_number -> 出库总金额
-    for (const order of deliveryOrders) {
-      const cn = order.contract_number
-      if (!cn) continue
-      let allItems = []
-      try { allItems = JSON.parse(order.delivery_items || '[]') } catch { continue }
-      for (const item of allItems) {
-        const qty = parseFloat(item.quantity) || 0
-        const price = parseFloat(item.tax_included_price) || 0
-        const amt = parseFloat(item.amount) || (qty * price)
-        contractTotalAmountMap[cn] = (contractTotalAmountMap[cn] || 0) + amt
+    if (contractNumbers.length > 0) {
+      const [allContractOrders] = await pool.query(
+        `SELECT contract_number, delivery_items FROM delivery_orders WHERE contract_number IN (?)`,
+        [contractNumbers]
+      )
+      for (const order of allContractOrders) {
+        const cn = order.contract_number
+        if (!cn) continue
+        let allItems = []
+        try { allItems = JSON.parse(order.delivery_items || '[]') } catch { continue }
+        for (const item of allItems) {
+          const qty = parseFloat(item.quantity) || 0
+          const price = parseFloat(item.tax_included_price) || 0
+          const amt = parseFloat(item.amount) || (qty * price)
+          contractTotalAmountMap[cn] = (contractTotalAmountMap[cn] || 0) + amt
+        }
       }
     }
 
@@ -633,13 +642,14 @@ export const getProfitReport = async (req, res) => {
       }
 
       // 计算出库单总金额和总数量（用于费用分摊）
-      const orderTotalAmount = filteredItems.reduce((sum, item) => {
+      // 分母用全量明细：productCode 筛选只决定显示哪些行，不改变行上费用分摊值
+      const orderTotalAmount = deliveryItems.reduce((sum, item) => {
         const qty = parseFloat(item.quantity) || 0
         const price = parseFloat(item.tax_included_price) || 0
         const amount = parseFloat(item.amount) || (qty * price)
         return sum + amount
       }, 0) || 1
-      const orderTotalQty = filteredItems.reduce((sum, item) => {
+      const orderTotalQty = deliveryItems.reduce((sum, item) => {
         return sum + (parseFloat(item.quantity) || 0)
       }, 0) || 1
 
@@ -650,11 +660,11 @@ export const getProfitReport = async (req, res) => {
       const dlOtherFee = parseFloat(deliveryExpenses.otherFee) || 0
       const deliveryExpenseTotal = dlExpressFee + dlTransportationFee + dlCustomsFee + dlOtherFee
 
-      // 销售费用总额
-      const slTransportationFee = parseFloat(salesExpenses.transportationFee) || 0
-      const slHandlingFee = parseFloat(salesExpenses.handlingFee) || 0
-      const slOtherFee = parseFloat(salesExpenses.otherFee) || 0
-      const salesExpenseTotal = slTransportationFee + slHandlingFee + slOtherFee
+      // 销售费用总额（按 soShare 随出库单拆分，见下）
+      let slTransportationFee = parseFloat(salesExpenses.transportationFee) || 0
+      let slHandlingFee = parseFloat(salesExpenses.handlingFee) || 0
+      let slOtherFee = parseFloat(salesExpenses.otherFee) || 0
+      let salesExpenseTotal = slTransportationFee + slHandlingFee + slOtherFee
 
       // 汇总所有采购订单的费用和入库数据
       let purchaseExpenseTotal = 0
@@ -788,7 +798,7 @@ export const getProfitReport = async (req, res) => {
       const soTotalAmount = (order.contract_number && contractTotalAmountMap[order.contract_number]) || 0
       const soShare = soTotalAmount > 0 ? (deliveryTotalAmount / soTotalAmount) : 1
 
-      // 按 soShare 分摊采购费用和入库费用
+      // 按 soShare 分摊采购费用、入库费用和销售费用
       poTransportationFee *= soShare
       poOperatingExpenses *= soShare
       poValueAddedTax *= soShare
@@ -798,6 +808,10 @@ export const getProfitReport = async (req, res) => {
       warehousingExpensesTotal.transportationFee *= soShare
       warehousingExpensesTotal.customsFee *= soShare
       warehousingExpensesTotal.otherFee *= soShare
+      slTransportationFee *= soShare
+      slHandlingFee *= soShare
+      slOtherFee *= soShare
+      salesExpenseTotal *= soShare
 
       purchaseExpenseTotal = poTransportationFee + poOperatingExpenses + poValueAddedTax + poHandlingFee + poOtherFee
 
@@ -914,16 +928,18 @@ export const getProfitReport = async (req, res) => {
         const itemDlOther = round4(dlOtherFee * itemRatio)
         const itemDlTotal = round4(deliveryExpenseTotal * itemRatio)
 
-        // 费用合计（原币种）
+        // 费用合计（人民币，费用录入即为人民币，不随采购/销售币种换算）
         const totalExpense = itemPoTotal + itemSlTotal + itemWhTotal + itemDlTotal
 
         // ============ 汇率换算（统一使用海关汇率） ============
+        // 只有销售额未税金额和入库金额参与汇率换算；费用合计始终为人民币，不参与汇率换算
         const salesAmountIncludedCNY = amount * customsRate
         const salesAmountExcludedCNY = amountExcluded * customsRate
 
-        // 采购成本和费用换算成CNY
+        // 入库金额换算成CNY
         const warehousingAmountCNY = warehousingAmount * purchaseCustomsRate
-        const totalExpenseCNY = totalExpense * purchaseCustomsRate
+        // 费用合计（人民币）
+        const totalExpenseCNY = totalExpense
 
         // 总成本(CNY) = 采购成本(未税,CNY) + 费用合计(CNY)
         const totalCostCNY = warehousingAmountCNY + totalExpenseCNY
@@ -1006,7 +1022,7 @@ export const getProfitReport = async (req, res) => {
           dl_expense_customs: itemDlCustoms,
           dl_expense_other: itemDlOther,
           dl_expense_total: itemDlTotal,
-          // 费用合计（原币种）
+          // 费用合计（人民币）
           total_expense: round4(totalExpense),
           // 总成本(CNY)
           total_cost: round4(totalCostCNY),

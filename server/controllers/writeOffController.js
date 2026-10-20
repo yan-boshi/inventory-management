@@ -341,14 +341,7 @@ export const createWriteOff = async (req, res) => {
       const currentReceived = parseFloat(record.received_amount || 0)
       const writeOffAmount = parseFloat(item.write_off_amount)
 
-      if (currentReceived + writeOffAmount > receivableTotal + 0.00001) {
-        await connection.rollback()
-        return res.status(400).json({
-          success: false,
-          message: `单据 ${record.source_bill_id} 核销金额超出未核销余额（待核销：${(receivableTotal - currentReceived).toFixed(4)}）`
-        })
-      }
-
+      // 允许核销金额超过待核销余额（多收/预收场景，核销后余额可为负）
       const afterReceived = currentReceived + writeOffAmount
       const newStatus = calcStatus(afterReceived, receivableTotal)
 
@@ -508,14 +501,7 @@ export const updateWriteOff = async (req, res) => {
         const currentReceived = parseFloat(record.received_amount || 0)
         const writeOffAmount = parseFloat(item.write_off_amount)
 
-        if (currentReceived + writeOffAmount > receivableTotal + 0.00001) {
-          await connection.rollback()
-          return res.status(400).json({
-            success: false,
-            message: `单据 ${record.source_bill_id} 核销金额超出未核销余额`
-          })
-        }
-
+        // 允许核销金额超过待核销余额（多收/预收场景，核销后余额可为负）
         const afterReceived = currentReceived + writeOffAmount
         const newStatus = calcStatus(afterReceived, receivableTotal)
 

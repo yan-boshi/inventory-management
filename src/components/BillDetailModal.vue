@@ -35,7 +35,9 @@
             <div class="header-row">
               <div class="header-item">
                 <span class="label">出库时间：</span>
-                <span class="value">{{ billData.entry_date || billData.delivery_date || '-' }}</span>
+                <span class="value">{{
+                  billData.entry_date || billData.delivery_date || '-'
+                }}</span>
               </div>
               <div class="header-item" v-if="billData.remarks">
                 <span class="label">备注：</span>
@@ -344,13 +346,16 @@ const fetchBillData = async () => {
   }
 }
 
-watch(() => props.visible, (val) => {
-  if (val && props.orderNumber) {
-    fetchBillData()
-  } else {
-    billData.value = null
+watch(
+  () => props.visible,
+  val => {
+    if (val && props.orderNumber) {
+      fetchBillData()
+    } else {
+      billData.value = null
+    }
   }
-})
+)
 
 const parseItems = (items: string | any[] | undefined) => {
   if (!items) return []
@@ -382,8 +387,14 @@ const deliveryColumns = [
   { title: '产品名称', dataIndex: 'product_name', key: 'product_name', width: 150 },
   { title: '规格描述', dataIndex: 'specification', key: 'specification', width: 120 },
   { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' as const },
-  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80, align: 'right' as const },
-  { title: '含税单价', dataIndex: 'tax_included_price', key: 'tax_included_price', width: 100, align: 'right' as const },
+  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 100, align: 'right' as const },
+  {
+    title: '含税单价',
+    dataIndex: 'tax_included_price',
+    key: 'tax_included_price',
+    width: 100,
+    align: 'right' as const,
+  },
   { title: '税率(%)', dataIndex: 'tax_rate', key: 'tax_rate', width: 80, align: 'right' as const },
   { title: '合计金额', key: 'amount', width: 100, align: 'right' as const },
   { title: '备注', dataIndex: 'remarks', key: 'remarks', width: 120 },
@@ -396,8 +407,14 @@ const warehousingColumns = [
   { title: '产品名称', dataIndex: 'product_name', key: 'product_name', width: 150 },
   { title: '规格描述', dataIndex: 'description', key: 'description', width: 120 },
   { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' as const },
-  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80, align: 'right' as const },
-  { title: '含税单价', dataIndex: 'tax_included_price', key: 'tax_included_price', width: 100, align: 'right' as const },
+  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 100, align: 'right' as const },
+  {
+    title: '含税单价',
+    dataIndex: 'tax_included_price',
+    key: 'tax_included_price',
+    width: 100,
+    align: 'right' as const,
+  },
   { title: '税率(%)', dataIndex: 'tax_rate', key: 'tax_rate', width: 80, align: 'right' as const },
   { title: '备注', dataIndex: 'remarks', key: 'remarks', width: 120 },
 ]
@@ -409,9 +426,21 @@ const returnItemColumns = [
   { title: '产品名称', dataIndex: 'product_name', key: 'product_name', width: 150 },
   { title: '规格型号', dataIndex: 'specifications', key: 'specifications', width: 120 },
   { title: '单位', dataIndex: 'unit', key: 'unit', width: 60, align: 'center' as const },
-  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80, align: 'right' as const },
-  { title: '含税单价', dataIndex: 'unit_price', key: 'unit_price', width: 100, align: 'right' as const },
-  { title: '金额', dataIndex: 'amount_with_tax', key: 'amount_with_tax', width: 100, align: 'right' as const },
+  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 100, align: 'right' as const },
+  {
+    title: '含税单价',
+    dataIndex: 'unit_price',
+    key: 'unit_price',
+    width: 100,
+    align: 'right' as const,
+  },
+  {
+    title: '金额',
+    dataIndex: 'amount_with_tax',
+    key: 'amount_with_tax',
+    width: 100,
+    align: 'right' as const,
+  },
 ]
 </script>
 

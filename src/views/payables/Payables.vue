@@ -707,6 +707,12 @@ const handleGenerateStatement = () => {
     return
   }
 
+  // 已开票的账单不能生成对账单
+  if (selectedRecords.value.some(r => r.billing_status === 1)) {
+    message.warning('所选记录包含已开票账单，无法生成对账单')
+    return
+  }
+
   // 检查是否包含入库单类型的记录
   const hasWarehousingOrders = selectedRecords.value.some(r => r.source_bill_type === 1)
   if (!hasWarehousingOrders) {
@@ -737,10 +743,9 @@ const handleGenerateWriteOff = () => {
     return
   }
 
-  // 检查是否全部已结算
-  const unsettledRecords = selectedRecords.value.filter(r => r.status !== 2)
-  if (unsettledRecords.length === 0) {
-    message.warning('所选记录均已结算，无法核销')
+  // 已结算的账单不能生成核销单
+  if (selectedRecords.value.some(r => r.status === 2)) {
+    message.warning('所选记录包含已结算账单，无法生成核销单')
     return
   }
 

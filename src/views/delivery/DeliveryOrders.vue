@@ -98,6 +98,7 @@
         :pagination="false"
         rowKey="row_key"
         :scroll="{ x: 1800, y: 'calc(100vh - 380px)' }"
+        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
@@ -148,6 +149,24 @@
               </a-button>
             </a-space>
           </template>
+        </template>
+
+        <template #summary>
+          <a-table-summary v-if="filteredOrders.length > 0">
+            <a-table-summary-row>
+              <a-table-summary-cell
+                v-for="(col, idx) in visibleColumns"
+                :key="col.key || col.dataIndex"
+                :index="idx"
+                :align="col.align"
+              >
+                <strong v-if="col.key === 'shipping_fee'">
+                  {{ formatMoney4(pageTotals.shipping_fee) }}
+                </strong>
+                <strong v-else-if="idx === 0">合计</strong>
+              </a-table-summary-cell>
+            </a-table-summary-row>
+          </a-table-summary>
         </template>
       </a-table>
       <a-pagination
@@ -475,6 +494,42 @@ const visibleColumns = computed(() => {
   return allColumns.value.filter((col: any) => col.visible !== false)
 })
 
+// 当前表格列筛选条件（合计行随表格筛选联动）
+const activeFilters = ref<Record<string, any>>({})
+
+// 表格当前展示的数据行（含列筛选结果），合计行基于该数据计算
+const filteredOrders = computed(() => {
+  const rows = expandedOrders.value
+  const filters = activeFilters.value
+  const filterCols = visibleColumns.value.filter(
+    (col: any) => col.onFilter && filters[col.key || col.dataIndex]?.length
+  )
+  if (filterCols.length === 0) return rows
+  return rows.filter((row: any) =>
+    filterCols.every((col: any) => {
+      const selected = filters[col.key || col.dataIndex]
+      return selected.some((v: any) => col.onFilter(v, row))
+    })
+  )
+})
+
+// 合计行：查询出的所有金额列合计
+// 运费是单据级金额，同一出库单的多行明细共享同一笔运费，按出库单去重求和
+const pageTotals = computed(() => {
+  const countedOrders = new Set<string>()
+  return filteredOrders.value.reduce(
+    (totals, row: any) => {
+      const orderId = String(row.delivery_order_id ?? row.order_number ?? row.row_key)
+      if (!countedOrders.has(orderId)) {
+        countedOrders.add(orderId)
+        totals.shipping_fee += getShippingFeeAmount(row.expenses)
+      }
+      return totals
+    },
+    { shipping_fee: 0 }
+  )
+})
+
 const loadOrders = async () => {
   loading.value = true
   try {
@@ -523,6 +578,11 @@ const handlePageChange = (page: number, pageSize: number) => {
   searchParams.page = page
   searchParams.pageSize = pageSize
   loadOrders()
+}
+
+// 表格内置分页关闭，翻页走 handlePageChange；此处仅记录列筛选条件供合计行使用
+const handleTableChange = (_pag: any, filters: any) => {
+  activeFilters.value = filters || {}
 }
 
 const handleAdd = () => {
@@ -599,18 +659,20 @@ const getDeliveryItems = (order: DeliveryOrder) => {
   }
 }
 
-// 计算运费（快递费 + 运杂费）
-const formatShippingFee = (expenses: string | object | null | undefined) => {
-  if (!expenses) return '-'
+// 计算运费金额（快递费 + 运杂费）
+const getShippingFeeAmount = (expenses: string | object | null | undefined): number => {
+  if (!expenses) return 0
   try {
     const data = typeof expenses === 'string' ? JSON.parse(expenses) : expenses
-    const expressFee = Number(data.expressDeliveryFee) || 0
-    const transportFee = Number(data.transportationFee) || 0
-    const total = expressFee + transportFee
-    return total > 0 ? formatMoney4(total) : '-'
+    return (Number(data.expressDeliveryFee) || 0) + (Number(data.transportationFee) || 0)
   } catch {
-    return '-'
+    return 0
   }
+}
+
+const formatShippingFee = (expenses: string | object | null | undefined) => {
+  const total = getShippingFeeAmount(expenses)
+  return total > 0 ? formatMoney4(total) : '-'
 }
 
 // 导出Excel

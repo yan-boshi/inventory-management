@@ -133,6 +133,22 @@
             </a-space>
           </template>
         </template>
+
+        <template #summary>
+          <a-table-summary v-if="filteredOrders.length > 0">
+            <a-table-summary-row>
+              <a-table-summary-cell
+                v-for="(col, idx) in visibleColumns"
+                :key="col.key || col.dataIndex"
+                :index="idx"
+                :align="col.align"
+              >
+                <strong v-if="col.key === 'total_amount'">{{ formatMoney4(pageTotals.amount) }}</strong>
+                <strong v-else-if="idx === 0">合计</strong>
+              </a-table-summary-cell>
+            </a-table-summary-row>
+          </a-table-summary>
+        </template>
       </a-table>
     </a-card>
 
@@ -433,6 +449,36 @@ const visibleColumns = computed(() => {
   return allColumns.value.filter((col: any) => col.visible !== false)
 })
 
+// 当前表格列筛选条件（合计行随表格筛选联动）
+const activeFilters = ref<Record<string, any>>({})
+
+// 表格当前展示的数据行（含列筛选结果），合计行基于该数据计算
+const filteredOrders = computed(() => {
+  const rows = expandedOrders.value
+  const filters = activeFilters.value
+  const filterCols = visibleColumns.value.filter(
+    (col: any) => col.onFilter && filters[col.key || col.dataIndex]?.length
+  )
+  if (filterCols.length === 0) return rows
+  return rows.filter((row: any) =>
+    filterCols.every((col: any) => {
+      const selected = filters[col.key || col.dataIndex]
+      return selected.some((v: any) => col.onFilter(v, row))
+    })
+  )
+})
+
+// 合计行：查询出的所有金额列合计
+const pageTotals = computed(() => {
+  return filteredOrders.value.reduce(
+    (totals, row: any) => {
+      totals.amount += Number(row.amount) || 0
+      return totals
+    },
+    { amount: 0 }
+  )
+})
+
 const loadOrders = async () => {
   loading.value = true
   try {
@@ -477,7 +523,10 @@ const handleDateRangeChange = (dates: [any, any]) => {
   }
 }
 
-const handleTableChange = (pag: any) => {
+const handleTableChange = (pag: any, filters: any, _sorter: any, extra: any) => {
+  activeFilters.value = filters || {}
+  // 列筛选/排序在前端完成，不需要重新请求；仅翻页时重新加载
+  if (extra?.action && extra.action !== 'paginate') return
   searchParams.page = pag.current
   searchParams.pageSize = pag.pageSize
   loadOrders()
