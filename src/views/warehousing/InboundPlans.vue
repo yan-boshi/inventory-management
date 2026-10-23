@@ -156,9 +156,6 @@ const warehousingOrderPrefill = ref<any>(undefined)
 const dateRange = ref<[any, any] | undefined>(undefined)
 const selectedRowKeys = ref<string[]>([])
 
-// 生成入库单时对应的计划明细行（用于生成后按实际数量扣减）
-const generatedSourceRows = ref<{ planId: string; itemIndex: number; product_code: string; quantity: number }[]>([])
-
 // 行选择配置
 const rowSelection = {
   selectedRowKeys,
@@ -537,10 +534,10 @@ const handleGenerateWarehousingOrder = (record: any) => {
     items = []
   }
 
-  // 记录本次生成对应的计划明细行，生成后按实际入库数量扣减
-  generatedSourceRows.value = items.map((item: any, index: number) => ({
-    planId: plan.inbound_plan_id,
-    itemIndex: index,
+  // 记录本次生成对应的计划明细行，随表单提交给后端，创建入库单时据此扣减计划数量
+  const planRows = items.map((item: any, index: number) => ({
+    plan_id: plan.inbound_plan_id,
+    item_index: index,
     product_code: item.product_code || '',
     quantity: Number(item.quantity) || 0,
   }))
@@ -566,6 +563,7 @@ const handleGenerateWarehousingOrder = (record: any) => {
     customer_name: plan.supplier_name || '',
     currency: plan.currency || 'CNY',
     warehousing_items: warehousingItems,
+    plan_rows: planRows,
     entry_date: plan.entry_date,
     remarks: plan.remarks || '',
   }
@@ -592,7 +590,7 @@ const handleBatchGenerateWarehousingOrder = () => {
 
   // 收集所有选中计划的明细
   const allItems: any[] = []
-  const sourceRows: { planId: string; itemIndex: number; product_code: string; quantity: number }[] = []
+  const planRows: { plan_id: string; item_index: number; product_code: string; quantity: number }[] = []
   let firstPlan: any = null
   const planPurchaseOrderIds = new Set<string>()
 
@@ -622,10 +620,10 @@ const handleBatchGenerateWarehousingOrder = () => {
         tax_rate: item.tax_rate || 0,
         remarks: item.remarks || '',
       })
-      // 记录本次生成对应的计划明细行，生成后按实际入库数量扣减
-      sourceRows.push({
-        planId: plan.inbound_plan_id,
-        itemIndex: index,
+      // 记录本次生成对应的计划明细行，随表单提交给后端，创建入库单时据此扣减计划数量
+      planRows.push({
+        plan_id: plan.inbound_plan_id,
+        item_index: index,
         product_code: item.product_code || '',
         quantity: Number(item.quantity) || 0,
       })
@@ -666,102 +664,21 @@ const handleBatchGenerateWarehousingOrder = () => {
     customer_name: firstPlan.supplier_name || '',
     currency: firstPlan.currency || 'CNY',
     warehousing_items: warehousingItems,
+    plan_rows: planRows,
     entry_date: firstPlan.entry_date,
     remarks: firstPlan.remarks || '',
   }
 
-  generatedSourceRows.value = sourceRows
   warehousingOrderFormVisible.value = true
 }
 
-const handleWarehousingOrderSuccess = async (orderData?: any) => {
+const handleWarehousingOrderSuccess = () => {
   warehousingOrderFormVisible.value = false
   warehousingOrderPrefill.value = undefined
+  message.success('入库单创建成功')
 
-  // 入库单实际入库数量（按商品代码汇总，表单中数量可能被修改过）
-  const inboundQtyMap = new Map<string, number>()
-  let whItems: any[] = orderData?.warehousing_items || []
-  if (typeof whItems === 'string') {
-    try {
-      whItems = JSON.parse(whItems)
-    } catch {
-      whItems = []
-    }
-  }
-  whItems.forEach((item: any) => {
-    const code = item.product_code || ''
-    inboundQtyMap.set(code, (inboundQtyMap.get(code) || 0) + (Number(item.quantity) || 0))
-  })
-
-  // 按生成时的计划明细行扣减待入库数量（同一商品按行顺序分配入库数量）
-  const planItemUpdates = new Map<string, Map<number, number>>()
-  generatedSourceRows.value.forEach((row: { planId: string; itemIndex: number; product_code: string; quantity: number }) => {
-    const code = row.product_code || ''
-    const pendingQty = Number(row.quantity) || 0
-    const inboundLeft = inboundQtyMap.get(code) || 0
-    const deduct = Math.min(pendingQty, inboundLeft)
-    if (deduct > 0) {
-      inboundQtyMap.set(code, inboundLeft - deduct)
-      if (!planItemUpdates.has(row.planId)) planItemUpdates.set(row.planId, new Map())
-      planItemUpdates.get(row.planId)!.set(row.itemIndex, pendingQty - deduct)
-    }
-  })
-
-  // 更新入库计划明细的待入库数量，并根据剩余数量推导计划状态
-  if (planItemUpdates.size > 0) {
-    let successCount = 0
-    let failCount = 0
-    let partialCount = 0
-    let completedCount = 0
-
-    for (const [planId, itemQtyMap] of planItemUpdates) {
-      const plan = plans.value.find(p => p.inbound_plan_id === planId)
-      if (!plan) continue
-
-      let items: any[] = []
-      try {
-        items = typeof plan.plan_items === 'string' ? JSON.parse(plan.plan_items) : plan.plan_items || []
-      } catch {
-        items = []
-      }
-
-      const newItems = items.map((item: any, index: number) => {
-        const originalQty = Number(item.quantity) || 0
-        const newQty = itemQtyMap.has(index) ? itemQtyMap.get(index)! : originalQty
-        return {
-          ...item,
-          quantity: newQty,
-          inbound_status: newQty <= 0 ? 'completed' : newQty < originalQty ? 'partial' : (item.inbound_status || 'pending'),
-        }
-      })
-
-      // 全部明细待入库数量为0 → 已完成；有入库但未完成 → 部分入库
-      const allCompleted = newItems.length > 0 && newItems.every((it: any) => (Number(it.quantity) || 0) <= 0)
-      const newStatus = allCompleted ? 'completed' : 'partial'
-
-      try {
-        await inboundPlansApi.update(planId, { status: newStatus, plan_items: newItems })
-        successCount++
-        if (allCompleted) completedCount++
-        else partialCount++
-      } catch (error) {
-        console.error(`更新入库计划 ${planId} 状态失败:`, error)
-        failCount++
-      }
-    }
-
-    if (failCount === 0) {
-      message.success(`入库单创建成功，${completedCount}个入库计划已完成，${partialCount}个部分入库`)
-    } else {
-      message.warning(`入库单创建成功，${successCount}个计划更新成功，${failCount}个更新失败`)
-    }
-  } else {
-    message.success('入库单创建成功')
-  }
-
-  // 清空选中并重新加载列表
+  // 计划数量扣减由后端在创建入库单时完成（plan_rows），这里只刷新列表
   selectedRowKeys.value = []
-  generatedSourceRows.value = []
   loadPlans()
 }
 

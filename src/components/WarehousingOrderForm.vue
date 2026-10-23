@@ -445,6 +445,9 @@ const selectedPurchaseOrderId = ref('')
 // 是否明确知道对应的采购订单（用户手选/计划单带入/暂存恢复），
 // 仅此时才把 purchase_order_id 传给后端定位明细，避免误指到别的订单
 const purchaseOrderIdPrecise = ref(false)
+// 从计划单生成时的来源计划明细行 [{plan_id, item_index, product_code, quantity}]，
+// 创建入库单时随表单提交，由后端据此扣减计划待入库数量（仅创建时使用）
+const planRows = ref<any[] | undefined>(undefined)
 const currencyList = ref<Currency[]>([])
 const exchangeRateLoading = ref(false)
 
@@ -683,7 +686,8 @@ const handleSubmit = async () => {
       message.success('入库单更新成功')
       emit('success', submitData)
     } else {
-      await warehousingOrdersApi.create(submitData)
+      // 创建时带上来源计划明细行，后端据此扣减计划待入库数量并记录扣减明细
+      await warehousingOrdersApi.create({ ...submitData, plan_rows: planRows.value })
       message.success('入库单创建成功')
       clearDraft(DRAFT_KEY)
       emit('success', submitData)
@@ -773,6 +777,8 @@ watch(
           // 从计划单生成时，应用预填充数据
           resetForm()
           form.contract_number = props.warehousingOrderData.contract_number || ''
+          // 来源计划明细行，创建入库单时提交给后端扣减计划数量
+          planRows.value = props.warehousingOrderData.plan_rows
           // 计划单带入的具体采购订单，用于后端精确同步入库数量
           if (props.warehousingOrderData.purchase_order_id) {
             selectedPurchaseOrderId.value = props.warehousingOrderData.purchase_order_id
@@ -855,6 +861,7 @@ const resetForm = () => {
   form.contract_number = ''
   selectedPurchaseOrderId.value = ''
   purchaseOrderIdPrecise.value = false
+  planRows.value = undefined
   form.warehousing_items = []
   form.warehousing_time = dayjs()
   form.entry_date = dayjs()

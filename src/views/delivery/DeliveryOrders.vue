@@ -211,8 +211,7 @@
       doc-label="出库单"
       plan-label="出库计划"
       @cancel="deleteModalOpen = false"
-      @delete="handleDeleteConfirm(false)"
-      @delete-with-restore="handleDeleteConfirm(true)"
+      @confirm="handleDeleteConfirm"
     />
   </div>
 </template>
@@ -607,13 +606,13 @@ const handleDelete = (order: DeliveryOrder) => {
   deleteModalOpen.value = true
 }
 
-const handleDeleteConfirm = async (restorePlan: boolean) => {
+const handleDeleteConfirm = async () => {
   const target = deleteTarget.value
   if (!target) return
   try {
-    const res = await deliveryOrdersApi.delete(target.delivery_order_id, { restorePlan })
+    const res = await deliveryOrdersApi.delete(target.delivery_order_id)
     let successMsg = res?.message || '删除成功'
-    if (restorePlan && res?.data?.unmatchedQty) {
+    if (res?.data?.unmatchedQty) {
       successMsg += `，${res.data.unmatchedQty} 件数量未匹配到计划明细`
     }
     message.success(successMsg)

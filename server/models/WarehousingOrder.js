@@ -35,8 +35,10 @@ class WarehousingOrder extends BaseModel {
     return `XSD-W-${dateStr}-${sequence.toString().padStart(3, '0')}`
   }
 
-  async create(data) {
-    const warehousingItems = data.warehousing_items || '[]'
+  async create(data, conn) {
+    const warehousingItems = typeof data.warehousing_items === 'string'
+      ? (data.warehousing_items || '[]')
+      : JSON.stringify(data.warehousing_items || [])
     const expenses = data.expenses ? JSON.stringify(data.expenses) : null
 
     // 重试机制，处理并发生成相同订单号的情况
@@ -47,6 +49,7 @@ class WarehousingOrder extends BaseModel {
           warehousing_order_id: generateUUID(),
           order_number: data.order_number || await this.generateOrderNumber(),
           contract_number: data.contract_number || null,
+          purchase_order_id: data.purchase_order_id || null,
           warehousing_items: warehousingItems,
           warehousing_time: data.warehousing_time || new Date().toISOString().slice(0, 16).replace('T', ' '),
           entry_date: data.entry_date || null,
@@ -59,9 +62,10 @@ class WarehousingOrder extends BaseModel {
           warehousing_person: data.warehousing_person || null,
           contact_phone: data.contact_phone || null,
           remarks: data.remarks || null,
-          expenses: expenses
+          expenses: expenses,
+          plan_deductions: JSON.stringify(data.plan_deductions || [])
         }
-        return await super.create(orderData)
+        return await super.create(orderData, conn)
       } catch (error) {
         // 如果是唯一约束冲突且还有重试次数，则重试
         if (error.code === 'ER_DUP_ENTRY' && attempt < maxRetries - 1) {
@@ -73,11 +77,13 @@ class WarehousingOrder extends BaseModel {
     }
   }
 
-  async update(id, data) {
+  async update(id, data, conn) {
     let updateData = { ...data }
 
     if (data.warehousing_items !== undefined) {
-      updateData.warehousing_items = data.warehousing_items
+      updateData.warehousing_items = typeof data.warehousing_items === 'string'
+        ? data.warehousing_items
+        : JSON.stringify(data.warehousing_items)
     }
 
     if (data.warehousing_time !== undefined) {
@@ -88,7 +94,11 @@ class WarehousingOrder extends BaseModel {
       updateData.expenses = data.expenses ? JSON.stringify(data.expenses) : null
     }
 
-    return super.update(id, updateData)
+    if (data.plan_deductions !== undefined && typeof data.plan_deductions !== 'string') {
+      updateData.plan_deductions = JSON.stringify(data.plan_deductions)
+    }
+
+    return super.update(id, updateData, conn)
   }
 
   async getNewOrderNumber() {

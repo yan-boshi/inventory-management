@@ -20,10 +20,9 @@ export const purchaseOrdersApi = {
     return instance.put<PurchaseOrder>(`${API_BASE_URL}/${id}`, data)
   },
 
-  delete: async (id: string, options?: { restorePlan?: boolean }): Promise<{ message: string; data?: PlanRestoreSummary | null }> => {
-    return instance.delete(`${API_BASE_URL}/${id}`, {
-      params: options?.restorePlan ? { restorePlan: 1 } : undefined
-    })
+  // 删除采购订单（后端会无条件回退采购计划待采购数量）
+  delete: async (id: string): Promise<{ message: string; data?: PlanRestoreSummary | null }> => {
+    return instance.delete(`${API_BASE_URL}/${id}`)
   },
 
   updateStatus: async (id: string, status: 1 | 2 | 3 | 4) => {

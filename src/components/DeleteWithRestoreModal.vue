@@ -8,12 +8,11 @@
   >
     <p>确定要删除{{ docLabel }} <b>{{ orderNumber }}</b> 吗？</p>
     <p style="color: #8c8c8c">
-      选择「删除并回退数量」会把单据商品数量加回对应{{ planLabel }}的待办数量。
+      删除后会把单据商品数量回退到对应{{ planLabel }}的待办数量，并同步回退关联订单和库存。
     </p>
     <div class="delete-with-restore-actions">
       <a-button @click="emit('cancel')">取消</a-button>
-      <a-button danger @click="emit('delete')">直接删除</a-button>
-      <a-button type="primary" danger @click="emit('deleteWithRestore')">删除并回退数量</a-button>
+      <a-button type="primary" danger @click="emit('confirm')">删除</a-button>
     </div>
   </a-modal>
 </template>
@@ -28,8 +27,7 @@ defineProps<{
 
 const emit = defineEmits<{
   (e: 'cancel'): void
-  (e: 'delete'): void
-  (e: 'deleteWithRestore'): void
+  (e: 'confirm'): void
 }>()
 </script>
 

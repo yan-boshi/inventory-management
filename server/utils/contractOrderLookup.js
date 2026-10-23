@@ -27,11 +27,11 @@ export const parseOrderItems = (row, keys) => {
 }
 
 // 按合同编号加载全部订单及其明细
-export const loadContractOrders = async (Model, contractNumber, keys) => {
+export const loadContractOrders = async (Model, contractNumber, keys, conn) => {
   const orders = await Model.findAll({
     where: 'contract_number = ?',
     params: [contractNumber]
-  })
+  }, conn)
   const itemsMap = new Map()
   for (const order of orders) {
     itemsMap.set(order[keys.idField], parseOrderItems(order, keys))
@@ -69,8 +69,21 @@ export const findItemByProduct = (orders, itemsMap, productCode, keys, preferOrd
 }
 
 // 删除/退货回退数量时，优先回退到已入/出库数量大于 0 的订单（即真正收/发过货的订单），
-// 否则会扣到从未入/出库的订单上，把它的状态误改成已完成
-export const findItemForRollback = (orders, itemsMap, productCode, keys) => {
+// 否则会扣到从未入/出库的订单上，把它的状态误改成已完成；
+// preferOrderId 为创建单据时定位到的具体订单，优先回退到同一张订单，避免加到 A 单却从 B 单回退
+export const findItemForRollback = (orders, itemsMap, productCode, keys, preferOrderId) => {
+  if (preferOrderId && itemsMap.has(preferOrderId)) {
+    const items = itemsMap.get(preferOrderId) || []
+    const item = items.find((it) => it.product_code === productCode)
+    if (item) {
+      return {
+        order: orders.find((o) => o[keys.idField] === preferOrderId),
+        items,
+        targetItem: item
+      }
+    }
+  }
+
   let fallback = null
   for (const order of orders) {
     const items = itemsMap.get(order[keys.idField]) || []
@@ -109,9 +122,9 @@ export const buildQuantityDeltaMap = (oldItems, newItems, sign = 1) => {
 // 按差量同步入/出库数量到合同下的订单（编辑单据时调用）
 // deltaMap: productCode -> 正数累加、负数回退；正数优先加到剩余数量 > 0 的订单，
 // 负数优先从入/出库数量 > 0 的订单回退，随后重算明细行和订单整体状态
-export const syncQuantityDeltaToOrders = async (Model, keys, contractNumber, deltaMap, preferOrderId) => {
+export const syncQuantityDeltaToOrders = async (Model, keys, contractNumber, deltaMap, preferOrderId, conn) => {
   if (!contractNumber) return
-  const { orders, itemsMap } = await loadContractOrders(Model, contractNumber, keys)
+  const { orders, itemsMap } = await loadContractOrders(Model, contractNumber, keys, conn)
   if (orders.length === 0) return
 
   const touchedOrders = new Map()
@@ -119,7 +132,7 @@ export const syncQuantityDeltaToOrders = async (Model, keys, contractNumber, del
     if (!productCode || !delta) continue
     const match = delta > 0
       ? findItemByProduct(orders, itemsMap, productCode, keys, preferOrderId)
-      : findItemForRollback(orders, itemsMap, productCode, keys)
+      : findItemForRollback(orders, itemsMap, productCode, keys, preferOrderId)
     if (!match) continue
 
     const current = Number(match.targetItem[keys.qtyField]) || 0
@@ -152,6 +165,6 @@ export const syncQuantityDeltaToOrders = async (Model, keys, contractNumber, del
     await Model.update(match.order[keys.idField], {
       [keys.itemsField]: JSON.stringify(match.items),
       status: orderStatus
-    })
+    }, conn)
   }
 }

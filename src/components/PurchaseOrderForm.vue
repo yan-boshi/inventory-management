@@ -599,6 +599,9 @@ const businessCategoryOptions = ref<BusinessCategoryOption[]>([])
 const salesOrderOptions = ref<SalesOrder[]>([])
 const currencyList = ref<Currency[]>([])
 const exchangeRateLoading = ref(false)
+// 从采购计划生成时的来源计划明细行 [{plan_id, item_index, product_code, quantity}]，
+// 创建采购订单时随表单提交，由后端据此扣减计划待采购数量（仅创建时使用）
+const planRows = ref<any[] | undefined>(undefined)
 
 const form = reactive<
   CreatePurchaseOrderRequest & { purchase_items: PurchaseItem[]; expenses: any; related_sales_orders: any[] }
@@ -1005,7 +1008,8 @@ const handleSubmit = async () => {
       await purchaseOrdersApi.update(props.purchaseOrderData.purchase_order_id, submitData)
       message.success(t.value.purchaseOrder.orderUpdateSuccess)
     } else {
-      await purchaseOrdersApi.create(submitData)
+      // 创建时带上来源计划明细行，后端据此扣减计划待采购数量并记录扣减明细
+      await purchaseOrdersApi.create({ ...submitData, plan_rows: planRows.value })
       message.success(t.value.purchaseOrder.orderCreateSuccess)
       clearDraft(DRAFT_KEY)
     }
@@ -1086,6 +1090,8 @@ watch(
         // 预填充模式（从采购计划生成）
         getNewOrderNumber()
         resetForm()
+        // 来源计划明细行，创建采购订单时提交给后端扣减计划数量
+        planRows.value = props.purchaseOrderData.plan_rows
         form.contract_number = props.purchaseOrderData.contract_number || ''
         form.supplier_name = props.purchaseOrderData.supplier_name || ''
         form.supplier_code = props.purchaseOrderData.supplier_code || ''
@@ -1216,6 +1222,7 @@ const resetForm = () => {
   form.supplier_name = ''
   form.supplier_code = ''
   form.purchase_items = []
+  planRows.value = undefined
   form.currency = 'CNY'
   form.exchange_rate = 1.0
   form.entry_date = dayjs()

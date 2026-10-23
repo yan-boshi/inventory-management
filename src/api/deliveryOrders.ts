@@ -29,10 +29,9 @@ export const deliveryOrdersApi = {
     return instance.put(`${API_BASE_URL}/${id}`, data)
   },
 
-  delete: async (id: string, options?: { restorePlan?: boolean }): Promise<{ message: string; data?: PlanRestoreSummary | null }> => {
-    return instance.delete(`${API_BASE_URL}/${id}`, {
-      params: options?.restorePlan ? { restorePlan: 1 } : undefined
-    })
+  // 删除出库单（后端会无条件回退计划/订单/库存数量）
+  delete: async (id: string): Promise<{ message: string; data?: PlanRestoreSummary | null }> => {
+    return instance.delete(`${API_BASE_URL}/${id}`)
   },
 
   getNewOrderNumber: async () => {

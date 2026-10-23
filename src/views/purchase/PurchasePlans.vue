@@ -611,6 +611,20 @@ const handleGeneratePurchaseOrder = () => {
   // 取第一个选中行所属计划的公共信息
   const firstPlan = plans.value.find(p => p.purchase_plan_id === selectedRows[0].purchase_plan_id)
 
+  // 记录本次生成对应的计划明细行，随表单提交给后端，创建采购订单时据此扣减计划数量
+  const planRows: { plan_id: string; item_index: number; product_code: string; quantity: number }[] = []
+  selectedRows.forEach((row: any) => {
+    const [planId, itemIndexStr] = String(row.row_key || '').split('_')
+    const itemIndex = Number(itemIndexStr)
+    if (!planId || isNaN(itemIndex)) return
+    planRows.push({
+      plan_id: planId,
+      item_index: itemIndex,
+      product_code: row.product_code || '',
+      quantity: Number(row.quantity) || 0,
+    })
+  })
+
   // 构建关联销售订单明细
   const relatedSalesOrders: any[] = []
   selectedRows.forEach((row: any) => {
@@ -630,6 +644,7 @@ const handleGeneratePurchaseOrder = () => {
     related_sales_order_id: firstPlan?.sales_order_id || '',
     related_sales_orders: relatedSalesOrders,
     purchase_items: allPurchaseItems,
+    plan_rows: planRows,
     entry_date: firstPlan?.entry_date,
     remarks: firstPlan?.remarks || '',
   }
@@ -637,94 +652,13 @@ const handleGeneratePurchaseOrder = () => {
   purchaseOrderFormVisible.value = true
 }
 
-const handlePurchaseOrderSuccess = async (orderData?: any) => {
+const handlePurchaseOrderSuccess = () => {
   purchaseOrderFormVisible.value = false
   purchaseOrderPrefill.value = undefined
+  message.success('采购订单创建成功')
+  currentPlanId.value = null
 
-  // 采购订单实际采购数量（按商品代码汇总，表单中数量可能被修改过）
-  const orderedQtyMap = new Map<string, number>()
-  const poItems: any[] = orderData?.purchase_items || []
-  poItems.forEach((item: any) => {
-    const code = item.product_code || ''
-    orderedQtyMap.set(code, (orderedQtyMap.get(code) || 0) + (Number(item.quantity) || 0))
-  })
-
-  // 按选中行扣减待采购数量（同一商品按行顺序分配采购数量）
-  const selectedKeySet = new Set(selectedRowKeys.value)
-  const selectedRows = expandedPlans.value.filter((r: any) => selectedKeySet.has(r.row_key))
-
-  // planId -> Map<明细下标, 扣减后剩余数量>
-  const planItemUpdates = new Map<string, Map<number, number>>()
-  selectedRows.forEach((row: any) => {
-    const [planId, itemIndexStr] = String(row.row_key || '').split('_')
-    const itemIndex = Number(itemIndexStr)
-    if (!planId || isNaN(itemIndex)) return
-
-    const code = row.product_code || ''
-    const pendingQty = Number(row.quantity) || 0
-    const orderedLeft = orderedQtyMap.get(code) || 0
-    const deduct = Math.min(pendingQty, orderedLeft)
-    if (deduct > 0) {
-      orderedQtyMap.set(code, orderedLeft - deduct)
-      if (!planItemUpdates.has(planId)) planItemUpdates.set(planId, new Map())
-      planItemUpdates.get(planId)!.set(itemIndex, pendingQty - deduct)
-    }
-  })
-
-  // 更新采购计划明细的待采购数量，并根据剩余数量推导计划状态
-  if (planItemUpdates.size > 0) {
-    let successCount = 0
-    let failCount = 0
-    let partialCount = 0
-    let purchasedCount = 0
-
-    for (const [planId, itemQtyMap] of planItemUpdates) {
-      const plan = plans.value.find(p => p.purchase_plan_id === planId)
-      if (!plan) continue
-
-      let items: any[] = []
-      try {
-        items = typeof plan.plan_items === 'string' ? JSON.parse(plan.plan_items) : plan.plan_items || []
-      } catch {
-        items = []
-      }
-
-      const newItems = items.map((item: any, index: number) => {
-        const originalQty = Number(item.quantity) || 0
-        const newQty = itemQtyMap.has(index) ? itemQtyMap.get(index)! : originalQty
-        return {
-          ...item,
-          quantity: newQty,
-          purchase_status: newQty <= 0 ? 'purchased' : newQty < originalQty ? 'partial' : (item.purchase_status || 'pending'),
-        }
-      })
-
-      // 全部明细待采购数量为0 → 已采购；有采购但未完成 → 部分采购
-      const allPurchased = newItems.length > 0 && newItems.every((it: any) => (Number(it.quantity) || 0) <= 0)
-      const newStatus = allPurchased ? 'purchased' : 'partial'
-
-      try {
-        await purchasePlansApi.update(planId, { status: newStatus, plan_items: newItems })
-        successCount++
-        if (allPurchased) purchasedCount++
-        else partialCount++
-      } catch (error) {
-        console.error(`更新采购计划 ${planId} 状态失败:`, error)
-        failCount++
-      }
-    }
-
-    if (failCount === 0) {
-      message.success(`采购订单创建成功，${purchasedCount}个采购计划已采购，${partialCount}个部分采购`)
-    } else {
-      message.warning(`采购订单创建成功，${successCount}个计划更新成功，${failCount}个更新失败`)
-    }
-    currentPlanId.value = null
-  } else {
-    message.success('采购订单创建成功')
-  }
-
-  // 清空选中并重新加载列表
+  // 计划数量扣减由后端在创建采购订单时完成（plan_rows），这里只刷新列表
   selectedRowKeys.value = []
   loadPlans()
 }

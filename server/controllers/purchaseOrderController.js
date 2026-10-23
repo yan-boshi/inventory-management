@@ -4,7 +4,12 @@ import PurchasePlan from '../models/PurchasePlan.js'
 import pool from '../config/database.js'
 import { generateFromPurchaseOrder } from './inboundPlanController.js'
 import { handleDbError } from '../utils/errorHandler.js'
-import { PURCHASE_PLAN_KEYS, restoreQuantitiesToPlans } from '../utils/planRestore.js'
+import {
+  PURCHASE_PLAN_KEYS,
+  applyPlanDeductions,
+  restorePlanDeductions,
+  restoreQuantitiesToPlans
+} from '../utils/planRestore.js'
 
 export const getAllPurchaseOrders = async (req, res) => {
   try {
@@ -182,7 +187,7 @@ export const getPurchaseOrderById = async (req, res) => {
 
 export const createPurchaseOrder = async (req, res) => {
   try {
-    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person, related_sales_order_id, related_sales_orders } = req.body
+    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person, related_sales_order_id, related_sales_orders, plan_rows } = req.body
 
     if (!supplier_name || !supplier_code) {
       return res.status(400).json({ success: false, message: 'Supplier name and code are required' })
@@ -192,20 +197,48 @@ export const createPurchaseOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Purchase items are required' })
     }
 
-    const order = await PurchaseOrder.create({
-      supplier_name,
-      supplier_code,
-      purchase_items,
-      currency,
-      exchange_rate: parseFloat(exchange_rate) || 1.0,
-      entry_date,
-      remarks,
-      contract_number,
-      expenses,
-      purchase_person,
-      related_sales_order_id,
-      related_sales_orders
-    })
+    // 创建采购订单并扣减采购计划待采购数量，整体走事务，任一步失败全部回滚
+    const connection = await pool.getConnection()
+    let order
+    try {
+      await connection.beginTransaction()
+
+      order = await PurchaseOrder.create({
+        supplier_name,
+        supplier_code,
+        purchase_items,
+        currency,
+        exchange_rate: parseFloat(exchange_rate) || 1.0,
+        entry_date,
+        remarks,
+        contract_number,
+        expenses,
+        purchase_person,
+        related_sales_order_id,
+        related_sales_orders
+      }, connection)
+
+      // 从采购计划生成时，扣减计划明细的待采购数量并记录扣减明细（删除时据此原路回补）
+      const planDeductions = await applyPlanDeductions(
+        PurchasePlan,
+        PURCHASE_PLAN_KEYS,
+        plan_rows,
+        purchase_items,
+        connection
+      )
+      if (plan_rows) {
+        order = await PurchaseOrder.update(order.purchase_order_id, {
+          plan_deductions: planDeductions
+        }, connection)
+      }
+
+      await connection.commit()
+    } catch (txError) {
+      await connection.rollback()
+      throw txError
+    } finally {
+      connection.release()
+    }
 
     // 更新关联销售订单商品的采购状态
     if (related_sales_order_id) {
@@ -346,22 +379,43 @@ export const deletePurchaseOrder = async (req, res) => {
 
     const relatedSalesOrderId = existing.related_sales_order_id
 
-    // 可选：把单据商品数量回补到采购计划（按合同编号匹配）。
-    // 回补失败会阻断删除，此时库中数据未被改动，可原样重试；
-    // 自动生成的入库计划不在此处理
+    // 回补采购计划的待采购数量（自动生成的入库计划不在此处理）：
+    // 有 plan_deductions 记录的按记录原路回补（创建时扣了多少就补多少）；
+    // 历史单据没有记录，退化为按合同编号猜行的旧逻辑
+    const connection = await pool.getConnection()
     let planRestore = null
-    const restorePlan = req.query.restorePlan === '1' || req.query.restorePlan === 'true'
-    if (restorePlan && existing.contract_number) {
-      const docItems = JSON.parse(existing.purchase_items || '[]')
-      planRestore = await restoreQuantitiesToPlans(
-        PurchasePlan,
-        PURCHASE_PLAN_KEYS,
-        existing.contract_number,
-        docItems
-      )
-    }
+    try {
+      await connection.beginTransaction()
 
-    await PurchaseOrder.delete(id)
+      const docItems = JSON.parse(existing.purchase_items || '[]')
+      if (existing.plan_deductions === null || existing.plan_deductions === undefined) {
+        if (existing.contract_number) {
+          planRestore = await restoreQuantitiesToPlans(
+            PurchasePlan,
+            PURCHASE_PLAN_KEYS,
+            existing.contract_number,
+            docItems,
+            connection
+          )
+        }
+      } else {
+        planRestore = await restorePlanDeductions(
+          PurchasePlan,
+          PURCHASE_PLAN_KEYS,
+          existing.plan_deductions,
+          connection
+        )
+      }
+
+      await PurchaseOrder.delete(id, connection)
+
+      await connection.commit()
+    } catch (txError) {
+      await connection.rollback()
+      throw txError
+    } finally {
+      connection.release()
+    }
 
     // 删除后更新关联销售订单商品的采购状态
     if (relatedSalesOrderId) {

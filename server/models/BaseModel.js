@@ -39,55 +39,57 @@ class BaseModel {
     return ''
   }
 
-  async findAll(options = {}) {
+  // 所有方法支持传入事务连接 conn（pool.getConnection() 获取的 connection），
+  // 不传时使用连接池。conn 只需暴露 query()，pool 与 connection 均满足
+  async findAll(options = {}, conn = pool) {
     const { where = '', orderBy = '', limit = '', params = [] } = options
     const orderClause = this.validateOrderBy(orderBy)
     const limitClause = this.validateLimit(limit)
     const whereClause = where ? ` WHERE ${where}` : ''
     const sql = `SELECT * FROM ${this.tableName}${whereClause}${orderClause}${limitClause}`
-    const [rows] = await pool.query(sql, params)
+    const [rows] = await conn.query(sql, params)
     return rows
   }
 
-  async findById(id) {
+  async findById(id, conn = pool) {
     const sql = `SELECT * FROM ${this.tableName} WHERE ${this.idField} = ?`
-    const [rows] = await pool.query(sql, [id])
+    const [rows] = await conn.query(sql, [id])
     return rows[0] || null
   }
 
-  async findOne(where, params = []) {
+  async findOne(where, params = [], conn = pool) {
     const sql = `SELECT * FROM ${this.tableName} WHERE ${where} LIMIT 1`
-    const [rows] = await pool.query(sql, params)
+    const [rows] = await conn.query(sql, params)
     return rows[0] || null
   }
 
-  async create(data) {
+  async create(data, conn = pool) {
     const fields = Object.keys(data).join(', ')
     const placeholders = Object.keys(data).map(() => '?').join(', ')
     const values = Object.values(data)
     const sql = `INSERT INTO ${this.tableName} (${fields}) VALUES (${placeholders})`
-    await pool.query(sql, values)
-    return this.findById(data[this.idField])
+    await conn.query(sql, values)
+    return this.findById(data[this.idField], conn)
   }
 
-  async update(id, data) {
+  async update(id, data, conn = pool) {
     const fields = Object.keys(data).map(key => `${key} = ?`).join(', ')
     const values = [...Object.values(data), id]
     const sql = `UPDATE ${this.tableName} SET ${fields} WHERE ${this.idField} = ?`
-    await pool.query(sql, values)
-    return this.findById(id)
+    await conn.query(sql, values)
+    return this.findById(id, conn)
   }
 
-  async delete(id) {
+  async delete(id, conn = pool) {
     const sql = `DELETE FROM ${this.tableName} WHERE ${this.idField} = ?`
-    const [result] = await pool.query(sql, [id])
+    const [result] = await conn.query(sql, [id])
     return result.affectedRows > 0
   }
 
-  async count(where = '', params = []) {
+  async count(where = '', params = [], conn = pool) {
     const whereClause = where ? ` WHERE ${where}` : ''
     const sql = `SELECT COUNT(*) as total FROM ${this.tableName}${whereClause}`
-    const [rows] = await pool.query(sql, params)
+    const [rows] = await conn.query(sql, params)
     return rows[0].total
   }
 

@@ -6,7 +6,7 @@ class Receivable extends BaseModel {
     super('receivables', 'receivable_id')
   }
 
-  async create(data) {
+  async create(data, conn) {
     const receivableData = {
       receivable_id: generateUUID(),
       customer_id: data.customer_id,
@@ -23,7 +23,7 @@ class Receivable extends BaseModel {
       payment_method: data.payment_method || null,
       delivery_time: data.delivery_time || null
     }
-    return super.create(receivableData)
+    return super.create(receivableData, conn)
   }
 }
 

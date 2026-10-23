@@ -60,7 +60,7 @@ class PurchaseOrder extends BaseModel {
     return await this.update(id, { status })
   }
 
-  async update(id, data) {
+  async update(id, data, conn) {
     if (data.expenses !== undefined) {
       data.expenses = data.expenses ? JSON.stringify(data.expenses) : null
     }
@@ -86,10 +86,10 @@ class PurchaseOrder extends BaseModel {
       data.purchase_items = JSON.stringify(calculatedItems)
     }
 
-    return super.update(id, data)
+    return super.update(id, data, conn)
   }
 
-  async create(data) {
+  async create(data, conn) {
     const purchaseItems = data.purchase_items || []
     const expensesJson = data.expenses ? JSON.stringify(data.expenses) : null
 
@@ -128,9 +128,10 @@ class PurchaseOrder extends BaseModel {
       expenses: expensesJson,
       purchase_person: data.purchase_person || null,
       related_sales_order_id: data.related_sales_order_id || null,
-      related_sales_orders: data.related_sales_orders ? JSON.stringify(data.related_sales_orders) : null
+      related_sales_orders: data.related_sales_orders ? JSON.stringify(data.related_sales_orders) : null,
+      plan_deductions: JSON.stringify(data.plan_deductions || [])
     }
-    return super.create(orderData)
+    return super.create(orderData, conn)
   }
 
   /**

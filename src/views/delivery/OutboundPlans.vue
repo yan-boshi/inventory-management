@@ -163,9 +163,6 @@ const deliveryOrderPrefill = ref<any>(undefined)
 const dateRange = ref<[any, any] | undefined>(undefined)
 const selectedRowKeys = ref<string[]>([])
 
-// 生成出库单时对应的计划明细行（用于生成后按实际数量扣减）
-const generatedSourceRows = ref<{ planId: string; itemIndex: number; product_code: string; quantity: number }[]>([])
-
 // 产品库存映射（用于生成出库单时填入库存数）
 const productStockMap = ref<Map<string, number>>(new Map())
 
@@ -567,10 +564,10 @@ const handleGenerateDeliveryOrder = (record: any) => {
     items = []
   }
 
-  // 记录本次生成对应的计划明细行，生成后按实际出库数量扣减
-  generatedSourceRows.value = items.map((item: any, index: number) => ({
-    planId: plan.outbound_plan_id,
-    itemIndex: index,
+  // 记录本次生成对应的计划明细行，随表单提交给后端，创建出库单时据此扣减计划数量
+  const planRows = items.map((item: any, index: number) => ({
+    plan_id: plan.outbound_plan_id,
+    item_index: index,
     product_code: item.product_code || '',
     quantity: Number(item.quantity) || 0,
   }))
@@ -597,6 +594,7 @@ const handleGenerateDeliveryOrder = (record: any) => {
     customer_name: plan.customer_name || '',
     currency: plan.currency || 'CNY',
     delivery_items: deliveryItems,
+    plan_rows: planRows,
     entry_date: plan.entry_date,
     remarks: plan.remarks || '',
   }
@@ -637,7 +635,7 @@ const handleBatchGenerateDeliveryOrder = () => {
 
   // 收集所有选中计划的明细
   const allItems: any[] = []
-  const sourceRows: { planId: string; itemIndex: number; product_code: string; quantity: number }[] = []
+  const planRows: { plan_id: string; item_index: number; product_code: string; quantity: number }[] = []
   let firstPlan: any = null
   const planSalesOrderIds = new Set<string>()
 
@@ -668,10 +666,10 @@ const handleBatchGenerateDeliveryOrder = () => {
         tax_rate: item.tax_rate || 0,
         remarks: item.remarks || '',
       })
-      // 记录本次生成对应的计划明细行，生成后按实际出库数量扣减
-      sourceRows.push({
-        planId: plan.outbound_plan_id,
-        itemIndex: index,
+      // 记录本次生成对应的计划明细行，随表单提交给后端，创建出库单时据此扣减计划数量
+      planRows.push({
+        plan_id: plan.outbound_plan_id,
+        item_index: index,
         product_code: item.product_code || '',
         quantity: Number(item.quantity) || 0,
       })
@@ -712,102 +710,21 @@ const handleBatchGenerateDeliveryOrder = () => {
     customer_name: firstPlan.customer_name || '',
     currency: firstPlan.currency || 'CNY',
     delivery_items: deliveryItems,
+    plan_rows: planRows,
     entry_date: firstPlan.entry_date,
     remarks: firstPlan.remarks || '',
   }
 
-  generatedSourceRows.value = sourceRows
   deliveryOrderFormVisible.value = true
 }
 
-const handleDeliveryOrderSuccess = async (orderData?: any) => {
+const handleDeliveryOrderSuccess = () => {
   deliveryOrderFormVisible.value = false
   deliveryOrderPrefill.value = undefined
+  message.success('出库单创建成功')
 
-  // 出库单实际出库数量（按商品代码汇总，表单中数量可能被修改过）
-  const outboundQtyMap = new Map<string, number>()
-  let deliveryItems: any[] = orderData?.delivery_items || []
-  if (typeof deliveryItems === 'string') {
-    try {
-      deliveryItems = JSON.parse(deliveryItems)
-    } catch {
-      deliveryItems = []
-    }
-  }
-  deliveryItems.forEach((item: any) => {
-    const code = item.product_code || ''
-    outboundQtyMap.set(code, (outboundQtyMap.get(code) || 0) + (Number(item.quantity) || 0))
-  })
-
-  // 按生成时的计划明细行扣减待出库数量（同一商品按行顺序分配出库数量）
-  const planItemUpdates = new Map<string, Map<number, number>>()
-  generatedSourceRows.value.forEach((row: { planId: string; itemIndex: number; product_code: string; quantity: number }) => {
-    const code = row.product_code || ''
-    const pendingQty = Number(row.quantity) || 0
-    const outboundLeft = outboundQtyMap.get(code) || 0
-    const deduct = Math.min(pendingQty, outboundLeft)
-    if (deduct > 0) {
-      outboundQtyMap.set(code, outboundLeft - deduct)
-      if (!planItemUpdates.has(row.planId)) planItemUpdates.set(row.planId, new Map())
-      planItemUpdates.get(row.planId)!.set(row.itemIndex, pendingQty - deduct)
-    }
-  })
-
-  // 更新出库计划明细的待出库数量，并根据剩余数量推导计划状态
-  if (planItemUpdates.size > 0) {
-    let successCount = 0
-    let failCount = 0
-    let partialCount = 0
-    let completedCount = 0
-
-    for (const [planId, itemQtyMap] of planItemUpdates) {
-      const plan = plans.value.find(p => p.outbound_plan_id === planId)
-      if (!plan) continue
-
-      let items: any[] = []
-      try {
-        items = typeof plan.plan_items === 'string' ? JSON.parse(plan.plan_items) : plan.plan_items || []
-      } catch {
-        items = []
-      }
-
-      const newItems = items.map((item: any, index: number) => {
-        const originalQty = Number(item.quantity) || 0
-        const newQty = itemQtyMap.has(index) ? itemQtyMap.get(index)! : originalQty
-        return {
-          ...item,
-          quantity: newQty,
-          outbound_status: newQty <= 0 ? 'completed' : newQty < originalQty ? 'partial' : (item.outbound_status || 'pending'),
-        }
-      })
-
-      // 全部明细待出库数量为0 → 已完成；有出库但未完成 → 部分出库
-      const allCompleted = newItems.length > 0 && newItems.every((it: any) => (Number(it.quantity) || 0) <= 0)
-      const newStatus = allCompleted ? 'completed' : 'partial'
-
-      try {
-        await outboundPlansApi.update(planId, { status: newStatus, plan_items: newItems })
-        successCount++
-        if (allCompleted) completedCount++
-        else partialCount++
-      } catch (error) {
-        console.error(`更新出库计划 ${planId} 状态失败:`, error)
-        failCount++
-      }
-    }
-
-    if (failCount === 0) {
-      message.success(`出库单创建成功，${completedCount}个出库计划已完成，${partialCount}个部分出库`)
-    } else {
-      message.warning(`出库单创建成功，${successCount}个计划更新成功，${failCount}个更新失败`)
-    }
-  } else {
-    message.success('出库单创建成功')
-  }
-
-  // 清空选中并重新加载列表
+  // 计划数量扣减由后端在创建出库单时完成（plan_rows），这里只刷新列表
   selectedRowKeys.value = []
-  generatedSourceRows.value = []
   loadPlans()
 }
 

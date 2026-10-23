@@ -501,6 +501,8 @@ export interface PurchaseOrder {
   purchase_order_id: string
   order_number: string
   contract_number?: string
+  /** 创建时的计划扣减记录（删除时据此原路回补计划数量），历史单据为 null */
+  plan_deductions?: string | null
   supplier_name: string
   supplier_code: string
   purchase_items: string
@@ -531,6 +533,8 @@ export interface CreatePurchaseOrderRequest {
   purchase_person?: string
   related_sales_order_id?: string
   related_sales_orders?: RelatedSalesOrderItem[]
+  /** 从采购计划生成时的来源计划明细行，后端据此扣减待采购数量并记录扣减明细 */
+  plan_rows?: PlanRow[]
 }
 
 export interface UpdatePurchaseOrderRequest extends Partial<CreatePurchaseOrderRequest> { }
@@ -685,7 +689,15 @@ export interface OutboundPlanQueryParams {
   endDate?: string
 }
 
-// 删除单据时回补计划数量的摘要（DELETE ?restorePlan=1 响应的 data）
+// 计划生成单据时的来源计划明细行（创建单据时提交，后端据此扣减计划待办数量并记录扣减明细）
+export interface PlanRow {
+  plan_id: string
+  item_index: number
+  product_code: string
+  quantity: number
+}
+
+// 删除单据时回补计划数量的摘要（DELETE 响应的 data）
 export interface PlanRestoreSummary {
   restoredPlans: number
   restoredQty: number
@@ -851,6 +863,10 @@ export interface WarehousingOrder {
   warehousing_order_id: string
   order_number: string
   contract_number?: string
+  /** 创建时关联的采购订单（删除时据此回退到同一张订单） */
+  purchase_order_id?: string
+  /** 创建时的计划扣减记录（删除时据此原路回补计划数量），历史单据为 null */
+  plan_deductions?: string | null
   warehousing_items: string
   warehousing_time: string
   entry_date?: string
@@ -885,6 +901,8 @@ export interface CreateWarehousingOrderRequest {
   contact_phone?: string
   remarks?: string
   expenses?: WarehousingExpenses
+  /** 从入库计划生成时的来源计划明细行，后端据此扣减待入库数量并记录扣减明细 */
+  plan_rows?: PlanRow[]
 }
 
 export interface UpdateWarehousingOrderRequest extends Partial<CreateWarehousingOrderRequest> { }
@@ -929,6 +947,10 @@ export interface DeliveryOrder {
   delivery_order_id: string
   order_number: string
   contract_number?: string
+  /** 创建时关联的销售订单（删除时据此回退到同一张订单） */
+  sales_order_id?: string
+  /** 创建时的计划扣减记录（删除时据此原路回补计划数量），历史单据为 null */
+  plan_deductions?: string | null
   customer_name: string
   customer_address: string
   delivery_items: string
@@ -965,6 +987,8 @@ export interface CreateDeliveryOrderRequest {
   contact_phone?: string
   remarks?: string
   expenses?: DeliveryExpenses
+  /** 从出库计划生成时的来源计划明细行，后端据此扣减待出库数量并记录扣减明细 */
+  plan_rows?: PlanRow[]
 }
 
 export interface UpdateDeliveryOrderRequest extends Partial<CreateDeliveryOrderRequest> { }

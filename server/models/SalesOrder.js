@@ -56,7 +56,7 @@ class SalesOrder extends BaseModel {
     return round4((taxIncludedAmount / (1 + taxRate)) * taxRate)
   }
 
-  async create(data) {
+  async create(data, conn) {
     const salesItemsRaw = data.sales_items || '[]'
     const expensesJson = data.expenses ? JSON.stringify(data.expenses) : null
 
@@ -95,10 +95,10 @@ class SalesOrder extends BaseModel {
       expenses: expensesJson,
       sales_person: data.sales_person || null
     }
-    return super.create(orderData)
+    return super.create(orderData, conn)
   }
 
-  async update(id, data) {
+  async update(id, data, conn) {
     let taxIncludedAmount = null
 
     if (data.sales_items !== undefined) {
@@ -117,7 +117,7 @@ class SalesOrder extends BaseModel {
       data.expenses = data.expenses ? JSON.stringify(data.expenses) : null
     }
 
-    return super.update(id, data)
+    return super.update(id, data, conn)
   }
 
   async getNewOrderNumber() {

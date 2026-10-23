@@ -6,7 +6,7 @@ class Payable extends BaseModel {
     super('payables', 'payable_id')
   }
 
-  async create(data) {
+  async create(data, conn) {
     const payableData = {
       payable_id: generateUUID(),
       supplier_id: data.supplier_id,
@@ -23,7 +23,7 @@ class Payable extends BaseModel {
       payment_method: data.payment_method || null,
       warehousing_time: data.warehousing_time || null
     }
-    return super.create(payableData)
+    return super.create(payableData, conn)
   }
 }
 

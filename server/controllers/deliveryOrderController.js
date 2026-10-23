@@ -2,6 +2,7 @@ import DeliveryOrder from '../models/DeliveryOrder.js'
 import SalesOrder from '../models/SalesOrder.js'
 import Receivable from '../models/Receivable.js'
 import OutboundPlan from '../models/OutboundPlan.js'
+import OutboundReturnOrder from '../models/OutboundReturnOrder.js'
 import pool from '../config/database.js'
 import { handleDbError } from '../utils/errorHandler.js'
 import {
@@ -13,7 +14,12 @@ import {
   buildQuantityDeltaMap,
   syncQuantityDeltaToOrders
 } from '../utils/contractOrderLookup.js'
-import { OUTBOUND_PLAN_KEYS, restoreQuantitiesToPlans } from '../utils/planRestore.js'
+import {
+  OUTBOUND_PLAN_KEYS,
+  applyPlanDeductions,
+  restorePlanDeductions,
+  restoreQuantitiesToPlans
+} from '../utils/planRestore.js'
 
 export const getAllDeliveryOrders = async (req, res) => {
   try {
@@ -116,7 +122,7 @@ export const createDeliveryOrder = async (req, res) => {
   try {
     const {
       contract_number,
-      // 前端选择的具体销售订单（同一合同编号可能对应多张销售订单，仅用于定位明细，不入库）
+      // 前端选择的具体销售订单（同一合同编号可能对应多张销售订单，用于定位明细并落库，删除时回退到同一张订单）
       sales_order_id,
       customer_name,
       customer_address,
@@ -129,7 +135,9 @@ export const createDeliveryOrder = async (req, res) => {
       contact_phone,
       remarks,
       expenses,
-      tracking_number
+      tracking_number,
+      // 从出库计划生成时的来源计划明细行 [{plan_id, item_index, product_code, quantity}]
+      plan_rows
     } = req.body
 
     if (!customer_name) {
@@ -140,40 +148,38 @@ export const createDeliveryOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: '出库商品不能为空' })
     }
 
+    const parsedItems = typeof delivery_items === 'string' ? JSON.parse(delivery_items) : delivery_items
+
     // 先校验库存是否充足（在创建出库单之前）
-    if (delivery_items) {
-      const parsedItems = typeof delivery_items === 'string' ? JSON.parse(delivery_items) : delivery_items
-      for (const item of parsedItems) {
-        if (!item.product_code || !item.quantity) continue
-        // 查询当前库存
-        const [productResult] = await pool.query(
-          'SELECT stock, product_name FROM products WHERE product_code = ?',
-          [item.product_code]
-        )
-        if (productResult.length > 0) {
-          const currentStock = parseFloat(productResult[0].stock || 0)
-          const outQuantity = parseFloat(item.quantity || 0)
-          // 校验库存是否充足
-          if (outQuantity > currentStock) {
-            return res.status(400).json({
-              success: false,
-              message: `商品 ${productResult[0].product_name}(${item.product_code}) 库存不足，当前库存: ${currentStock}，出库数量: ${outQuantity}`
-            })
-          }
+    for (const item of parsedItems) {
+      if (!item.product_code || !item.quantity) continue
+      // 查询当前库存
+      const [productResult] = await pool.query(
+        'SELECT stock, product_name FROM products WHERE product_code = ?',
+        [item.product_code]
+      )
+      if (productResult.length > 0) {
+        const currentStock = parseFloat(productResult[0].stock || 0)
+        const outQuantity = parseFloat(item.quantity || 0)
+        // 校验库存是否充足
+        if (outQuantity > currentStock) {
+          return res.status(400).json({
+            success: false,
+            message: `商品 ${productResult[0].product_name}(${item.product_code}) 库存不足，当前库存: ${currentStock}，出库数量: ${outQuantity}`
+          })
         }
       }
     }
 
-    // 校验销售订单出库数量是否超量（在创建出库单之前）
-    if (contract_number && delivery_items) {
+    // 校验销售订单出库数量是否超量（在创建出库单之前，多行同商品需累计校验）
+    if (contract_number) {
       // 同一销售合同编号可能对应多张销售订单，商品只要在其中一张中存在即可
       const { orders, itemsMap } = await loadContractOrders(SalesOrder, contract_number, SALES_ORDER_KEYS)
       if (orders.length > 0) {
-        const parsedDeliveryItems = typeof delivery_items === 'string'
-          ? JSON.parse(delivery_items)
-          : delivery_items
+        // 按目标明细行累计本次出库数量，避免多行同商品拆分校验导致超量
+        const pendingByItem = new Map()
 
-        for (const deliveryItem of parsedDeliveryItems) {
+        for (const deliveryItem of parsedItems) {
           const match = findItemByProduct(orders, itemsMap, deliveryItem.product_code, SALES_ORDER_KEYS, sales_order_id)
 
           if (!match) {
@@ -183,116 +189,122 @@ export const createDeliveryOrder = async (req, res) => {
             })
           }
 
-          const currentOutbound = match.targetItem.outbound_quantity || 0
-          const newOutbound = currentOutbound + deliveryItem.quantity
+          const itemKey = `${match.order.sales_order_id}:${match.targetItem.product_code}`
+          const pendingQty = (pendingByItem.get(itemKey) || 0) + (parseFloat(deliveryItem.quantity) || 0)
+          pendingByItem.set(itemKey, pendingQty)
+
+          const currentOutbound = parseFloat(match.targetItem.outbound_quantity || 0)
+          const newOutbound = currentOutbound + pendingQty
 
           if (newOutbound > match.targetItem.quantity) {
             return res.status(400).json({
               success: false,
-              message: `商品 ${match.targetItem.product_name} 已超出销售数量，订单数量: ${match.targetItem.quantity}，已出库: ${currentOutbound}，本次出库: ${deliveryItem.quantity}`
+              message: `商品 ${match.targetItem.product_name} 已超出销售数量，订单数量: ${match.targetItem.quantity}，已出库: ${currentOutbound}，本次出库: ${pendingQty}`
             })
           }
         }
       }
     }
 
-    // 创建出库单
-    const order = await DeliveryOrder.create({
-      contract_number,
-      customer_name,
-      customer_address,
-      delivery_items,
-      delivery_time,
-      delivery_date,
-      entry_date,
-      currency,
-      delivery_person,
-      contact_phone,
-      remarks,
-      expenses,
-      tracking_number
-    })
+    // 创建出库单并同步库存/计划/销售订单/应收账款，整体走事务，任一步失败全部回滚
+    const connection = await pool.getConnection()
+    let order
+    try {
+      await connection.beginTransaction()
 
-    // 更新产品库存（扣减）- 使用原子操作避免并发问题
-    if (delivery_items) {
-      try {
-        const parsedItems = typeof delivery_items === 'string' ? JSON.parse(delivery_items) : delivery_items
-        for (const item of parsedItems) {
-          if (!item.product_code || !item.quantity) continue
-          const outQty = parseFloat(item.quantity || 0)
-          // 原子操作：同时检查和扣减库存
-          const [result] = await pool.query(
-            'UPDATE products SET stock = stock - ? WHERE product_code = ? AND stock >= ?',
-            [outQty, item.product_code, outQty]
-          )
-          // 如果 affectedRows === 0，说明库存不足（被并发抢走了）
-          if (result.affectedRows === 0) {
-            // 检查是产品不存在还是库存不足
-            const [productCheck] = await pool.query(
-              'SELECT stock, product_name FROM products WHERE product_code = ?',
-              [item.product_code]
-            )
-            if (productCheck.length > 0) {
-              throw new Error(`商品 ${productCheck[0].product_name}(${item.product_code}) 库存不足，当前库存: ${productCheck[0].stock}，出库数量: ${outQty}`)
-            }
-          }
-        }
-      } catch (stockError) {
-        // 库存更新失败，回滚已创建的出库单
-        await DeliveryOrder.delete(order.delivery_order_id)
-        throw stockError
+      order = await DeliveryOrder.create({
+        contract_number,
+        sales_order_id,
+        customer_name,
+        customer_address,
+        delivery_items: parsedItems,
+        delivery_time,
+        delivery_date,
+        entry_date,
+        currency,
+        delivery_person,
+        contact_phone,
+        remarks,
+        expenses,
+        tracking_number
+      }, connection)
+
+      // 从出库计划生成时，扣减计划明细的待出库数量并记录扣减明细（删除时据此原路回补）
+      const planDeductions = await applyPlanDeductions(
+        OutboundPlan,
+        OUTBOUND_PLAN_KEYS,
+        plan_rows,
+        parsedItems,
+        connection
+      )
+      if (plan_rows) {
+        order = await DeliveryOrder.update(order.delivery_order_id, {
+          plan_deductions: planDeductions
+        }, connection)
       }
-    }
 
-    // 如果关联了销售订单，同步出库数量到销售订单
-    if (contract_number) {
-      const { orders, itemsMap } = await loadContractOrders(SalesOrder, contract_number, SALES_ORDER_KEYS)
+      // 更新产品库存（扣减）- 使用原子操作避免并发问题
+      for (const item of parsedItems) {
+        if (!item.product_code || !item.quantity) continue
+        const outQty = parseFloat(item.quantity || 0)
+        // 原子操作：同时检查和扣减库存
+        const [result] = await connection.query(
+          'UPDATE products SET stock = stock - ? WHERE product_code = ? AND stock >= ?',
+          [outQty, item.product_code, outQty]
+        )
+        // 如果 affectedRows === 0，说明库存不足（被并发抢走了）
+        if (result.affectedRows === 0) {
+          // 检查是产品不存在还是库存不足
+          const [productCheck] = await connection.query(
+            'SELECT stock, product_name FROM products WHERE product_code = ?',
+            [item.product_code]
+          )
+          if (productCheck.length > 0) {
+            throw new Error(`商品 ${productCheck[0].product_name}(${item.product_code}) 库存不足，当前库存: ${productCheck[0].stock}，出库数量: ${outQty}`)
+          }
+        }
+      }
 
-      if (orders.length > 0) {
-        const parsedDeliveryItems = typeof delivery_items === 'string'
-          ? JSON.parse(delivery_items)
-          : delivery_items
+      // 如果关联了销售订单，同步出库数量到销售订单
+      if (contract_number) {
+        const { orders, itemsMap } = await loadContractOrders(SalesOrder, contract_number, SALES_ORDER_KEYS, connection)
 
-        // 同一合同下可能有多张销售订单，按商品所在的具体订单同步
-        const touchedOrders = new Map()
+        if (orders.length > 0) {
+          // 同一合同下可能有多张销售订单，按商品所在的具体订单同步
+          const touchedOrders = new Map()
 
-        // 遍历出库项，同步数量（校验已在创建前完成）
-        for (const deliveryItem of parsedDeliveryItems) {
-          const match = findItemByProduct(orders, itemsMap, deliveryItem.product_code, SALES_ORDER_KEYS, sales_order_id)
-          if (!match) continue
+          // 遍历出库项，同步数量（校验已在创建前完成）
+          for (const deliveryItem of parsedItems) {
+            const match = findItemByProduct(orders, itemsMap, deliveryItem.product_code, SALES_ORDER_KEYS, sales_order_id)
+            if (!match) continue
 
-          // 更新出库数量
-          const currentOutbound = match.targetItem.outbound_quantity || 0
-          const newOutbound = currentOutbound + deliveryItem.quantity
-          match.targetItem.outbound_quantity = newOutbound
+            // 更新出库数量
+            const currentOutbound = parseFloat(match.targetItem.outbound_quantity || 0)
+            const newOutbound = currentOutbound + (parseFloat(deliveryItem.quantity) || 0)
+            match.targetItem.outbound_quantity = newOutbound
 
-          // 更新行状态
-          if (newOutbound === match.targetItem.quantity) {
-            match.targetItem.status = 2 // 已全部出库
-          } else if (newOutbound > 0) {
-            match.targetItem.status = 3 // 已部分出库
+            // 更新行状态
+            if (newOutbound === match.targetItem.quantity) {
+              match.targetItem.status = 2 // 已全部出库
+            } else if (newOutbound > 0) {
+              match.targetItem.status = 3 // 已部分出库
+            }
+
+            touchedOrders.set(match.order.sales_order_id, match)
           }
 
-          touchedOrders.set(match.order.sales_order_id, match)
-        }
+          // 更新销售订单
+          for (const match of touchedOrders.values()) {
+            // 计算订单整体状态
+            const orderStatus = SalesOrder.deriveOrderStatus(match.items)
 
-        // 更新销售订单
-        for (const match of touchedOrders.values()) {
-          // 计算订单整体状态
-          const orderStatus = SalesOrder.deriveOrderStatus(match.items)
-
-          try {
             await SalesOrder.update(match.order.sales_order_id, {
               sales_items: JSON.stringify(match.items),
               status: orderStatus
-            })
-          } catch (syncErr) {
-            console.error('同步销售订单出库数量失败（不影响出库单创建）:', syncErr.message)
+            }, connection)
           }
-        }
 
-        // 创建应收账款记录
-        try {
+          // 创建应收账款记录
           const totalAmount = parseFloat(order.total_amount) || 0
 
           // 获取客户名称（取本次出库商品所在的销售订单）
@@ -312,15 +324,18 @@ export const createDeliveryOrder = async (req, res) => {
             status: 0, // 未结算
             payment_method: (salesOrder && salesOrder.payment_method) || null,
             delivery_time: delivery_time || null
-          })
-        } catch (receivableError) {
-          // 应收账款创建失败，不影响出库单创建
-          console.error('创建应收账款记录失败:', receivableError)
+          }, connection)
         }
       }
-    }
 
-    res.status(201).json({ success: true, data: order })
+      await connection.commit()
+      res.status(201).json({ success: true, data: order })
+    } catch (txError) {
+      await connection.rollback()
+      throw txError
+    } finally {
+      connection.release()
+    }
   } catch (error) {
     const { statusCode, message } = handleDbError(error, '操作出库单')
     res.status(statusCode).json({ success: false, message })
@@ -423,17 +438,19 @@ export const updateDeliveryOrder = async (req, res) => {
     }
 
     // 同步出库数量到销售订单：编辑时不回写会导致订单上的出库数量与单据不一致
+    // 优先定位到单据关联的具体销售订单（本次带入的优先，其次创建时落库的）
+    const preferSalesOrderId = sales_order_id || existing.sales_order_id || undefined
     const oldContractNumber = existing.contract_number || ''
     const newContractNumber = contract_number !== undefined ? (contract_number || '') : oldContractNumber
     if (delivery_items !== undefined || contract_number !== undefined) {
       try {
         if (oldContractNumber !== newContractNumber) {
           // 合同变更：旧合同按旧明细全部回退，新合同按新明细全部累加
-          await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, oldContractNumber, itemsToDeltaMap(oldItems, -1))
-          await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, newContractNumber, itemsToDeltaMap(newItems, 1), sales_order_id)
+          await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, oldContractNumber, itemsToDeltaMap(oldItems, -1), existing.sales_order_id || undefined)
+          await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, newContractNumber, itemsToDeltaMap(newItems, 1), preferSalesOrderId)
         } else {
           // 同一合同：按新旧明细差量调整
-          await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, newContractNumber, buildQuantityDeltaMap(oldItems, newItems), sales_order_id)
+          await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, newContractNumber, buildQuantityDeltaMap(oldItems, newItems), preferSalesOrderId)
         }
       } catch (syncErr) {
         console.error('同步销售订单出库数量失败（不影响出库单更新）:', syncErr.message)
@@ -443,6 +460,8 @@ export const updateDeliveryOrder = async (req, res) => {
     const updateData = {}
     if (order_number !== undefined) updateData.order_number = order_number
     if (contract_number !== undefined) updateData.contract_number = contract_number
+    // 落库关联的销售订单，删除时据此回退到同一张订单
+    if (sales_order_id !== undefined) updateData.sales_order_id = sales_order_id
     if (customer_name !== undefined) updateData.customer_name = customer_name
     if (customer_address !== undefined) updateData.customer_address = customer_address
     if (delivery_items !== undefined) updateData.delivery_items = delivery_items
@@ -496,98 +515,120 @@ export const deleteDeliveryOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: '出库单不存在' })
     }
 
-    // 可选：把单据商品数量回补到出库计划（按合同编号匹配）。
-    // 回补失败会阻断删除，此时库中数据未被改动，可原样重试
+    // 已关联退货单的出库单不允许删除：
+    // 退货单已经回补过库存并回退过订单数量，再删除出库单会二次回补导致数据错乱
+    const [relatedReturns] = await pool.query(
+      'SELECT outbound_return_id FROM outbound_return_orders WHERE source_order_id = ? OR source_order_number = ? LIMIT 1',
+      [id, existing.order_number]
+    )
+    if (relatedReturns.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: '该出库单已关联退货单，不能删除；请先删除对应的退货单'
+      })
+    }
+
+    // 删除出库单并回补计划/订单/库存/应收账款，整体走事务，任一步失败全部回滚
+    const connection = await pool.getConnection()
     let planRestore = null
-    const restorePlan = req.query.restorePlan === '1' || req.query.restorePlan === 'true'
-    if (restorePlan && existing.contract_number) {
-      const docItems = JSON.parse(existing.delivery_items || '[]')
-      planRestore = await restoreQuantitiesToPlans(
-        OutboundPlan,
-        OUTBOUND_PLAN_KEYS,
-        existing.contract_number,
-        docItems
-      )
-    }
-
-    // 如果关联了销售订单，回退出库数量
-    if (existing.contract_number) {
-      // 同一销售合同编号可能对应多张销售订单，回退到实际发过货（出库数量 > 0）的订单
-      const { orders, itemsMap } = await loadContractOrders(SalesOrder, existing.contract_number, SALES_ORDER_KEYS)
-
-      if (orders.length > 0) {
-        const deliveryItems = JSON.parse(existing.delivery_items || '[]')
-        const touchedOrders = new Map()
-
-        // 遍历被删除出库单的商品，回退数量
-        for (const deliveryItem of deliveryItems) {
-          const match = findItemForRollback(orders, itemsMap, deliveryItem.product_code, SALES_ORDER_KEYS)
-          if (!match) continue
-
-          const currentOutbound = match.targetItem.outbound_quantity || 0
-          const newOutbound = Math.max(0, currentOutbound - deliveryItem.quantity)
-
-          // 更新出库数量
-          match.targetItem.outbound_quantity = newOutbound
-
-          // 更新行状态
-          if (newOutbound === 0) {
-            match.targetItem.status = 1 // 未出库
-          } else if (newOutbound < match.targetItem.quantity) {
-            match.targetItem.status = 3 // 已部分出库
-          } else if (newOutbound === match.targetItem.quantity) {
-            match.targetItem.status = 2 // 已全部出库
-          }
-
-          touchedOrders.set(match.order.sales_order_id, match)
-        }
-
-        // 重新计算订单整体状态并更新销售订单
-        for (const match of touchedOrders.values()) {
-          const orderStatus = SalesOrder.deriveOrderStatus(match.items)
-
-          await SalesOrder.update(match.order.sales_order_id, {
-            sales_items: JSON.stringify(match.items),
-            status: orderStatus
-          })
-        }
-      }
-    }
-
-    // 恢复产品库存（加回出库数量）
     try {
+      await connection.beginTransaction()
+
       const deliveryItems = JSON.parse(existing.delivery_items || '[]')
-      for (const item of deliveryItems) {
-        const [productResult] = await pool.query(
-          'SELECT stock FROM products WHERE product_code = ?',
-          [item.product_code]
-        )
-        if (productResult.length > 0) {
-          const currentStock = parseFloat(productResult[0].stock || 0)
-          const newStock = currentStock + parseFloat(item.quantity || 0)
-          await pool.query(
-            'UPDATE products SET stock = ? WHERE product_code = ?',
-            [newStock.toFixed(2), item.product_code]
+
+      // 回补出库计划的待出库数量：
+      // 有 plan_deductions 记录的按记录原路回补（创建时扣了多少就补多少）；
+      // 历史单据没有记录，退化为按合同编号猜行的旧逻辑
+      if (existing.plan_deductions === null || existing.plan_deductions === undefined) {
+        if (existing.contract_number) {
+          planRestore = await restoreQuantitiesToPlans(
+            OutboundPlan,
+            OUTBOUND_PLAN_KEYS,
+            existing.contract_number,
+            deliveryItems,
+            connection
           )
         }
+      } else {
+        planRestore = await restorePlanDeductions(
+          OutboundPlan,
+          OUTBOUND_PLAN_KEYS,
+          existing.plan_deductions,
+          connection
+        )
       }
-    } catch (stockError) {
-      // 库存恢复失败，继续执行
-    }
 
-    // 删除对应的应收账款记录
-    try {
-      const receivable = await Receivable.findOne('source_bill_id = ?', [existing.order_number])
+      // 回退出库数量到销售订单（优先回退到创建时关联的那张订单）
+      if (existing.contract_number) {
+        const { orders, itemsMap } = await loadContractOrders(SalesOrder, existing.contract_number, SALES_ORDER_KEYS, connection)
+
+        if (orders.length > 0) {
+          const touchedOrders = new Map()
+
+          // 遍历被删除出库单的商品，回退数量
+          for (const deliveryItem of deliveryItems) {
+            const match = findItemForRollback(orders, itemsMap, deliveryItem.product_code, SALES_ORDER_KEYS, existing.sales_order_id || undefined)
+            if (!match) continue
+
+            const currentOutbound = parseFloat(match.targetItem.outbound_quantity || 0)
+            const newOutbound = Math.max(0, currentOutbound - (parseFloat(deliveryItem.quantity) || 0))
+
+            // 更新出库数量
+            match.targetItem.outbound_quantity = newOutbound
+
+            // 更新行状态
+            if (newOutbound === 0) {
+              match.targetItem.status = 1 // 未出库
+            } else if (newOutbound < match.targetItem.quantity) {
+              match.targetItem.status = 3 // 已部分出库
+            } else if (newOutbound === match.targetItem.quantity) {
+              match.targetItem.status = 2 // 已全部出库
+            }
+
+            touchedOrders.set(match.order.sales_order_id, match)
+          }
+
+          // 重新计算订单整体状态并更新销售订单
+          for (const match of touchedOrders.values()) {
+            const orderStatus = SalesOrder.deriveOrderStatus(match.items)
+
+            await SalesOrder.update(match.order.sales_order_id, {
+              sales_items: JSON.stringify(match.items),
+              status: orderStatus
+            }, connection)
+          }
+        }
+      }
+
+      // 恢复产品库存（加回出库数量），失败直接抛错回滚，不能静默吞掉
+      for (const item of deliveryItems) {
+        if (!item.product_code || !item.quantity) continue
+        const addQty = parseFloat(item.quantity) || 0
+        const [result] = await connection.query(
+          'UPDATE products SET stock = stock + ? WHERE product_code = ?',
+          [addQty, item.product_code]
+        )
+        if (result.affectedRows === 0) {
+          throw new Error(`商品 ${item.product_code} 不存在，库存恢复失败`)
+        }
+      }
+
+      // 删除对应的应收账款记录
+      const receivable = await Receivable.findOne('source_bill_id = ?', [existing.order_number], connection)
       if (receivable) {
-        await Receivable.delete(receivable.receivable_id)
+        await Receivable.delete(receivable.receivable_id, connection)
       }
-    } catch (receivableError) {
-      // 应收账款删除失败，不影响出库单删除
-      console.error('删除应收账款记录失败:', receivableError)
-    }
 
-    await DeliveryOrder.delete(id)
-    res.json({ success: true, message: '出库单删除成功', data: planRestore })
+      await DeliveryOrder.delete(id, connection)
+
+      await connection.commit()
+      res.json({ success: true, message: '出库单删除成功', data: planRestore })
+    } catch (txError) {
+      await connection.rollback()
+      throw txError
+    } finally {
+      connection.release()
+    }
   } catch (error) {
     const { statusCode, message } = handleDbError(error, '操作出库单')
     res.status(statusCode).json({ success: false, message })

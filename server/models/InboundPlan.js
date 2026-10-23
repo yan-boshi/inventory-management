@@ -33,7 +33,7 @@ class InboundPlan extends BaseModel {
     return `XSD-RK-${dateStr}-${sequence.toString().padStart(3, '0')}`
   }
 
-  async create(data) {
+  async create(data, conn) {
     const planData = {
       inbound_plan_id: data.inbound_plan_id || generateUUID(),
       plan_number: data.plan_number || await this.generatePlanNumber(),
@@ -49,15 +49,15 @@ class InboundPlan extends BaseModel {
       created_by: data.created_by || null,
     }
 
-    return super.create(planData)
+    return super.create(planData, conn)
   }
 
-  async update(id, data) {
+  async update(id, data, conn) {
     const updateData = { ...data }
     if (updateData.plan_items && typeof updateData.plan_items !== 'string') {
       updateData.plan_items = JSON.stringify(updateData.plan_items)
     }
-    return super.update(id, updateData)
+    return super.update(id, updateData, conn)
   }
 
   async findByPurchaseOrderId(purchaseOrderId) {
@@ -67,12 +67,12 @@ class InboundPlan extends BaseModel {
     })
   }
 
-  async findByContractNumber(contractNumber) {
+  async findByContractNumber(contractNumber, conn) {
     return this.findAll({
       where: 'contract_number = ?',
       orderBy: 'created_at ASC, plan_number ASC',
       params: [contractNumber],
-    })
+    }, conn)
   }
 
   async deleteByPurchaseOrderId(purchaseOrderId) {

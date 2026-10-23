@@ -448,6 +448,9 @@ const selectedSalesOrderId = ref('')
 // 是否明确知道对应的销售订单（用户手选/计划单带入/暂存恢复），
 // 仅此时才把 sales_order_id 传给后端定位明细，避免误指到别的订单
 const salesOrderIdPrecise = ref(false)
+// 从计划单生成时的来源计划明细行 [{plan_id, item_index, product_code, quantity}]，
+// 创建出库单时随表单提交，由后端据此扣减计划待出库数量（仅创建时使用）
+const planRows = ref<any[] | undefined>(undefined)
 const productOptions = ref<ProductOption[]>([])
 const customerOptions = ref<CustomerOption[]>([])
 const currencyList = ref<Currency[]>([])
@@ -812,7 +815,8 @@ const handleSave = async () => {
       await deliveryOrdersApi.update(props.deliveryOrderData.delivery_order_id, submitData)
       message.success('出库单更新成功')
     } else {
-      await deliveryOrdersApi.create(submitData)
+      // 创建时带上来源计划明细行，后端据此扣减计划待出库数量并记录扣减明细
+      await deliveryOrdersApi.create({ ...submitData, plan_rows: planRows.value })
       message.success('出库单创建成功')
       clearDraft(DRAFT_KEY)
     }
@@ -881,6 +885,7 @@ const resetForm = () => {
   formData.contract_number = ''
   selectedSalesOrderId.value = ''
   salesOrderIdPrecise.value = false
+  planRows.value = undefined
   formData.delivery_items = []
   formData.delivery_time = dayjs()
   formData.delivery_date = dayjs()
@@ -1059,6 +1064,8 @@ watch(
           // 从计划单生成时，应用预填充数据
           resetForm()
           formData.contract_number = props.deliveryOrderData.contract_number || ''
+          // 来源计划明细行，创建出库单时提交给后端扣减计划数量
+          planRows.value = props.deliveryOrderData.plan_rows
           // 计划单带入的具体销售订单，用于后端精确同步出库数量
           if (props.deliveryOrderData.sales_order_id) {
             selectedSalesOrderId.value = props.deliveryOrderData.sales_order_id

@@ -41,7 +41,7 @@ class DeliveryOrder extends BaseModel {
     }, 0)
   }
 
-  async update(id, data) {
+  async update(id, data, conn) {
     // 处理商品数据
     if (data.delivery_items !== undefined) {
       const deliveryItems = typeof data.delivery_items === 'string' ? JSON.parse(data.delivery_items) : data.delivery_items
@@ -56,10 +56,15 @@ class DeliveryOrder extends BaseModel {
       data.expenses = data.expenses ? JSON.stringify(data.expenses) : null
     }
 
-    return super.update(id, data)
+    // 计划扣减记录
+    if (data.plan_deductions !== undefined && typeof data.plan_deductions !== 'string') {
+      data.plan_deductions = JSON.stringify(data.plan_deductions)
+    }
+
+    return super.update(id, data, conn)
   }
 
-  async create(data) {
+  async create(data, conn) {
     const deliveryItems = typeof data.delivery_items === 'string' ? JSON.parse(data.delivery_items) : (data.delivery_items || [])
     const expensesJson = data.expenses ? JSON.stringify(data.expenses) : null
     const totalAmount = this.calculateTotal(deliveryItems)
@@ -76,6 +81,7 @@ class DeliveryOrder extends BaseModel {
       delivery_order_id: generateUUID(),
       order_number: orderNumber,
       contract_number: data.contract_number || null,
+      sales_order_id: data.sales_order_id || null,
       customer_name: data.customer_name || '',
       customer_address: data.customer_address || '',
       delivery_items: JSON.stringify(processedItems),
@@ -86,13 +92,14 @@ class DeliveryOrder extends BaseModel {
       exchange_rate: data.exchange_rate || 1.0,
       total_amount: totalAmount,
       expenses: expensesJson,
+      plan_deductions: JSON.stringify(data.plan_deductions || []),
       tracking_number: data.tracking_number || null,
       delivery_person: data.delivery_person || '',
       contact_phone: data.contact_phone || '',
       remarks: data.remarks || null
     }
 
-    return super.create(orderData)
+    return super.create(orderData, conn)
   }
 
   // 获取未出库的销售订单
