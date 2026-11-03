@@ -118,7 +118,7 @@
                 placeholder="产品名称"
                 style="width: 100%"
                 class="invisible-input"
-                :disabled="!!form.purchase_order_number"
+                :disabled="!!selectedPurchaseOrderId"
               />
             </template>
             <template v-else-if="column.key === 'model'">
@@ -160,7 +160,7 @@
                 style="width: 100%"
                 @change="() => calculateTotal()"
                 class="invisible-input"
-                :disabled="!!form.purchase_order_number"
+                :disabled="!!selectedPurchaseOrderId"
               />
             </template>
             <template v-else-if="column.key === 'tax_included_price'">
@@ -338,8 +338,8 @@
           <a-button @click="handleCancel">取消</a-button>
           <a-button v-if="!isEdit" @click="handleSaveDraft">暂存</a-button>
           <a-button type="primary" @click="handlePrint">打印</a-button>
-          <a-button type="primary" @click="handleSubmit">保存并打印</a-button>
-          <a-button type="primary" @click="handleSubmit">保存</a-button>
+          <a-button type="primary" :loading="submitting" @click="handleSubmit">保存并打印</a-button>
+          <a-button type="primary" :loading="submitting" @click="handleSubmit">保存</a-button>
         </a-space>
       </div>
     </div>
@@ -563,6 +563,8 @@ const handlePurchaseOrderChange = async (value: string) => {
           }
         })
         .filter((item: any) => item.max_quantity > 0) // 过滤掉已全部入库的商品
+        // 过滤后再重编号，避免序号跳号（1、3、5…）
+        .map((item: any, index: number) => ({ ...item, no: index + 1 }))
       form.contract_number = order.contract_number || ''
       form.customer_name = order.supplier_name || ''
       form.customer_address = order.supplier_address || ''
@@ -616,6 +618,7 @@ const addNewItem = () => {
 
 // 提交表单
 const handleSubmit = async () => {
+  if (submitting.value) return
   if (form.warehousing_items.length === 0) {
     message.error('请添加入库商品')
     return

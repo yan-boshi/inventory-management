@@ -1,6 +1,7 @@
 import BaseModel from './BaseModel.js'
 import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
+import { nextSequence, localDateStr, localDateISO } from '../utils/sequence.js'
 
 class Invoice extends BaseModel {
   constructor() {
@@ -8,31 +9,9 @@ class Invoice extends BaseModel {
   }
 
   async generateInvoiceNumber() {
-    const date = new Date()
-    const year = date.getFullYear().toString().slice(-2)
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const prefix = `${year}${month}`
-
-    // 查询当月已有的发票最大序号
-    const query = `
-      SELECT invoice_number
-      FROM ${this.tableName}
-      WHERE invoice_number LIKE ?
-      ORDER BY invoice_number DESC
-      LIMIT 1
-    `
-    const [result] = await pool.query(query, [`${prefix}%`])
-
-    let sequence = 1
-    if (result.length > 0) {
-      const lastNumber = result[0].invoice_number
-      const lastSequence = parseInt(lastNumber.slice(-3), 10)
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1
-      }
-    }
-
-    return `${prefix}${sequence.toString().padStart(3, '0')}`
+    // 年份取后两位 + 月，共4位（当月段）
+    const prefix = localDateStr().slice(2, 6)
+    return nextSequence(this.tableName, 'invoice_number', prefix)
   }
 
   async create(data) {
@@ -40,7 +19,7 @@ class Invoice extends BaseModel {
       invoice_id: generateUUID(),
       invoice_number: data.invoice_number || await this.generateInvoiceNumber(),
       so_number: data.so_number || null,
-      invoice_date: data.invoice_date || new Date().toISOString().slice(0, 10),
+      invoice_date: data.invoice_date || localDateISO(),
 
       // 卖方信息
       seller_name: data.seller_name,

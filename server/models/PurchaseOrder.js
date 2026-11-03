@@ -2,6 +2,7 @@ import BaseModel from './BaseModel.js'
 import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
 import { round4 } from '../utils/round.js'
+import { nextSequence, localDateStr } from '../utils/sequence.js'
 
 class PurchaseOrder extends BaseModel {
   constructor() {
@@ -9,51 +10,36 @@ class PurchaseOrder extends BaseModel {
   }
 
   async generateOrderNumber() {
-    const date = new Date()
-    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    // 年份取后两位 + 月日，共6位
-    const dateStr = fullDateStr.slice(2)
-
-    // 查询当天已有的采购订单最大序号
-    const query = `
-      SELECT order_number
-      FROM ${this.tableName}
-      WHERE order_number LIKE ?
-      ORDER BY order_number DESC
-      LIMIT 1
-    `
-    const [result] = await pool.query(query, [`XSD-P-${dateStr}-%`])
-
-    let sequence = 1
-    if (result.length > 0) {
-      const lastOrderNumber = result[0].order_number
-      const lastSequence = parseInt(lastOrderNumber.split('-').pop(), 10)
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1
-      }
-    }
-
-    return `XSD-P-${dateStr}-${sequence.toString().padStart(3, '0')}`
+    return nextSequence(this.tableName, 'order_number', `XSD-P-${localDateStr().slice(2)}-`)
   }
 
+  // 税率换算：0 是合法税率（出口免税），只拦 null/undefined/NaN，不拦 0
   calculateTaxExcludedPrice(taxIncludedPrice, taxRate) {
-    if (!taxIncludedPrice || !taxRate) return 0
-    return round4(taxIncludedPrice / (1 + taxRate))
+    const price = Number(taxIncludedPrice)
+    const rate = Number(taxRate)
+    if (Number.isNaN(price) || Number.isNaN(rate)) return 0
+    return round4(price / (1 + rate))
   }
 
   calculateTaxIncludedAmount(quantity, taxIncludedPrice) {
-    if (!quantity || !taxIncludedPrice) return 0
-    return round4(quantity * taxIncludedPrice)
+    const qty = Number(quantity)
+    const price = Number(taxIncludedPrice)
+    if (Number.isNaN(qty) || Number.isNaN(price)) return 0
+    return round4(qty * price)
   }
 
   calculateTaxExcludedAmount(quantity, taxExcludedPrice) {
-    if (!quantity || !taxExcludedPrice) return 0
-    return round4(quantity * taxExcludedPrice)
+    const qty = Number(quantity)
+    const price = Number(taxExcludedPrice)
+    if (Number.isNaN(qty) || Number.isNaN(price)) return 0
+    return round4(qty * price)
   }
 
   calculateTaxAmount(taxIncludedAmount, taxRate) {
-    if (!taxIncludedAmount || !taxRate) return 0
-    return round4((taxIncludedAmount / (1 + taxRate)) * taxRate)
+    const amount = Number(taxIncludedAmount)
+    const rate = Number(taxRate)
+    if (Number.isNaN(amount) || Number.isNaN(rate)) return 0
+    return round4((amount / (1 + rate)) * rate)
   }
 
   async updateStatus(id, status) {

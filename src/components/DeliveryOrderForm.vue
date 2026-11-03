@@ -590,6 +590,7 @@ const handleSalesOrderChange = async (value: string) => {
           }
         })
         .filter((item: any) => item.max_quantity > 0) // 过滤掉已全部出库的商品
+        .map((item: any, index: number) => ({ ...item, no: index + 1 })) // 过滤后重编号，避免序号跳号
       formData.customer_name = order.customer_name || ''
       formData.total_amount = order.total_amount || 0
       formData.currency = order.currency || 'CNY'

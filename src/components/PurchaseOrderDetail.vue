@@ -20,8 +20,7 @@
             <a-descriptions-item label="采购人">{{ order.purchase_person || '-' }}</a-descriptions-item>
             <a-descriptions-item label="币种">{{ order.currency }}</a-descriptions-item>
             <a-descriptions-item label="汇率">{{ order.exchange_rate }}</a-descriptions-item>
-            <a-descriptions-item label="交货日期">{{ order.delivery_date || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="到货日期">{{ order.arrival_date || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="交货日期">{{ itemDeliveryDates }}</a-descriptions-item>
             <a-descriptions-item label="创建时间">{{ formatDateTime(order.created_at) }}</a-descriptions-item>
           </a-descriptions>
         </div>
@@ -117,6 +116,12 @@ const parsedItems = computed(() => {
   } catch {
     return []
   }
+})
+
+// 明细行交货日期去重汇总（订单级 delivery_date/arrival_date 字段已删除，arrival_date 无数据源）
+const itemDeliveryDates = computed(() => {
+  const dates = [...new Set(parsedItems.value.map((item: any) => item.delivery_date).filter(Boolean))]
+  return dates.length > 0 ? dates.join('、') : '-'
 })
 
 const itemColumns = [

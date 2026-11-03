@@ -16,8 +16,8 @@
             <span class="value">{{ deliveryOrder.order_number }}</span>
           </div>
           <div class="header-item">
-            <span class="label">销售订单编号：</span>
-            <span class="value">{{ deliveryOrder.sales_order_number || '-' }}</span>
+            <span class="label">销售合同编号：</span>
+            <span class="value">{{ deliveryOrder.contract_number || '-' }}</span>
           </div>
         </div>
 
@@ -46,7 +46,7 @@
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'amount'">
-              {{ (record.quantity * (record.tax_included_price || 0)).toFixed(2) }}
+              {{ formatMoney(record.quantity * (record.tax_included_price || 0)) }}
             </template>
           </template>
         </a-table>
@@ -57,7 +57,7 @@
         <div class="footer-row">
           <div class="footer-item">
             <span class="label">总计：</span>
-            <span class="value amount">{{ deliveryOrder.total_amount?.toFixed(2) }}</span>
+            <span class="value amount">{{ formatMoney(deliveryOrder.total_amount) }}</span>
           </div>
           <div class="footer-item">
             <span class="label">币种：</span>
@@ -99,7 +99,7 @@
             <span class="label">出库费用：</span>
             <div class="expenses-info">
               <a-tag v-for="item in getValidExpenses(deliveryOrder.expenses)" :key="item.key" color="blue">
-                {{ item.label }}: {{ item.value.toFixed(2) }}
+                {{ item.label }}: {{ formatMoney(item.value) }}
               </a-tag>
             </div>
           </div>
@@ -127,6 +127,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { getValidExpenses } from '@/utils/expense'
+import { formatMoney4Grouped } from '@/utils/money'
 import type { DeliveryOrder, DeliveryItem } from '@/types'
 
 const props = defineProps<{
@@ -162,6 +163,10 @@ const deliveryItems = computed<DeliveryItem[]>(() => {
     return []
   }
 })
+
+const formatMoney = (value: number) => {
+  return formatMoney4Grouped(value, '0.00')
+}
 
 const getCurrencyName = (currency: string) => {
   const currencyMap: Record<string, string> = {

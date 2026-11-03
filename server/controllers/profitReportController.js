@@ -1,10 +1,12 @@
 import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
 import { round4 } from '../utils/round.js'
+import { syncOrderSettlementInfo } from './writeOffController.js'
 import {
   SALES_ORDER_KEYS,
   findItemForRollback
 } from '../utils/contractOrderLookup.js'
+import { escapeLike } from '../utils/sql.js'
 
 /**
  * 毛利表Controller - 严格按照规划文档实现
@@ -23,8 +25,11 @@ function formatDateStr(date) {
 }
 
 // 获取月份第一天日期字符串（用于匹配 effective_month）
+// 直接解析字符串年月，不走 new Date('YYYY-MM-DD')（按 UTC 解析，西半球会串到上月导致海关汇率查空）
 function getMonthStr(dateStr) {
   if (!dateStr) return null
+  const m = String(dateStr).match(/^(\d{4})-(\d{2})/)
+  if (m) return `${m[1]}-${m[2]}-01`
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return null
   const year = d.getFullYear()
@@ -143,25 +148,33 @@ export const updateSettlementDate = async (req, res) => {
 }
 
 // 更新已结算金额
+// 注意：该入口是绕过核销单的直接调整，与核销台账是两条写路径；
+// 这里加事务行锁并同步订单结算信息保持一致，彻底统一为生成核销单需产品层面决策
 export const updateReceivedAmount = async (req, res) => {
+  const connection = await pool.getConnection()
   try {
+    await connection.beginTransaction()
+
     const { order_number, received_amount } = req.body
 
     if (!order_number) {
+      await connection.rollback()
       return res.status(400).json({ success: false, message: '出库单号不能为空' })
     }
 
     if (received_amount === undefined || received_amount === null || received_amount < 0) {
+      await connection.rollback()
       return res.status(400).json({ success: false, message: '已结算金额必须为非负数' })
     }
 
-    // 查找对应的应收单
-    const [receivables] = await pool.query(
-      'SELECT receivable_id, amount, handling_fee FROM receivables WHERE source_bill_id = ? AND source_bill_type = 1',
+    // 查找对应的应收单（行锁，防止与核销单并发写同一行）
+    const [receivables] = await connection.query(
+      'SELECT receivable_id, amount, handling_fee FROM receivables WHERE source_bill_id = ? AND source_bill_type = 1 FOR UPDATE',
       [order_number]
     )
 
     if (receivables.length === 0) {
+      await connection.rollback()
       return res.status(404).json({ success: false, message: '未找到对应的应收单，请先创建应收单' })
     }
 
@@ -174,21 +187,28 @@ export const updateReceivedAmount = async (req, res) => {
     // 计算未结算金额
     const balanceAmount = totalAmount - received_amount
 
-    // 计算结算状态
+    // 计算结算状态（带容差，避免浮点比较误判）
     let status = 0 // 未结算
     if (received_amount <= 0) {
       status = 0 // 未结算
-    } else if (received_amount >= totalAmount) {
+    } else if (received_amount >= totalAmount - 0.00001) {
       status = 2 // 已结算
     } else {
       status = 1 // 部分结算
     }
 
     // 更新应收单
-    await pool.query(
+    await connection.query(
       'UPDATE receivables SET received_amount = ?, balance_amount = ?, status = ? WHERE receivable_id = ?',
       [received_amount, balanceAmount, status, receivableId]
     )
+
+    // 同步订单上的结算信息（订单显示与应收保持一致）
+    const today = new Date()
+    const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    await syncOrderSettlementInfo(connection, 1, order_number, ymd, received_amount, balanceAmount, status)
+
+    await connection.commit()
 
     // 返回更新后的结算状态和未结算金额
     const settlementStatusText = status === 2 ? '已结算' : status === 1 ? '部分结算' : '未结算'
@@ -202,8 +222,11 @@ export const updateReceivedAmount = async (req, res) => {
       }
     })
   } catch (error) {
+    await connection.rollback()
     console.error('更新已结算金额失败:', error)
     res.status(500).json({ success: false, message: error.message })
+  } finally {
+    connection.release()
   }
 }
 
@@ -231,12 +254,12 @@ export const getProfitReport = async (req, res) => {
 
     if (contractNumber) {
       conditions.push('do.contract_number LIKE ?')
-      params.push(`%${contractNumber}%`)
+      params.push(`%${escapeLike(contractNumber)}%`)
     }
 
     if (customerName) {
       conditions.push('do.customer_name LIKE ?')
-      params.push(`%${customerName}%`)
+      params.push(`%${escapeLike(customerName)}%`)
     }
 
     // 结算日期筛选（关联应收单）

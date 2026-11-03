@@ -445,7 +445,7 @@
             <a-button v-if="!isEdit" @click="handleSaveDraft">{{ t.salesOrder.draft }}</a-button>
             <!-- <a-button @click="handlePrint">{{ t.common.print }}</a-button> -->
             <!-- <a-button type="primary" @click="handleSaveAndPrint">{{ t.salesOrder.saveAndPrint }}</a-button> -->
-            <a-button type="primary" @click="handleSubmit">{{ t.common.save }}</a-button>
+            <a-button type="primary" :loading="submitting" @click="handleSubmit">{{ t.common.save }}</a-button>
           </a-space>
         </div>
       </div>
@@ -906,6 +906,7 @@ const addNewItem = () => {
 
 // 提交表单
 const handleSubmit = async () => {
+  if (submitting.value) return
   if (!form.contract_number) {
     message.error(t.value.salesOrder.inputContractNumber)
     return

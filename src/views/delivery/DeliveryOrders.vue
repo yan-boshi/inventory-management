@@ -290,7 +290,7 @@ const expandedOrders = computed(() => {
   return result
 })
 
-const searchParams = reactive<DeliveryOrderQueryParams>({
+const searchParams = reactive<DeliveryOrderQueryParams & { endDate?: string }>({
   page: 1,
   pageSize: 100,
   orderNumber: '',
@@ -300,6 +300,7 @@ const searchParams = reactive<DeliveryOrderQueryParams>({
   productCode: '',
   productModel: '',
   deliveryDate: '',
+  endDate: '',
   trackingNumber: '',
 })
 
@@ -561,6 +562,7 @@ const handleReset = () => {
   searchParams.productModel = ''
   searchParams.trackingNumber = ''
   searchParams.deliveryDate = ''
+  searchParams.endDate = ''
   dateRange.value = undefined
   handleSearch()
 }
@@ -568,8 +570,10 @@ const handleReset = () => {
 const handleDateRangeChange = (dates: [any, any]) => {
   if (dates && dates[0] && dates[1]) {
     searchParams.deliveryDate = dates[0].format('YYYY-MM-DD')
+    searchParams.endDate = dates[1].format('YYYY-MM-DD')
   } else {
     searchParams.deliveryDate = ''
+    searchParams.endDate = ''
   }
 }
 

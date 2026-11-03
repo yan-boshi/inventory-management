@@ -7,7 +7,7 @@ class SettlementInvoiceRecord extends BaseModel {
     super('settlement_invoice_records', 'invoice_record_id')
   }
 
-  async create(data) {
+  async create(data, conn = pool) {
     const recordData = {
       invoice_record_id: generateUUID(),
       statement_id: data.statement_id,
@@ -16,19 +16,19 @@ class SettlementInvoiceRecord extends BaseModel {
       invoiced_amount: data.invoiced_amount ?? 0,
       uninvoiced_amount: data.uninvoiced_amount ?? 0
     }
-    return super.create(recordData)
+    return super.create(recordData, conn)
   }
 
-  async findByStatementId(statementId) {
-    const [rows] = await pool.query(
+  async findByStatementId(statementId, conn = pool) {
+    const [rows] = await conn.query(
       'SELECT * FROM settlement_invoice_records WHERE statement_id = ? ORDER BY create_time ASC',
       [statementId]
     )
     return rows
   }
 
-  async deleteByStatementId(statementId) {
-    const [result] = await pool.query(
+  async deleteByStatementId(statementId, conn = pool) {
+    const [result] = await conn.query(
       'DELETE FROM settlement_invoice_records WHERE statement_id = ?',
       [statementId]
     )

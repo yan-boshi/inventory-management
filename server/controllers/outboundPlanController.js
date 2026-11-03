@@ -1,5 +1,6 @@
 import OutboundPlan from '../models/OutboundPlan.js'
 import pool from '../config/database.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllOutboundPlans = async (req, res) => {
   try {
@@ -21,22 +22,22 @@ export const getAllOutboundPlans = async (req, res) => {
 
     if (planNumber) {
       where.push('plan_number LIKE ?')
-      params.push(`%${planNumber}%`)
+      params.push(`%${escapeLike(planNumber)}%`)
     }
 
     if (contractNumber) {
       where.push('contract_number LIKE ?')
-      params.push(`%${contractNumber}%`)
+      params.push(`%${escapeLike(contractNumber)}%`)
     }
 
     if (customerName) {
       where.push('customer_name LIKE ?')
-      params.push(`%${customerName}%`)
+      params.push(`%${escapeLike(customerName)}%`)
     }
 
     if (salesPerson) {
       where.push('sales_person LIKE ?')
-      params.push(`%${salesPerson}%`)
+      params.push(`%${escapeLike(salesPerson)}%`)
     }
 
     if (status) {
@@ -186,13 +187,10 @@ export const getNewPlanNumber = async (req, res) => {
 }
 
 /**
- * 从销售订单生成出库计划（供内部调用）
+ * 从销售订单生成出库计划（供内部调用，可传事务连接）
  */
-export const generateFromSalesOrder = async (salesOrder) => {
+export const generateFromSalesOrder = async (salesOrder, conn = pool) => {
   try {
-    // 先删除该销售订单关联的旧出库计划
-    await OutboundPlan.deleteBySalesOrderId(salesOrder.sales_order_id)
-
     // 解析销售明细
     let salesItems = []
     try {
@@ -203,27 +201,41 @@ export const generateFromSalesOrder = async (salesOrder) => {
       salesItems = []
     }
 
+    // 先删除该销售订单关联的旧出库计划
+    await OutboundPlan.deleteBySalesOrderId(salesOrder.sales_order_id, conn)
+
     if (salesItems.length === 0) {
       return null
     }
 
-    // 构建出库计划明细
-    const planItems = salesItems.map((item, index) => ({
-      no: index + 1,
-      product_code: item.product_code || '',
-      product_name: item.product_name || '',
-      model: item.model || '',
-      description: item.description || '',
-      quantity: item.quantity || 0,
-      // 记录从销售订单生成出库计划时的销售数量
-      sales_quantity: item.quantity || 0,
-      unit: item.unit || '',
-      tax_included_price: item.tax_included_price || 0,
-      tax_rate: item.tax_rate || 0,
-      delivery_date: item.delivery_date || '',
-      remarks: item.remarks || '',
-      outbound_status: 'pending',
-    }))
+    // 构建出库计划明细：
+    // quantity=剩余待出库（销售数量-已出库数量），sales_quantity=原始销售数量，
+    // 防止编辑订单后计划被重置为全量导致重复发货
+    const planItems = salesItems.map((item, index) => {
+      const total = parseFloat(item.quantity) || 0
+      const shipped = parseFloat(item.outbound_quantity) || 0
+      const remaining = Math.max(0, total - shipped)
+      return {
+        no: index + 1,
+        product_code: item.product_code || '',
+        product_name: item.product_name || '',
+        model: item.model || '',
+        description: item.description || '',
+        quantity: remaining,
+        // 记录从销售订单生成出库计划时的销售数量
+        sales_quantity: total,
+        unit: item.unit || '',
+        tax_included_price: item.tax_included_price || 0,
+        tax_rate: item.tax_rate || 0,
+        delivery_date: item.delivery_date || '',
+        remarks: item.remarks || '',
+        outbound_status: remaining <= 0 ? 'completed' : (shipped > 0 ? 'partial' : 'pending'),
+      }
+    })
+
+    const planStatus = planItems.every(i => i.outbound_status === 'completed')
+      ? 'completed'
+      : planItems.every(i => i.outbound_status === 'pending') ? 'pending' : 'partial'
 
     const plan = await OutboundPlan.create({
       sales_order_id: salesOrder.sales_order_id,
@@ -233,10 +245,10 @@ export const generateFromSalesOrder = async (salesOrder) => {
       currency: salesOrder.currency || 'CNY',
       entry_date: salesOrder.entry_date || new Date().toISOString().slice(0, 10),
       sales_person: salesOrder.sales_person || '',
-      status: 'pending',
+      status: planStatus,
       remarks: salesOrder.remarks || '',
       created_by: salesOrder.sales_person || null,
-    })
+    }, conn)
 
     return plan
   } catch (error) {

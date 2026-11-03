@@ -476,7 +476,7 @@
           <a-space>
             <a-button @click="handleCancel">{{ t.common.cancel }}</a-button>
             <a-button v-if="!isEdit" @click="handleSaveDraft">{{ t.purchaseOrder.draft }}</a-button>
-            <a-button type="primary" @click="handleSubmit">{{ t.common.save }}</a-button>
+            <a-button type="primary" :loading="submitting" @click="handleSubmit">{{ t.common.save }}</a-button>
           </a-space>
         </div>
       </div>
@@ -941,6 +941,7 @@ const addNewItem = () => {
 }
 
 const handleSubmit = async () => {
+  if (submitting.value) return
   if (!form.contract_number) {
     message.error(t.value.purchaseOrder.inputContractNumber)
     return

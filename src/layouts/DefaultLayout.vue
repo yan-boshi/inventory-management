@@ -3,7 +3,7 @@
     <a-layout-sider v-model:collapsed="collapsed" style="position: relative">
       <div class="logo">
         <h3>旭思达ERP系统</h3>
-        <span class="version">beta 1.0.2</span>
+        <span class="version">beta 1.0.3</span>
       </div>
       <a-menu v-model:selectedKeys="selectedKeys" theme="dark" mode="inline">
         <a-menu-item key="Customers" @click="navigateTo('/customers')" v-if="userStore.isAdvanced">
@@ -303,7 +303,7 @@ const onTabChange = (activeKey: string) => {
 const liveScrollMap = new Map<Element, { left: number; top: number }>()
 document.addEventListener(
   'scroll',
-  (e) => {
+  e => {
     const el = e.target as HTMLElement | null
     if (el && typeof el.scrollLeft === 'number') {
       liveScrollMap.set(el, { left: el.scrollLeft, top: el.scrollTop })

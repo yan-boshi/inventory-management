@@ -1,5 +1,6 @@
 import InboundPlan from '../models/InboundPlan.js'
 import pool from '../config/database.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllInboundPlans = async (req, res) => {
   try {
@@ -21,22 +22,22 @@ export const getAllInboundPlans = async (req, res) => {
 
     if (planNumber) {
       where.push('plan_number LIKE ?')
-      params.push(`%${planNumber}%`)
+      params.push(`%${escapeLike(planNumber)}%`)
     }
 
     if (contractNumber) {
       where.push('contract_number LIKE ?')
-      params.push(`%${contractNumber}%`)
+      params.push(`%${escapeLike(contractNumber)}%`)
     }
 
     if (supplierName) {
       where.push('supplier_name LIKE ?')
-      params.push(`%${supplierName}%`)
+      params.push(`%${escapeLike(supplierName)}%`)
     }
 
     if (purchasePerson) {
       where.push('purchase_person LIKE ?')
-      params.push(`%${purchasePerson}%`)
+      params.push(`%${escapeLike(purchasePerson)}%`)
     }
 
     if (status) {

@@ -1,6 +1,8 @@
 import BaseModel from './BaseModel.js'
 import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
+import { round4 } from '../utils/round.js'
+import { nextSequence, localDateStr, localDateTime } from '../utils/sequence.js'
 
 class DeliveryOrder extends BaseModel {
   constructor() {
@@ -8,37 +10,14 @@ class DeliveryOrder extends BaseModel {
   }
 
   async generateOrderNumber() {
-    const date = new Date()
-    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    // 年份取后两位 + 月日，共6位
-    const dateStr = fullDateStr.slice(2)
-
-    // 查询当天已有的出库单最大序号，避免并发冲突
-    const query = `
-      SELECT order_number
-      FROM ${this.tableName}
-      WHERE order_number LIKE ?
-      ORDER BY order_number DESC
-      LIMIT 1
-    `
-    const [result] = await pool.query(query, [`XSD-O-${dateStr}-%`])
-
-    let sequence = 1
-    if (result.length > 0) {
-      const lastOrderNumber = result[0].order_number
-      const lastSequence = parseInt(lastOrderNumber.split('-').pop(), 10)
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1
-      }
-    }
-
-    return `XSD-O-${dateStr}-${sequence.toString().padStart(3, '0')}`
+    return nextSequence(this.tableName, 'order_number', `XSD-O-${localDateStr().slice(2)}-`)
   }
 
   calculateTotal(items) {
-    return items.reduce((total, item) => {
+    // 金额求和走 round4，避免浮点累加与 DECIMAL(15,4) 落库值产生 0.0001 级偏差
+    return round4(items.reduce((total, item) => {
       return total + (item.quantity * item.tax_included_price || 0)
-    }, 0)
+    }, 0))
   }
 
   async update(id, data, conn) {
@@ -85,7 +64,7 @@ class DeliveryOrder extends BaseModel {
       customer_name: data.customer_name || '',
       customer_address: data.customer_address || '',
       delivery_items: JSON.stringify(processedItems),
-      delivery_time: data.delivery_time || new Date().toISOString().slice(0, 16).replace('T', ' '),
+      delivery_time: data.delivery_time || localDateTime().slice(0, 16),
       delivery_date: data.delivery_date || null,
       entry_date: data.entry_date || null,
       currency: data.currency || 'CNY',

@@ -1,4 +1,5 @@
 import PackingList from '../models/PackingList.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const createPackingList = async (req, res) => {
   try {
@@ -122,17 +123,17 @@ export const getAllPackingLists = async (req, res) => {
 
     if (packingNo) {
       where.push('packing_no LIKE ?')
-      params.push(`%${packingNo}%`)
+      params.push(`%${escapeLike(packingNo)}%`)
     }
 
     if (buyerName) {
       where.push('buyer_name LIKE ?')
-      params.push(`%${buyerName}%`)
+      params.push(`%${escapeLike(buyerName)}%`)
     }
 
     if (tradeTerms) {
       where.push('trade_terms LIKE ?')
-      params.push(`%${tradeTerms}%`)
+      params.push(`%${escapeLike(tradeTerms)}%`)
     }
 
     if (startDate && endDate) {

@@ -1,5 +1,6 @@
 import pool from '../config/database.js'
 import { round4 } from '../utils/round.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getWarehousingExpenseReport = async (req, res) => {
   try {
@@ -21,12 +22,12 @@ export const getWarehousingExpenseReport = async (req, res) => {
 
     if (orderNumber) {
       conditions.push('wo.order_number LIKE ?')
-      params.push(`%${orderNumber}%`)
+      params.push(`%${escapeLike(orderNumber)}%`)
     }
 
     if (contractNumber) {
       conditions.push('wo.contract_number LIKE ?')
-      params.push(`%${contractNumber}%`)
+      params.push(`%${escapeLike(contractNumber)}%`)
     }
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
@@ -48,22 +49,22 @@ export const getWarehousingExpenseReport = async (req, res) => {
 
     if (startDate) {
       returnConditions.push('iro.return_time >= ?')
-      returnParams.push(startDate)
+      returnParams.push(startDate + ' 00:00:00')
     }
 
     if (endDate) {
       returnConditions.push('iro.return_time <= ?')
-      returnParams.push(endDate)
+      returnParams.push(endDate + ' 23:59:59')
     }
 
     if (orderNumber) {
       returnConditions.push('iro.order_number LIKE ?')
-      returnParams.push(`%${orderNumber}%`)
+      returnParams.push(`%${escapeLike(orderNumber)}%`)
     }
 
     if (contractNumber) {
       returnConditions.push('iro.contract_number LIKE ?')
-      returnParams.push(`%${contractNumber}%`)
+      returnParams.push(`%${escapeLike(contractNumber)}%`)
     }
 
     const returnWhereClause = returnConditions.length > 0 ? 'WHERE ' + returnConditions.join(' AND ') : ''

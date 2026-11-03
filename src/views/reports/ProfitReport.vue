@@ -1084,6 +1084,7 @@ const totals = computed(() => {
       acc.sl_expense_other += item.sl_expense_other || 0
       acc.sl_expense_total += item.sl_expense_total || 0
       acc.wh_expense_tariff += item.wh_expense_tariff || 0
+      acc.wh_expense_transportation += item.wh_expense_transportation || 0
       acc.wh_expense_customs += item.wh_expense_customs || 0
       acc.wh_expense_other += item.wh_expense_other || 0
       acc.wh_expense_total += item.wh_expense_total || 0
@@ -1121,6 +1122,7 @@ const totals = computed(() => {
       sl_expense_other: 0,
       sl_expense_total: 0,
       wh_expense_tariff: 0,
+      wh_expense_transportation: 0,
       wh_expense_customs: 0,
       wh_expense_other: 0,
       wh_expense_total: 0,

@@ -2,6 +2,7 @@ import BaseModel from './BaseModel.js'
 import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
 import { round4 } from '../utils/round.js'
+import { nextSequence, localDateStr, localDateISO } from '../utils/sequence.js'
 
 class SalesOrder extends BaseModel {
   constructor() {
@@ -9,56 +10,49 @@ class SalesOrder extends BaseModel {
   }
 
   async generateOrderNumber() {
-    const date = new Date()
-    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    // 年份取后两位 + 月日，共6位
-    const dateStr = fullDateStr.slice(2)
-
-    // 查询当天已有的销售订单最大序号
-    const query = `
-      SELECT order_number
-      FROM ${this.tableName}
-      WHERE order_number LIKE ?
-      ORDER BY order_number DESC
-      LIMIT 1
-    `
-    const [result] = await pool.query(query, [`XSD-S-${dateStr}-%`])
-
-    let sequence = 1
-    if (result.length > 0) {
-      const lastOrderNumber = result[0].order_number
-      const lastSequence = parseInt(lastOrderNumber.split('-').pop(), 10)
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1
-      }
-    }
-
-    return `XSD-S-${dateStr}-${sequence.toString().padStart(3, '0')}`
+    return nextSequence(this.tableName, 'order_number', `XSD-S-${localDateStr().slice(2)}-`)
   }
 
+  // 税率换算：0 是合法税率（出口免税），只拦 null/undefined/NaN，不拦 0
   calculateTaxExcludedPrice(taxIncludedPrice, taxRate) {
-    if (!taxIncludedPrice || !taxRate) return 0
-    return round4(taxIncludedPrice / (1 + taxRate))
+    const price = Number(taxIncludedPrice)
+    const rate = Number(taxRate)
+    if (Number.isNaN(price) || Number.isNaN(rate)) return 0
+    return round4(price / (1 + rate))
   }
 
   calculateTaxIncludedAmount(quantity, taxIncludedPrice) {
-    if (!quantity || !taxIncludedPrice) return 0
-    return round4(quantity * taxIncludedPrice)
+    const qty = Number(quantity)
+    const price = Number(taxIncludedPrice)
+    if (Number.isNaN(qty) || Number.isNaN(price)) return 0
+    return round4(qty * price)
   }
 
   calculateTaxExcludedAmount(quantity, taxExcludedPrice) {
-    if (!quantity || !taxExcludedPrice) return 0
-    return round4(quantity * taxExcludedPrice)
+    const qty = Number(quantity)
+    const price = Number(taxExcludedPrice)
+    if (Number.isNaN(qty) || Number.isNaN(price)) return 0
+    return round4(qty * price)
   }
 
   calculateTaxAmount(taxIncludedAmount, taxRate) {
-    if (!taxIncludedAmount || !taxRate) return 0
-    return round4((taxIncludedAmount / (1 + taxRate)) * taxRate)
+    const amount = Number(taxIncludedAmount)
+    const rate = Number(taxRate)
+    if (Number.isNaN(amount) || Number.isNaN(rate)) return 0
+    return round4((amount / (1 + rate)) * rate)
+  }
+
+  // JSON 字段归一化：字符串原样保留，对象/数组序列化，
+  // 避免 mysql2 把数组参数写成 '[object Object]'、字符串被二次编码
+  normalizeJson(value, fallback = '[]') {
+    if (value === null || value === undefined) return fallback
+    if (typeof value === 'string') return value
+    return JSON.stringify(value)
   }
 
   async create(data, conn) {
-    const salesItemsRaw = data.sales_items || '[]'
-    const expensesJson = data.expenses ? JSON.stringify(data.expenses) : null
+    const salesItemsRaw = this.normalizeJson(data.sales_items)
+    const expensesJson = data.expenses ? this.normalizeJson(data.expenses, null) : null
 
     // 初始化每个商品行的 outbound_quantity 和 status
     let processedSalesItems = salesItemsRaw
@@ -85,7 +79,7 @@ class SalesOrder extends BaseModel {
       customer_code: data.customer_code,
       payment_method: data.payment_method,
       sales_items: processedSalesItems,
-      sales_date: new Date().toISOString().slice(0, 10),
+      sales_date: data.sales_date || localDateISO(),
       status: 1,
       tax_included_amount: data.tax_included_amount || 0,
       currency: data.currency || 'CNY',
@@ -102,8 +96,9 @@ class SalesOrder extends BaseModel {
     let taxIncludedAmount = null
 
     if (data.sales_items !== undefined) {
+      data.sales_items = this.normalizeJson(data.sales_items)
       try {
-        const items = typeof data.sales_items === 'string' ? JSON.parse(data.sales_items) : data.sales_items
+        const items = JSON.parse(data.sales_items)
         taxIncludedAmount = items.reduce((sum, item) => {
           return sum + (parseFloat(item.tax_included_amount) || 0)
         }, 0)
@@ -114,7 +109,7 @@ class SalesOrder extends BaseModel {
     }
 
     if (data.expenses !== undefined) {
-      data.expenses = data.expenses ? JSON.stringify(data.expenses) : null
+      data.expenses = data.expenses ? this.normalizeJson(data.expenses, null) : null
     }
 
     return super.update(id, data, conn)

@@ -21,6 +21,7 @@ import {
   restorePlanDeductions,
   restoreQuantitiesToPlans
 } from '../utils/planRestore.js'
+import { escapeLike } from '../utils/sql.js'
 
 // 按采购合同编号加载全部采购订单及其明细（同一合同编号可能对应多张采购订单）
 const loadContractPurchaseOrders = (contractNumber, conn) =>
@@ -54,6 +55,7 @@ export const getAllWarehousingOrders = async (req, res) => {
       contractNumber,
       customerName,
       warehousingDate,
+      endDate,
       trackingNumber
     } = req.query
 
@@ -62,32 +64,32 @@ export const getAllWarehousingOrders = async (req, res) => {
 
     if (orderNumber) {
       where.push('order_number LIKE ?')
-      params.push(`%${orderNumber}%`)
+      params.push(`%${escapeLike(orderNumber)}%`)
     }
 
     if (contractNumber) {
       where.push('contract_number LIKE ?')
-      params.push(`%${contractNumber}%`)
+      params.push(`%${escapeLike(contractNumber)}%`)
     }
 
     if (customerName) {
       where.push('customer_name LIKE ?')
-      params.push(`%${customerName}%`)
+      params.push(`%${escapeLike(customerName)}%`)
     }
 
     if (productName) {
       where.push('warehousing_items LIKE ?')
-      params.push(`%${productName}%`)
+      params.push(`%${escapeLike(productName)}%`)
     }
 
     if (productCode) {
       where.push('warehousing_items LIKE ?')
-      params.push(`%${productCode}%`)
+      params.push(`%${escapeLike(productCode)}%`)
     }
 
     if (productModel) {
       where.push('warehousing_items LIKE ?')
-      params.push(`%${productModel}%`)
+      params.push(`%${escapeLike(productModel)}%`)
     }
 
     if (warehousingDate) {
@@ -95,9 +97,15 @@ export const getAllWarehousingOrders = async (req, res) => {
       params.push(warehousingDate)
     }
 
+    // 范围上界（DATE() 转换后按时分秒无影响）
+    if (endDate) {
+      where.push('DATE(warehousing_time) <= ?')
+      params.push(endDate)
+    }
+
     if (trackingNumber) {
       where.push('tracking_number LIKE ?')
-      params.push(`%${trackingNumber}%`)
+      params.push(`%${escapeLike(trackingNumber)}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
@@ -165,6 +173,17 @@ export const createWarehousingOrder = async (req, res) => {
     const parsedItems = warehousing_items
       ? (typeof warehousing_items === 'string' ? JSON.parse(warehousing_items) : warehousing_items)
       : []
+
+    // 数量必须为正数（负数入库会反向减库存）
+    for (const item of parsedItems) {
+      const qty = parseFloat(item.quantity)
+      if (!(qty > 0)) {
+        return res.status(400).json({
+          success: false,
+          message: `商品 ${item.product_name || item.product_code || '未知'} 的入库数量必须大于0`
+        })
+      }
+    }
 
     // 如果关联了采购订单，先验证入库数量
     if (contract_number) {
@@ -366,7 +385,10 @@ export const createWarehousingOrder = async (req, res) => {
 }
 
 export const updateWarehousingOrder = async (req, res) => {
+  const connection = await pool.getConnection()
   try {
+    await connection.beginTransaction()
+
     const { id } = req.params
     const {
       order_number,
@@ -388,8 +410,9 @@ export const updateWarehousingOrder = async (req, res) => {
       expenses
     } = req.body
 
-    const existing = await WarehousingOrder.findById(id)
+    const existing = await WarehousingOrder.findById(id, connection)
     if (!existing) {
+      await connection.rollback()
       return res.status(404).json({ success: false, message: 'Warehousing order not found' })
     }
 
@@ -398,7 +421,25 @@ export const updateWarehousingOrder = async (req, res) => {
     const newItems = warehousing_items !== undefined
       ? (typeof warehousing_items === 'string' ? JSON.parse(warehousing_items) : warehousing_items)
       : oldItems
+
+    // 优先定位到单据关联的具体采购订单（本次带入的优先，其次创建时落库的）
+    const preferPurchaseOrderId = purchase_order_id || existing.purchase_order_id || undefined
+    const oldContractNumber = existing.contract_number || ''
+    const newContractNumber = contract_number !== undefined ? (contract_number || '') : oldContractNumber
+
     if (warehousing_items !== undefined) {
+
+      // 数量必须为正数（负数入库会反向减库存）
+      for (const item of newItems) {
+        const qty = parseFloat(item.quantity)
+        if (!(qty > 0)) {
+          await connection.rollback()
+          return res.status(400).json({
+            success: false,
+            message: `商品 ${item.product_name || item.product_code || '未知'} 的入库数量必须大于0`
+          })
+        }
+      }
 
       // 计算每个产品的新旧数量差
       const quantityDelta = new Map()
@@ -411,10 +452,31 @@ export const updateWarehousingOrder = async (req, res) => {
         quantityDelta.set(item.product_code, (quantityDelta.get(item.product_code) || 0) - parseFloat(item.quantity || 0))
       }
 
+      // 超量校验：加量后订单入库数量不得超过采购数量（创建时有校验，编辑同样要有）
+      if (newContractNumber) {
+        const { orders, itemsMap } = await loadContractOrders(PurchaseOrder, newContractNumber, PURCHASE_ORDER_KEYS, connection)
+        if (orders.length > 0) {
+          for (const [productCode, delta] of quantityDelta) {
+            if (delta <= 0) continue
+            const match = findItemByProduct(orders, itemsMap, productCode, PURCHASE_ORDER_KEYS, preferPurchaseOrderId)
+            if (!match) continue
+            const currentInbound = parseFloat(match.targetItem.inbound_quantity || 0)
+            const maxQty = parseFloat(match.targetItem.quantity) || 0
+            if (currentInbound + delta > maxQty + 1e-6) {
+              await connection.rollback()
+              return res.status(400).json({
+                success: false,
+                message: `商品 ${productCode} 入库超量：已入库 ${currentInbound} + 本次增加 ${delta} 超过采购数量 ${maxQty}`
+              })
+            }
+          }
+        }
+      }
+
       // 更新库存和价格
       for (const [productCode, delta] of quantityDelta) {
         if (delta === 0) continue
-        const [productResult] = await pool.query(
+        const [productResult] = await connection.query(
           'SELECT stock, tax_included_price FROM products WHERE product_code = ?',
           [productCode]
         )
@@ -437,12 +499,12 @@ export const updateWarehousingOrder = async (req, res) => {
           }
 
           if (newTaxExcludedPrice !== null) {
-            await pool.query(
+            await connection.query(
               'UPDATE products SET stock = ?, tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
               [newStock.toFixed(2), round4(newPrice), round4(newTaxExcludedPrice), productCode]
             )
           } else {
-            await pool.query(
+            await connection.query(
               'UPDATE products SET stock = ?, tax_included_price = ? WHERE product_code = ?',
               [newStock.toFixed(2), round4(newPrice), productCode]
             )
@@ -452,22 +514,15 @@ export const updateWarehousingOrder = async (req, res) => {
     }
 
     // 同步入库数量到采购订单：编辑时不回写会导致订单上的入库数量与单据不一致
-    // 优先定位到单据关联的具体采购订单（本次带入的优先，其次创建时落库的）
-    const preferPurchaseOrderId = purchase_order_id || existing.purchase_order_id || undefined
-    const oldContractNumber = existing.contract_number || ''
-    const newContractNumber = contract_number !== undefined ? (contract_number || '') : oldContractNumber
+    // 同步失败直接抛错回滚，不能吞掉（吞掉会造成订单与单据数量不一致且无法察觉）
     if (warehousing_items !== undefined || contract_number !== undefined) {
-      try {
-        if (oldContractNumber !== newContractNumber) {
-          // 合同变更：旧合同按旧明细全部回退，新合同按新明细全部累加
-          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, oldContractNumber, itemsToDeltaMap(oldItems, -1), existing.purchase_order_id || undefined)
-          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, itemsToDeltaMap(newItems, 1), preferPurchaseOrderId)
-        } else {
-          // 同一合同：按新旧明细差量调整
-          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, buildQuantityDeltaMap(oldItems, newItems), preferPurchaseOrderId)
-        }
-      } catch (syncErr) {
-        console.error('同步采购订单入库数量失败（不影响入库单更新）:', syncErr.message)
+      if (oldContractNumber !== newContractNumber) {
+        // 合同变更：旧合同按旧明细全部回退，新合同按新明细全部累加
+        await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, oldContractNumber, itemsToDeltaMap(oldItems, -1), existing.purchase_order_id || undefined, connection)
+        await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, itemsToDeltaMap(newItems, 1), preferPurchaseOrderId, connection)
+      } else {
+        // 同一合同：按新旧明细差量调整
+        await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, buildQuantityDeltaMap(oldItems, newItems), preferPurchaseOrderId, connection)
       }
     }
 
@@ -482,42 +537,109 @@ export const updateWarehousingOrder = async (req, res) => {
     if (tracking_number !== undefined) updateData.tracking_number = tracking_number
     if (customer_name !== undefined) updateData.customer_name = customer_name
     if (customer_address !== undefined) updateData.customer_address = customer_address
-    if (total_amount !== undefined) updateData.total_amount = total_amount
     if (currency !== undefined) updateData.currency = currency
     if (exchange_rate !== undefined) updateData.exchange_rate = exchange_rate
     if (warehousing_person !== undefined) updateData.warehousing_person = warehousing_person
     if (contact_phone !== undefined) updateData.contact_phone = contact_phone
     if (remarks !== undefined) updateData.remarks = remarks
     if (expenses !== undefined) updateData.expenses = expenses
+    // 明细变化时服务端按明细重算总额（与出库单同口径），保证单据与应付一致
+    if (warehousing_items !== undefined) {
+      updateData.total_amount = round4(newItems.reduce((sum, it) => {
+        return sum + ((parseFloat(it.quantity) || 0) * (parseFloat(it.tax_included_price) || 0))
+      }, 0))
+    } else if (total_amount !== undefined) {
+      updateData.total_amount = parseFloat(total_amount) || 0
+    }
 
-    const order = await WarehousingOrder.update(id, updateData)
-
-    // 更新对应的应付账款记录
-    if (total_amount !== undefined || warehousing_items !== undefined) {
+    // 联动入库计划扣减（编辑与创建/删除对称）：
+    // 按新旧明细差量补扣（正差）或回补（负差）计划待入库数量，并同步更新 plan_deductions 记录
+    if (warehousing_items !== undefined && existing.plan_deductions != null) {
+      let oldDeductionRecords = []
       try {
-        const payable = await Payable.findOne('source_bill_id = ?', [existing.order_number])
-        if (payable) {
-          const newTotalAmount = total_amount !== undefined
-            ? parseFloat(total_amount) || 0
-            : parseFloat(existing.total_amount) || 0
-          const receivedAmount = parseFloat(payable.received_amount) || 0
-          const newBalanceAmount = Math.max(0, newTotalAmount - receivedAmount)
+        const raw = typeof existing.plan_deductions === 'string' ? JSON.parse(existing.plan_deductions) : existing.plan_deductions
+        oldDeductionRecords = Array.isArray(raw) ? raw : []
+      } catch {
+        oldDeductionRecords = []
+      }
 
-          await Payable.update(payable.payable_id, {
-            amount: newTotalAmount,
-            balance_amount: newBalanceAmount,
-            warehousing_time: warehousing_time || existing.warehousing_time || null
-          })
+      const planDelta = new Map()
+      for (const item of newItems) {
+        if (!item.product_code) continue
+        planDelta.set(item.product_code, (planDelta.get(item.product_code) || 0) + (parseFloat(item.quantity) || 0))
+      }
+      for (const item of oldItems) {
+        if (!item.product_code) continue
+        planDelta.set(item.product_code, (planDelta.get(item.product_code) || 0) - (parseFloat(item.quantity) || 0))
+      }
+
+      // 正差：按原扣减记录的计划行补扣
+      const deductItems = []
+      for (const [code, delta] of planDelta) {
+        if (delta > 1e-6) deductItems.push({ product_code: code, quantity: delta })
+      }
+      if (deductItems.length > 0 && oldDeductionRecords.length > 0) {
+        const added = await applyPlanDeductions(
+          InboundPlan,
+          INBOUND_PLAN_KEYS,
+          oldDeductionRecords,
+          deductItems,
+          connection
+        )
+        oldDeductionRecords.push(...added)
+      }
+
+      // 负差：按原扣减记录自后向前冲减并回补计划
+      for (const [code, delta] of planDelta) {
+        let left = -delta
+        if (left <= 1e-6) continue
+        const refunds = []
+        for (let i = oldDeductionRecords.length - 1; i >= 0 && left > 1e-6; i--) {
+          const rec = oldDeductionRecords[i]
+          if (!rec || rec.product_code !== code) continue
+          const recQty = parseFloat(rec.quantity) || 0
+          const take = Math.min(left, recQty)
+          if (take <= 0) continue
+          refunds.push({ plan_id: rec.plan_id, item_index: rec.item_index, product_code: code, quantity: take })
+          rec.quantity = recQty - take
+          left -= take
         }
-      } catch (payableError) {
-        console.error('更新应付账款记录失败:', payableError)
+        if (refunds.length > 0) {
+          await restorePlanDeductions(InboundPlan, INBOUND_PLAN_KEYS, refunds, connection)
+        }
+      }
+
+      // 记录清零的条目移除，其余落库
+      updateData.plan_deductions = oldDeductionRecords.filter(r => (parseFloat(r.quantity) || 0) > 1e-6)
+    }
+
+    const order = await WarehousingOrder.update(id, updateData, connection)
+
+    // 更新对应的应付账款记录（金额统一以服务端落库的单据总额为准；单号变更同步 source_bill_id）
+    if (total_amount !== undefined || warehousing_items !== undefined || (order_number !== undefined && order_number !== existing.order_number)) {
+      const payable = await Payable.findOne('source_bill_id = ?', [existing.order_number], connection)
+      if (payable) {
+        const newTotalAmount = parseFloat(order.total_amount) || 0
+        const receivedAmount = parseFloat(payable.received_amount) || 0
+        const newBalanceAmount = Math.max(0, newTotalAmount - receivedAmount)
+
+        await Payable.update(payable.payable_id, {
+          source_bill_id: order_number !== undefined ? order_number : existing.order_number,
+          amount: newTotalAmount,
+          balance_amount: newBalanceAmount,
+          warehousing_time: warehousing_time || existing.warehousing_time || null
+        }, connection)
       }
     }
 
+    await connection.commit()
     res.json({ success: true, data: order })
   } catch (error) {
+    await connection.rollback()
     const { statusCode, message } = handleDbError(error, '操作入库单')
     res.status(statusCode).json({ success: false, message })
+  } finally {
+    connection.release()
   }
 }
 
@@ -541,6 +663,28 @@ export const deleteWarehousingOrder = async (req, res) => {
         success: false,
         message: '该入库单已关联退货单，不能删除；请先删除对应的退货单'
       })
+    }
+
+    // 已有付款/核销记录的入库单不允许删除：
+    // 连带删应付会让核销明细悬挂、已付金额凭空消失
+    const guardPayable = await Payable.findOne('source_bill_id = ?', [existing.order_number])
+    if (guardPayable && parseFloat(guardPayable.received_amount || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        message: '该入库单的应付账款已有付款/核销记录，不能删除；请先作废相关核销单'
+      })
+    }
+    if (guardPayable) {
+      const [writeOffRefs] = await pool.query(
+        'SELECT COUNT(*) AS c FROM write_off_items WHERE source_id = ?',
+        [guardPayable.payable_id]
+      )
+      if ((writeOffRefs[0]?.c || 0) > 0) {
+        return res.status(400).json({
+          success: false,
+          message: '该入库单的应付账款已被核销单引用，不能删除；请先作废相关核销单'
+        })
+      }
     }
 
     // 删除入库单并回补计划/订单/库存/应付账款，整体走事务，任一步失败全部回滚

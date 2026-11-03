@@ -1,6 +1,7 @@
 import PurchaseOrder from '../models/PurchaseOrder.js'
 import SalesOrder from '../models/SalesOrder.js'
 import PurchasePlan from '../models/PurchasePlan.js'
+import InboundPlan from '../models/InboundPlan.js'
 import pool from '../config/database.js'
 import { generateFromPurchaseOrder } from './inboundPlanController.js'
 import { handleDbError } from '../utils/errorHandler.js'
@@ -10,6 +11,7 @@ import {
   restorePlanDeductions,
   restoreQuantitiesToPlans
 } from '../utils/planRestore.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllPurchaseOrders = async (req, res) => {
   try {
@@ -33,37 +35,37 @@ export const getAllPurchaseOrders = async (req, res) => {
 
     if (orderNumber) {
       where.push('po.order_number LIKE ?')
-      params.push(`%${orderNumber}%`)
+      params.push(`%${escapeLike(orderNumber)}%`)
     }
 
     if (supplierName) {
       where.push('po.supplier_name LIKE ?')
-      params.push(`%${supplierName}%`)
+      params.push(`%${escapeLike(supplierName)}%`)
     }
 
     if (supplierCode) {
       where.push('po.supplier_code LIKE ?')
-      params.push(`%${supplierCode}%`)
+      params.push(`%${escapeLike(supplierCode)}%`)
     }
 
     if (contractNumber) {
       where.push('po.contract_number LIKE ?')
-      params.push(`%${contractNumber}%`)
+      params.push(`%${escapeLike(contractNumber)}%`)
     }
 
     if (productName) {
       where.push('po.purchase_items LIKE ?')
-      params.push(`%${productName}%`)
+      params.push(`%${escapeLike(productName)}%`)
     }
 
     if (productCode) {
       where.push('po.purchase_items LIKE ?')
-      params.push(`%${productCode}%`)
+      params.push(`%${escapeLike(productCode)}%`)
     }
 
     if (productModel) {
       where.push('po.purchase_items LIKE ?')
-      params.push(`%${productModel}%`)
+      params.push(`%${escapeLike(productModel)}%`)
     }
 
     if (startDate && endDate) {
@@ -82,7 +84,7 @@ export const getAllPurchaseOrders = async (req, res) => {
     if (relatedSalesOrderNumber) {
       joinClause = `LEFT JOIN sales_orders so ON (po.related_sales_order_id = so.sales_order_id OR JSON_CONTAINS(po.related_sales_orders, JSON_OBJECT('sales_order_id', so.sales_order_id)))`
       where.push('so.contract_number LIKE ?')
-      params.push(`%${relatedSalesOrderNumber}%`)
+      params.push(`%${escapeLike(relatedSalesOrderNumber)}%`)
     }
 
     const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : ''
@@ -379,7 +381,20 @@ export const deletePurchaseOrder = async (req, res) => {
 
     const relatedSalesOrderId = existing.related_sales_order_id
 
-    // 回补采购计划的待采购数量（自动生成的入库计划不在此处理）：
+    // 已生成入库单的采购订单不允许删除：
+    // 入库单已加库存、建应付，删采购单会让单据悬挂
+    const [relatedWarehousing] = await pool.query(
+      'SELECT warehousing_order_id FROM warehousing_orders WHERE purchase_order_id = ? OR source_order_number = ? LIMIT 1',
+      [id, existing.order_number]
+    )
+    if (relatedWarehousing.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: '该采购订单已生成入库单，不能删除；请先删除对应的入库单'
+      })
+    }
+
+    // 回补采购计划的待采购数量，并级联删除自动生成的入库计划（否则残留孤儿计划）：
     // 有 plan_deductions 记录的按记录原路回补（创建时扣了多少就补多少）；
     // 历史单据没有记录，退化为按合同编号猜行的旧逻辑
     const connection = await pool.getConnection()
@@ -406,6 +421,9 @@ export const deletePurchaseOrder = async (req, res) => {
           connection
         )
       }
+
+      // 删除采购订单自动生成的入库计划（bug#1 同款孤儿清理）
+      await InboundPlan.deleteByPurchaseOrderId(id, connection)
 
       await PurchaseOrder.delete(id, connection)
 

@@ -13,6 +13,133 @@ import {
   buildQuantityDeltaMap,
   syncQuantityDeltaToOrders
 } from '../utils/contractOrderLookup.js'
+import { escapeLike } from '../utils/sql.js'
+
+// 解析明细 JSON（兼容数组/字符串/坏数据）
+const parseReturnItems = (returnItems) => {
+  try {
+    const arr = typeof returnItems === 'string' ? JSON.parse(returnItems) : returnItems
+    return Array.isArray(arr) ? arr : []
+  } catch {
+    return []
+  }
+}
+
+// 退货明细含税金额：优先明细单价，缺失时回退原入库单单价
+const calcReturnAmount = (items, sourceItems = []) => {
+  let amount = 0
+  for (const it of items) {
+    const qty = parseFloat(it.quantity) || 0
+    const source = sourceItems.find(si => si.product_code === it.product_code)
+    const price = parseFloat(it.unit_price ?? it.tax_included_price ?? source?.tax_included_price ?? 0) || 0
+    amount += qty * price
+  }
+  return round4(amount)
+}
+
+// 应付状态：0 未结算 / 1 部分结算 / 2 全部结算
+const calcPayableStatus = (received, total) => {
+  if (received <= 0) return 0
+  if (received >= total - 0.00001) return 2
+  return 1
+}
+
+// 累计退货校验：历史退货 + 本次 ≤ 原入库数量（编辑时 excludeId 排除自身）
+const validateCumulativeReturns = async (sourceOrderId, items, excludeId, conn) => {
+  const sourceOrder = await WarehousingOrder.findById(sourceOrderId, conn)
+  if (!sourceOrder) return { error: '原入库单不存在' }
+  const warehousingItems = parseReturnItems(sourceOrder.warehousing_items)
+
+  const history = await InboundReturnOrder.findAll({
+    where: excludeId ? 'source_order_id = ? AND inbound_return_id != ?' : 'source_order_id = ?',
+    params: excludeId ? [sourceOrderId, excludeId] : [sourceOrderId]
+  }, conn)
+  const returnedMap = new Map()
+  for (const h of history) {
+    for (const it of parseReturnItems(h.return_items)) {
+      if (!it.product_code) continue
+      returnedMap.set(it.product_code, (returnedMap.get(it.product_code) || 0) + (parseFloat(it.quantity) || 0))
+    }
+  }
+
+  const thisMap = new Map()
+  for (const it of items) {
+    if (!it.product_code) return { error: '退货明细缺少商品编码' }
+    const qty = parseFloat(it.quantity)
+    if (!(qty > 0)) return { error: `商品 ${it.product_name || it.product_code} 退货数量必须大于0` }
+    thisMap.set(it.product_code, (thisMap.get(it.product_code) || 0) + qty)
+    if (!warehousingItems.some(wi => wi.product_code === it.product_code)) {
+      return { error: `商品 ${it.product_code} 不在原入库单中` }
+    }
+  }
+
+  for (const [code, qty] of thisMap) {
+    const sourceItem = warehousingItems.find(wi => wi.product_code === code)
+    const already = returnedMap.get(code) || 0
+    const maxQty = parseFloat(sourceItem.quantity) || 0
+    if (qty + already > maxQty + 1e-6) {
+      return {
+        error: `商品 ${sourceItem.product_name || code} 累计退货超量：历史已退 ${already} + 本次 ${qty} > 原入库 ${maxQty}`
+      }
+    }
+  }
+
+  return { sourceOrder, warehousingItems }
+}
+
+// 退货冲减应付账款：按退货金额减少应付，全退且未付款才删除；不减破已付金额
+const reducePayableForReturn = async (sourceOrderNumber, returnAmount, conn) => {
+  if (!sourceOrderNumber || returnAmount <= 0) return
+  const payable = await Payable.findOne('source_bill_id = ?', [sourceOrderNumber], conn)
+  if (!payable) return
+
+  const received = parseFloat(payable.received_amount || 0)
+  const handlingFee = parseFloat(payable.handling_fee || 0)
+  const newAmount = Math.max(received, round4(parseFloat(payable.amount || 0) - returnAmount))
+
+  if (newAmount <= 0 && received <= 0) {
+    // 全额退货且未发生付款/核销，才允许删除应付
+    await Payable.delete(payable.payable_id, conn)
+    return
+  }
+
+  await Payable.update(payable.payable_id, {
+    amount: newAmount,
+    balance_amount: round4(newAmount + handlingFee - received),
+    status: calcPayableStatus(received, newAmount + handlingFee)
+  }, conn)
+}
+
+// 删除退货单时恢复应付账款（与冲减对称；原应付已删则重建）
+const restorePayableForReturn = async (returnOrder, returnAmount, conn) => {
+  const sourceOrderNumber = returnOrder.source_order_number
+  if (!sourceOrderNumber || returnAmount <= 0) return
+
+  const payable = await Payable.findOne('source_bill_id = ?', [sourceOrderNumber], conn)
+  if (payable) {
+    const received = parseFloat(payable.received_amount || 0)
+    const handlingFee = parseFloat(payable.handling_fee || 0)
+    const newAmount = round4(parseFloat(payable.amount || 0) + returnAmount)
+    await Payable.update(payable.payable_id, {
+      amount: newAmount,
+      balance_amount: round4(newAmount + handlingFee - received),
+      status: calcPayableStatus(received, newAmount + handlingFee)
+    }, conn)
+  } else {
+    // 原应付曾因全额退货被删除，重建最小应付记录
+    await Payable.create({
+      supplier_id: returnOrder.supplier_code || null,
+      supplier_name: returnOrder.supplier_name || null,
+      source_bill_type: 1, // 入库单
+      source_bill_id: sourceOrderNumber,
+      amount: returnAmount,
+      received_amount: 0,
+      balance_amount: returnAmount,
+      status: 0,
+      warehousing_time: null
+    }, conn)
+  }
+}
 
 export const getAllInboundReturns = async (req, res) => {
   try {
@@ -31,17 +158,17 @@ export const getAllInboundReturns = async (req, res) => {
 
     if (orderNumber) {
       where.push('order_number LIKE ?')
-      params.push(`%${orderNumber}%`)
+      params.push(`%${escapeLike(orderNumber)}%`)
     }
 
     if (contractNumber) {
       where.push('contract_number LIKE ?')
-      params.push(`%${contractNumber}%`)
+      params.push(`%${escapeLike(contractNumber)}%`)
     }
 
     if (supplierName) {
       where.push('supplier_name LIKE ?')
-      params.push(`%${supplierName}%`)
+      params.push(`%${escapeLike(supplierName)}%`)
     }
 
     if (startDate && endDate) {
@@ -93,7 +220,10 @@ export const getInboundReturnById = async (req, res) => {
 }
 
 export const createInboundReturn = async (req, res) => {
+  const connection = await pool.getConnection()
   try {
+    await connection.beginTransaction()
+
     const {
       source_order_id,
       source_order_number,
@@ -110,32 +240,21 @@ export const createInboundReturn = async (req, res) => {
     } = req.body
 
     if (!return_items || (Array.isArray(return_items) && return_items.length === 0)) {
+      await connection.rollback()
       return res.status(400).json({ success: false, message: '退货商品不能为空' })
     }
 
-    // 校验退货数量不超过原入库数量
-    if (source_order_id) {
-      const sourceOrder = await WarehousingOrder.findById(source_order_id)
-      if (sourceOrder) {
-        const warehousingItems = JSON.parse(sourceOrder.warehousing_items || '[]')
-        const parsedReturnItems = typeof return_items === 'string' ? JSON.parse(return_items) : return_items
+    const parsedItems = parseReturnItems(return_items)
 
-        for (const returnItem of parsedReturnItems) {
-          const sourceItem = warehousingItems.find(wi => wi.product_code === returnItem.product_code)
-          if (!sourceItem) {
-            return res.status(400).json({
-              success: false,
-              message: `商品 ${returnItem.product_code} 不在原入库单中`
-            })
-          }
-          if (returnItem.quantity > sourceItem.quantity) {
-            return res.status(400).json({
-              success: false,
-              message: `商品 ${returnItem.product_name || returnItem.product_code} 退货数量(${returnItem.quantity})超过原入库数量(${sourceItem.quantity})`
-            })
-          }
-        }
+    // 校验退货数量：正数校验 + 累计退货不超过原入库数量（历史退货 + 本次 ≤ 原入库）
+    let warehousingItems = []
+    if (source_order_id) {
+      const check = await validateCumulativeReturns(source_order_id, parsedItems, null, connection)
+      if (check.error) {
+        await connection.rollback()
+        return res.status(400).json({ success: false, message: check.error })
       }
+      warehousingItems = check.warehousingItems
     }
 
     // 创建退货单
@@ -152,13 +271,12 @@ export const createInboundReturn = async (req, res) => {
       return_person,
       reason,
       remarks
-    })
+    }, connection)
 
     // 扣减产品库存并调整单价（退货给供应商，库存减少，使用移动平均法反向计算）
-    const parsedItems = typeof return_items === 'string' ? JSON.parse(return_items) : return_items
     for (const item of parsedItems) {
       if (!item.product_code || !item.quantity) continue
-      const [productResult] = await pool.query(
+      const [productResult] = await connection.query(
         'SELECT stock, tax_included_price FROM products WHERE product_code = ?',
         [item.product_code]
       )
@@ -185,12 +303,12 @@ export const createInboundReturn = async (req, res) => {
 
         // 更新库存和单价
         if (newTaxExcludedPrice !== null) {
-          await pool.query(
+          await connection.query(
             'UPDATE products SET stock = ?, tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
             [newStock.toFixed(2), round4(newTaxIncludedPrice), round4(newTaxExcludedPrice), item.product_code]
           )
         } else {
-          await pool.query(
+          await connection.query(
             'UPDATE products SET stock = ?, tax_included_price = ? WHERE product_code = ?',
             [newStock.toFixed(2), round4(newTaxIncludedPrice), item.product_code]
           )
@@ -201,7 +319,7 @@ export const createInboundReturn = async (req, res) => {
     // 回退采购单入库数量
     // 同一采购合同编号可能对应多张采购订单，回退到实际收过货（入库数量 > 0）的订单
     if (contract_number) {
-      const { orders, itemsMap } = await loadContractOrders(PurchaseOrder, contract_number, PURCHASE_ORDER_KEYS)
+      const { orders, itemsMap } = await loadContractOrders(PurchaseOrder, contract_number, PURCHASE_ORDER_KEYS, connection)
 
       if (orders.length > 0) {
         const touchedOrders = new Map()
@@ -213,12 +331,12 @@ export const createInboundReturn = async (req, res) => {
           const currentInbound = match.targetItem.inbound_quantity || 0
           match.targetItem.inbound_quantity = Math.max(0, currentInbound - returnItem.quantity)
 
-          // 更新行状态
-          if (match.targetItem.inbound_quantity === 0) {
+          // 更新行状态（浮点容差比较）
+          if (Math.abs(match.targetItem.inbound_quantity) < 1e-6) {
             match.targetItem.status = 1 // 未入库
           } else if (match.targetItem.inbound_quantity < match.targetItem.quantity) {
             match.targetItem.status = 3 // 已部分入库
-          } else if (match.targetItem.inbound_quantity === match.targetItem.quantity) {
+          } else if (Math.abs(match.targetItem.inbound_quantity - match.targetItem.quantity) < 1e-6) {
             match.targetItem.status = 2 // 已全部入库
           }
 
@@ -238,34 +356,34 @@ export const createInboundReturn = async (req, res) => {
           await PurchaseOrder.update(match.order.purchase_order_id, {
             purchase_items: JSON.stringify(match.items),
             status: orderStatus
-          })
+          }, connection)
         }
       }
     }
 
-    // 删除关联的应付账款记录
-    if (source_order_number) {
-      try {
-        const payable = await Payable.findOne('source_bill_id = ?', [source_order_number])
-        if (payable) {
-          await Payable.delete(payable.payable_id)
-        }
-      } catch (payableError) {
-        console.error('删除应付账款记录失败:', payableError)
-      }
-    }
+    // 按退货金额冲减应付账款（全退且未付款才删除，已付款的不减破实付金额）
+    const returnAmount = calcReturnAmount(parsedItems, warehousingItems)
+    await reducePayableForReturn(source_order_number || order.source_order_number, returnAmount, connection)
 
+    await connection.commit()
     res.status(201).json({ success: true, data: order })
   } catch (error) {
+    await connection.rollback()
     res.status(500).json({ success: false, message: error.message })
+  } finally {
+    connection.release()
   }
 }
 
 export const updateInboundReturn = async (req, res) => {
+  const connection = await pool.getConnection()
   try {
+    await connection.beginTransaction()
+
     const { id } = req.params
-    const existing = await InboundReturnOrder.findById(id)
+    const existing = await InboundReturnOrder.findById(id, connection)
     if (!existing) {
+      await connection.rollback()
       return res.status(404).json({ success: false, message: '入库退货单不存在' })
     }
 
@@ -277,11 +395,23 @@ export const updateInboundReturn = async (req, res) => {
       }
     }
 
-    // 如果退货商品发生变化，调整库存
-    if (updateData.return_items !== undefined) {
-      const oldItems = JSON.parse(existing.return_items || '[]')
-      const newItems = typeof updateData.return_items === 'string' ? JSON.parse(updateData.return_items) : updateData.return_items
+    const oldItems = parseReturnItems(existing.return_items)
+    const newItems = updateData.return_items !== undefined ? parseReturnItems(updateData.return_items) : oldItems
 
+    // 退货明细变化时：正数校验 + 累计退货校验（排除本单自身）
+    if (updateData.return_items !== undefined) {
+      const sourceOrderId = updateData.source_order_id || existing.source_order_id
+      if (sourceOrderId) {
+        const check = await validateCumulativeReturns(sourceOrderId, newItems, id, connection)
+        if (check.error) {
+          await connection.rollback()
+          return res.status(400).json({ success: false, message: check.error })
+        }
+      }
+    }
+
+    // 如果退货商品发生变化，调整库存（退货给供应商：退货增加 → 库存减少）
+    if (updateData.return_items !== undefined) {
       const quantityDelta = new Map()
       for (const item of newItems) {
         if (!item.product_code) continue
@@ -294,14 +424,14 @@ export const updateInboundReturn = async (req, res) => {
 
       for (const [productCode, delta] of quantityDelta) {
         if (delta === 0) continue
-        const [productResult] = await pool.query(
+        const [productResult] = await connection.query(
           'SELECT stock FROM products WHERE product_code = ?',
           [productCode]
         )
         if (productResult.length > 0) {
           const currentStock = parseFloat(productResult[0].stock || 0)
           const newStock = Math.max(0, currentStock - delta)
-          await pool.query(
+          await connection.query(
             'UPDATE products SET stock = ? WHERE product_code = ?',
             [newStock.toFixed(2), productCode]
           )
@@ -311,47 +441,65 @@ export const updateInboundReturn = async (req, res) => {
 
     // 同步入库数量到采购订单：退货数量增加 → 订单入库数量减少（差量取反）
     if (updateData.return_items !== undefined || updateData.contract_number !== undefined) {
-      try {
-        const oldReturnItems = JSON.parse(existing.return_items || '[]')
-        const newReturnItems = updateData.return_items !== undefined
-          ? (typeof updateData.return_items === 'string' ? JSON.parse(updateData.return_items) : updateData.return_items)
-          : oldReturnItems
-        const oldContractNumber = existing.contract_number || ''
-        const newContractNumber = updateData.contract_number !== undefined ? (updateData.contract_number || '') : oldContractNumber
+      const oldContractNumber = existing.contract_number || ''
+      const newContractNumber = updateData.contract_number !== undefined ? (updateData.contract_number || '') : oldContractNumber
 
-        if (oldContractNumber !== newContractNumber) {
-          // 合同变更：旧合同恢复旧退货明细占用的入库数量，新合同扣减新退货明细
-          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, oldContractNumber, itemsToDeltaMap(oldReturnItems, 1))
-          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, itemsToDeltaMap(newReturnItems, -1))
-        } else {
-          // 同一合同：差量同步（退货增加 → 订单入库减少）
-          await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, buildQuantityDeltaMap(oldReturnItems, newReturnItems, -1))
-        }
-      } catch (syncErr) {
-        console.error('同步采购订单入库数量失败（不影响入库退货单更新）:', syncErr.message)
+      if (oldContractNumber !== newContractNumber) {
+        // 合同变更：旧合同恢复旧退货明细占用的入库数量，新合同扣减新退货明细
+        await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, oldContractNumber, itemsToDeltaMap(oldItems, 1), undefined, connection)
+        await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, itemsToDeltaMap(newItems, -1), undefined, connection)
+      } else {
+        // 同一合同：差量同步（退货增加 → 订单入库减少）
+        await syncQuantityDeltaToOrders(PurchaseOrder, PURCHASE_ORDER_KEYS, newContractNumber, buildQuantityDeltaMap(oldItems, newItems, -1), undefined, connection)
       }
     }
 
-    const order = await InboundReturnOrder.update(id, updateData)
+    // 应付冲减差量同步：退货金额增加 → 应付减少；减少 → 恢复
+    if (updateData.return_items !== undefined) {
+      const sourceOrderId = updateData.source_order_id || existing.source_order_id
+      let warehousingItems = []
+      if (sourceOrderId) {
+        const sourceOrder = await WarehousingOrder.findById(sourceOrderId, connection)
+        if (sourceOrder) warehousingItems = parseReturnItems(sourceOrder.warehousing_items)
+      }
+      const deltaAmount = round4(calcReturnAmount(newItems, warehousingItems) - calcReturnAmount(oldItems, warehousingItems))
+      const sourceOrderNumber = updateData.source_order_number || existing.source_order_number
+      if (deltaAmount > 0) {
+        await reducePayableForReturn(sourceOrderNumber, deltaAmount, connection)
+      } else if (deltaAmount < 0) {
+        await restorePayableForReturn({ ...existing, source_order_number: sourceOrderNumber }, -deltaAmount, connection)
+      }
+    }
+
+    const order = await InboundReturnOrder.update(id, updateData, connection)
+    await connection.commit()
     res.json({ success: true, data: order })
   } catch (error) {
+    await connection.rollback()
     res.status(500).json({ success: false, message: error.message })
+  } finally {
+    connection.release()
   }
 }
 
 export const deleteInboundReturn = async (req, res) => {
+  const connection = await pool.getConnection()
   try {
+    await connection.beginTransaction()
+
     const { id } = req.params
-    const existing = await InboundReturnOrder.findById(id)
+    const existing = await InboundReturnOrder.findById(id, connection)
     if (!existing) {
+      await connection.rollback()
       return res.status(404).json({ success: false, message: '入库退货单不存在' })
     }
 
+    const returnItems = parseReturnItems(existing.return_items)
+
     // 恢复产品库存并调整单价（使用移动平均法重新计算）
-    const returnItems = JSON.parse(existing.return_items || '[]')
     for (const item of returnItems) {
       if (!item.product_code || !item.quantity) continue
-      const [productResult] = await pool.query(
+      const [productResult] = await connection.query(
         'SELECT stock, tax_included_price FROM products WHERE product_code = ?',
         [item.product_code]
       )
@@ -376,12 +524,12 @@ export const deleteInboundReturn = async (req, res) => {
 
         // 更新库存和单价
         if (newTaxExcludedPrice !== null) {
-          await pool.query(
+          await connection.query(
             'UPDATE products SET stock = ?, tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
             [newStock.toFixed(2), round4(newTaxIncludedPrice), round4(newTaxExcludedPrice), item.product_code]
           )
         } else {
-          await pool.query(
+          await connection.query(
             'UPDATE products SET stock = ?, tax_included_price = ? WHERE product_code = ?',
             [newStock.toFixed(2), round4(newTaxIncludedPrice), item.product_code]
           )
@@ -392,7 +540,7 @@ export const deleteInboundReturn = async (req, res) => {
     // 恢复采购单入库数量
     // 同一采购合同编号可能对应多张采购订单，恢复到剩余可入库数量大于 0 的订单
     if (existing.contract_number) {
-      const { orders, itemsMap } = await loadContractOrders(PurchaseOrder, existing.contract_number, PURCHASE_ORDER_KEYS)
+      const { orders, itemsMap } = await loadContractOrders(PurchaseOrder, existing.contract_number, PURCHASE_ORDER_KEYS, connection)
 
       if (orders.length > 0) {
         const touchedOrders = new Map()
@@ -424,15 +572,27 @@ export const deleteInboundReturn = async (req, res) => {
           await PurchaseOrder.update(match.order.purchase_order_id, {
             purchase_items: JSON.stringify(match.items),
             status: orderStatus
-          })
+          }, connection)
         }
       }
     }
 
-    await InboundReturnOrder.delete(id)
+    // 恢复应付账款（与创建时的冲减对称）
+    let warehousingItems = []
+    if (existing.source_order_id) {
+      const sourceOrder = await WarehousingOrder.findById(existing.source_order_id, connection)
+      if (sourceOrder) warehousingItems = parseReturnItems(sourceOrder.warehousing_items)
+    }
+    await restorePayableForReturn(existing, calcReturnAmount(returnItems, warehousingItems), connection)
+
+    await InboundReturnOrder.delete(id, connection)
+    await connection.commit()
     res.json({ success: true, message: '入库退货单删除成功' })
   } catch (error) {
+    await connection.rollback()
     res.status(500).json({ success: false, message: error.message })
+  } finally {
+    connection.release()
   }
 }
 

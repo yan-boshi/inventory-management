@@ -7,7 +7,7 @@ class SettlementStatementItem extends BaseModel {
     super('settlement_statement_items', 'item_id')
   }
 
-  async create(data) {
+  async create(data, conn = pool) {
     const itemData = {
       item_id: generateUUID(),
       statement_id: data.statement_id,
@@ -27,21 +27,21 @@ class SettlementStatementItem extends BaseModel {
       amount_with_tax: data.amount_with_tax ?? 0,
       remarks: data.remarks || null
     }
-    return super.create(itemData)
+    return super.create(itemData, conn)
   }
 
   // 根据对账单ID获取明细
-  async findByStatementId(statementId) {
+  async findByStatementId(statementId, conn = pool) {
     return this.findAll({
       where: 'statement_id = ?',
       params: [statementId]
-    })
+    }, conn)
   }
 
   // 删除对账单的所有明细
-  async deleteByStatementId(statementId) {
+  async deleteByStatementId(statementId, conn = pool) {
     const sql = `DELETE FROM settlement_statement_items WHERE statement_id = ?`
-    const [result] = await pool.query(sql, [statementId])
+    const [result] = await conn.query(sql, [statementId])
     return result.affectedRows > 0
   }
 }

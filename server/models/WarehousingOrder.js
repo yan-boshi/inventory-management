@@ -1,6 +1,6 @@
 import BaseModel from './BaseModel.js'
-import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
+import { nextSequence, localDateStr, localDateTime } from '../utils/sequence.js'
 
 class WarehousingOrder extends BaseModel {
   constructor() {
@@ -8,31 +8,7 @@ class WarehousingOrder extends BaseModel {
   }
 
   async generateOrderNumber() {
-    const date = new Date()
-    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    // 年份取后两位 + 月日，共6位
-    const dateStr = fullDateStr.slice(2)
-
-    // 查询当天已有的入库单最大序号，避免并发冲突
-    const query = `
-      SELECT order_number
-      FROM ${this.tableName}
-      WHERE order_number LIKE ?
-      ORDER BY order_number DESC
-      LIMIT 1
-    `
-    const [result] = await pool.query(query, [`XSD-W-${dateStr}-%`])
-
-    let sequence = 1
-    if (result.length > 0) {
-      const lastOrderNumber = result[0].order_number
-      const lastSequence = parseInt(lastOrderNumber.split('-').pop(), 10)
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1
-      }
-    }
-
-    return `XSD-W-${dateStr}-${sequence.toString().padStart(3, '0')}`
+    return nextSequence(this.tableName, 'order_number', `XSD-W-${localDateStr().slice(2)}-`)
   }
 
   async create(data, conn) {
@@ -51,7 +27,7 @@ class WarehousingOrder extends BaseModel {
           contract_number: data.contract_number || null,
           purchase_order_id: data.purchase_order_id || null,
           warehousing_items: warehousingItems,
-          warehousing_time: data.warehousing_time || new Date().toISOString().slice(0, 16).replace('T', ' '),
+          warehousing_time: data.warehousing_time || localDateTime().slice(0, 16),
           entry_date: data.entry_date || null,
           tracking_number: data.tracking_number || null,
           customer_name: data.customer_name || null,

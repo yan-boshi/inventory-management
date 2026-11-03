@@ -338,17 +338,17 @@ const handleSuccess = () => {
 // 导出Excel
 const handleExport = () => {
   const exportColumns: ExportColumn[] = [
-    { title: '退货单号', dataIndex: 'order_number' },
-    { title: '原出库单号', dataIndex: 'source_order_number' },
-    { title: '销售合同编号', dataIndex: 'contract_number' },
-    { title: '客户名称', dataIndex: 'customer_name' },
-    { title: '退货日期', dataIndex: 'return_time' },
-    { title: '录入日期', dataIndex: 'entry_date' },
-    { title: '币种', dataIndex: 'currency' },
-    { title: '总金额', dataIndex: 'total_amount' },
-    { title: '退货人', dataIndex: 'return_person' },
-    { title: '退货原因', dataIndex: 'reason' },
-    { title: '备注', dataIndex: 'remarks' },
+    { title: '退货单号', key: 'order_number' },
+    { title: '原出库单号', key: 'source_order_number' },
+    { title: '销售合同编号', key: 'contract_number' },
+    { title: '客户名称', key: 'customer_name' },
+    { title: '退货日期', key: 'return_time' },
+    { title: '录入日期', key: 'entry_date' },
+    { title: '币种', key: 'currency' },
+    { title: '总金额', key: 'total_amount' },
+    { title: '退货人', key: 'return_person' },
+    { title: '退货原因', key: 'reason' },
+    { title: '备注', key: 'remarks' },
   ]
 
   const exportData = orders.value.map(order => ({
@@ -358,7 +358,7 @@ const handleExport = () => {
     total_amount: order.total_amount || 0,
   }))
 
-  exportToExcel(exportColumns, exportData, '出库退货单列表')
+  exportToExcel({ filename: '出库退货单列表', columns: exportColumns, data: exportData })
 }
 
 onMounted(() => {

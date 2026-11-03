@@ -1,6 +1,7 @@
 import BaseModel from './BaseModel.js'
 import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
+import { nextSequence, localDateStr, localDateTime } from '../utils/sequence.js'
 
 class OutboundReturnOrder extends BaseModel {
   constructor() {
@@ -8,29 +9,7 @@ class OutboundReturnOrder extends BaseModel {
   }
 
   async generateOrderNumber() {
-    const date = new Date()
-    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    const dateStr = fullDateStr.slice(2)
-
-    const query = `
-      SELECT order_number
-      FROM ${this.tableName}
-      WHERE order_number LIKE ?
-      ORDER BY order_number DESC
-      LIMIT 1
-    `
-    const [result] = await pool.query(query, [`XSD-OR-${dateStr}-%`])
-
-    let sequence = 1
-    if (result.length > 0) {
-      const lastOrderNumber = result[0].order_number
-      const lastSequence = parseInt(lastOrderNumber.split('-').pop(), 10)
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1
-      }
-    }
-
-    return `XSD-OR-${dateStr}-${sequence.toString().padStart(3, '0')}`
+    return nextSequence(this.tableName, 'order_number', `XSD-OR-${localDateStr().slice(2)}-`)
   }
 
   calculateTotal(items) {
@@ -38,7 +17,7 @@ class OutboundReturnOrder extends BaseModel {
     return items.reduce((sum, item) => sum + (parseFloat(item.total_price) || parseFloat(item.quantity) * parseFloat(item.tax_included_price) || 0), 0)
   }
 
-  async create(data) {
+  async create(data, conn = pool) {
     const returnItems = data.return_items || '[]'
     const items = typeof returnItems === 'string' ? JSON.parse(returnItems) : returnItems
     const totalAmount = data.total_amount || this.calculateTotal(items)
@@ -56,14 +35,14 @@ class OutboundReturnOrder extends BaseModel {
           customer_code: data.customer_code || null,
           return_items: typeof returnItems === 'string' ? returnItems : JSON.stringify(returnItems),
           total_amount: totalAmount,
-          return_time: data.return_time || new Date().toISOString().slice(0, 16).replace('T', ' '),
+          return_time: data.return_time || localDateTime().slice(0, 16),
           entry_date: data.entry_date || null,
           currency: data.currency || 'CNY',
           return_person: data.return_person || null,
           reason: data.reason || null,
           remarks: data.remarks || null
         }
-        return await super.create(orderData)
+        return await super.create(orderData, conn)
       } catch (error) {
         if (error.code === 'ER_DUP_ENTRY' && attempt < maxRetries - 1) {
           console.warn(`订单号冲突，重试第 ${attempt + 1} 次...`)
@@ -74,7 +53,7 @@ class OutboundReturnOrder extends BaseModel {
     }
   }
 
-  async update(id, data) {
+  async update(id, data, conn = pool) {
     let updateData = { ...data }
 
     if (data.return_items !== undefined) {
@@ -85,7 +64,7 @@ class OutboundReturnOrder extends BaseModel {
       }
     }
 
-    return super.update(id, updateData)
+    return super.update(id, updateData, conn)
   }
 }
 

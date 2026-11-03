@@ -288,7 +288,7 @@
           <a-button type="primary" @click="handleSaveAndPrint">{{
             t.quotation.saveAndPrint
           }}</a-button>
-          <a-button type="primary" @click="handleSubmit">{{ t.common.save }}</a-button>
+          <a-button type="primary" :loading="submitting" @click="handleSubmit">{{ t.common.save }}</a-button>
           <a-button type="primary" @click="handleConvertAll">{{ t.quotation.sale }}</a-button>
         </a-space>
       </div>
@@ -477,6 +477,8 @@ const addNewItem = () => {
 
 // 提交表单
 const handleSubmit = async () => {
+  // 入口防重：提交中忽略重复点击，避免双击重复建单
+  if (submitting.value) return
   if (!form.customer_name) {
     message.error('请选择客户')
     return
@@ -647,7 +649,7 @@ const resetForm = () => {
 }
 
 // 处理行级别销售 - 打开销售订单编辑界面，填写当前行数据
-const handleConvertRow = () => {
+const handleConvertRow = (index: number) => {
   if (!props.isEdit) {
     message.warning('请先保存报价单')
     return
@@ -658,7 +660,7 @@ const handleConvertRow = () => {
     quotation_number: quotationNumber.value,
     customer_name: form.customer_name,
     customer_code: form.customer_code,
-    quotation_items: form.quotation_items, // 传递所有商品数据
+    quotation_items: [form.quotation_items[index]], // 只传递当前行商品数据
     tax_rate: form.tax_rate,
     currency: form.currency,
     isRowConvert: true, // 标记为行级别转换

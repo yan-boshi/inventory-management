@@ -1,5 +1,7 @@
 import Payable from '../models/Payable.js'
+import pool from '../config/database.js'
 import { handleDbError } from '../utils/errorHandler.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllPayables = async (req, res) => {
   try {
@@ -9,12 +11,12 @@ export const getAllPayables = async (req, res) => {
 
     if (supplier_name) {
       where.push('supplier_name LIKE ?')
-      params.push(`%${supplier_name}%`)
+      params.push(`%${escapeLike(supplier_name)}%`)
     }
 
     if (source_bill_id) {
       where.push('source_bill_id LIKE ?')
-      params.push(`%${source_bill_id}%`)
+      params.push(`%${escapeLike(source_bill_id)}%`)
     }
 
     // 支持多选状态查询
@@ -51,15 +53,15 @@ export const getAllPayables = async (req, res) => {
       params.push(end_date)
     }
 
-    // 入库时间范围筛选
+    // 入库时间范围筛选（warehousing_time 是 DATETIME，日期要补时分秒，否则末日整天被漏掉）
     if (warehousing_time_start) {
       where.push('warehousing_time >= ?')
-      params.push(warehousing_time_start)
+      params.push(warehousing_time_start.length === 10 ? warehousing_time_start + ' 00:00:00' : warehousing_time_start)
     }
 
     if (warehousing_time_end) {
       where.push('warehousing_time <= ?')
-      params.push(warehousing_time_end)
+      params.push(warehousing_time_end.length === 10 ? warehousing_time_end + ' 23:59:59' : warehousing_time_end)
     }
 
     // 金额筛选条件
@@ -133,6 +135,16 @@ export const deletePayable = async (req, res) => {
     const existing = await Payable.findById(id)
     if (!existing) {
       return res.status(404).json({ success: false, message: '应付账款不存在' })
+    }
+
+    // 已有付款/核销/对账单引用的应付不允许直接删除，防止核销明细悬挂、已付金额灭失
+    if (parseFloat(existing.received_amount || 0) > 0) {
+      return res.status(400).json({ success: false, message: '该应付账款已有付款/核销记录，不能删除；请先作废相关核销单' })
+    }
+    const [writeOffRefs] = await pool.query('SELECT COUNT(*) AS c FROM write_off_items WHERE source_id = ?', [id])
+    const [settleRefs] = await pool.query('SELECT COUNT(*) AS c FROM settlement_statement_items WHERE source_id = ?', [id])
+    if ((writeOffRefs[0]?.c || 0) > 0 || (settleRefs[0]?.c || 0) > 0) {
+      return res.status(400).json({ success: false, message: '该应付账款已被核销单/对账单引用，不能删除；请先处理相关单据' })
     }
 
     await Payable.delete(id)

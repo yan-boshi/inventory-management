@@ -38,7 +38,12 @@ export const useUserStore = defineStore('user', () => {
     const storedUser = localStorage.getItem('user')
     if (storedToken && storedUser) {
       token.value = storedToken
-      user.value = JSON.parse(storedUser)
+      try {
+        user.value = JSON.parse(storedUser)
+      } catch {
+        // 存储数据损坏时清空登录态，避免初始化抛异常导致白屏
+        clearUser()
+      }
     }
   }
 

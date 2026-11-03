@@ -1,4 +1,5 @@
 import User from '../models/User.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -13,7 +14,7 @@ export const getAllUsers = async (req, res) => {
 
     if (username) {
       where.push('username LIKE ?')
-      params.push(`%${username}%`)
+      params.push(`%${escapeLike(username)}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''

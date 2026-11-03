@@ -1,4 +1,5 @@
 import BusinessCategory from '../models/BusinessCategory.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllBusinessCategories = async (req, res) => {
   try {
@@ -8,7 +9,7 @@ export const getAllBusinessCategories = async (req, res) => {
 
     if (name) {
       where.push('business_category_name LIKE ?')
-      params.push(`%${name}%`)
+      params.push(`%${escapeLike(name)}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''

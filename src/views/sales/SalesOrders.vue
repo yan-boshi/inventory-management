@@ -807,7 +807,7 @@ const visibleColumns = computed(() => {
 const loadOrders = async () => {
   loading.value = true
   try {
-    const params = {
+    const params: SalesOrderQueryParams = {
       page: searchParams.page,
       pageSize: searchParams.pageSize,
     }
@@ -819,7 +819,8 @@ const loadOrders = async () => {
     if (searchParams.productCode) params.productCode = searchParams.productCode
     if (searchParams.productName) params.productName = searchParams.productName
     if (searchParams.productModel) params.productModel = searchParams.productModel
-    if (searchParams.startDate) params.salesDate = searchParams.startDate
+    if (searchParams.startDate) params.startDate = searchParams.startDate
+    if (searchParams.endDate) params.endDate = searchParams.endDate
 
     const response = await salesOrdersApi.getAll(params)
     console.log('销售订单响应:', response.data)
@@ -1083,7 +1084,8 @@ const handleExport = async () => {
     if (searchParams.productCode) params.productCode = searchParams.productCode
     if (searchParams.productName) params.productName = searchParams.productName
     if (searchParams.productModel) params.productModel = searchParams.productModel
-    if (searchParams.startDate) params.salesDate = searchParams.startDate
+    if (searchParams.startDate) params.startDate = searchParams.startDate
+    if (searchParams.endDate) params.endDate = searchParams.endDate
 
     const response = await salesOrdersApi.getAll(params)
     const allOrders: SalesOrder[] = response.data || []

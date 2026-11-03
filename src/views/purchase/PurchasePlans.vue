@@ -152,6 +152,7 @@ import type { PurchasePlan, PurchasePlanQueryParams } from '@/types'
 import PurchaseOrderForm from '@/components/PurchaseOrderForm.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate } from '@/utils/date'
+import { formatMoney4Grouped } from '@/utils/money'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 
 const plans = ref<PurchasePlan[]>([])
@@ -263,10 +264,8 @@ const statusColorMap: Record<string, string> = {
 }
 
 const formatMoney = (amount: number | string) => {
-  if (!amount && amount !== 0) return '0.0000'
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount
-  if (isNaN(num)) return '0.0000'
-  return num.toFixed(4).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  // 千分位只加在整数部分，交给 formatMoney4Grouped（原正则会给小数部分插逗号）
+  return formatMoney4Grouped(amount, '0.0000')
 }
 
 // 动态生成筛选选项的辅助函数

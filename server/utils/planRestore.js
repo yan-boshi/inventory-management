@@ -87,11 +87,16 @@ export const applyPlanDeductions = async (Model, keys, planRows, documentItems, 
   const pendingMap = sumItemsByProduct(documentItems)
   if (pendingMap.size === 0) return record
 
-  // 批量加载涉及的计划
+  // 批量加载涉及的计划（行锁，防止并发扣减/回补互相覆盖）
   const planIds = [...new Set(planRows.map((row) => row && row.plan_id).filter(Boolean))]
   const planMap = new Map()
   for (const planId of planIds) {
-    const plan = await Model.findById(planId, conn)
+    const rows = await Model.findAll({
+      where: `${keys.idField} = ?`,
+      params: [planId],
+      forUpdate: true
+    }, conn)
+    const plan = rows[0]
     if (!plan) continue
     planMap.set(planId, { plan, items: parsePlanItems(plan, keys), dirty: false })
   }
@@ -162,7 +167,12 @@ export const restorePlanDeductions = async (Model, keys, deductions, conn) => {
   }
 
   for (const [planId, entries] of byPlan) {
-    const plan = await Model.findById(planId, conn)
+    const rows = await Model.findAll({
+      where: `${keys.idField} = ?`,
+      params: [planId],
+      forUpdate: true
+    }, conn)
+    const plan = rows[0]
     if (!plan) {
       // 计划已被删除（例如销售订单更新时重新生成），数量无法回补
       for (const entry of entries) result.unmatchedQty += Number(entry.quantity) || 0

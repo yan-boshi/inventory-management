@@ -3,13 +3,16 @@ import Currency from '../models/Currency.js'
 import { generateUUID } from '../utils/uuid.js'
 import { handleDbError } from '../utils/errorHandler.js'
 
-// 获取本周周一日期
+// 获取本周周一日期（本地时区拼接，避免 toISOString 的 UTC 串日）
 function getMonday(date) {
   const d = new Date(date)
   const day = d.getDay()
   const diff = d.getDate() - day + (day === 0 ? -6 : 1)
   d.setDate(diff)
-  return d.toISOString().slice(0, 10)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
 }
 
 // 获取汇率列表（分页）
@@ -75,9 +78,13 @@ export const createExchangeRate = async (req, res) => {
       return res.status(400).json({ success: false, message: '币种不存在' })
     }
 
-    // effective_week 必须是周一
-    const weekDate = new Date(effective_week)
-    if (weekDate.getDay() !== 1) {
+    // effective_week 必须是周一（按字符串构造 UTC 日期判断星期，不受服务器时区影响，
+    // 否则西半球下合法周一会被 new Date('YYYY-MM-DD').getDay() 误判成周日）
+    const weekMatch = String(effective_week).match(/^(\d{4})-(\d{2})-(\d{2})/)
+    const weekDay = weekMatch
+      ? new Date(Date.UTC(+weekMatch[1], +weekMatch[2] - 1, +weekMatch[3])).getUTCDay()
+      : new Date(effective_week).getDay()
+    if (weekDay !== 1) {
       return res.status(400).json({ success: false, message: '生效日期必须选择周一的日期' })
     }
     const weekStr = effective_week.slice(0, 10)
@@ -159,7 +166,10 @@ export const getCurrentRate = async (req, res) => {
       return res.json({ success: true, data: { rate: 1.0 } })
     }
 
-    const targetDate = date || new Date().toISOString().slice(0, 10)
+    // 用本地时区的"今天"（toISOString 是 UTC，凌晨 0-8 点会串到昨天、周一凌晨取到上周汇率）
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const targetDate = date || todayStr
 
     // 精确匹配 source->target 方向
     const rate = await ExchangeRate.findLatestRate(source_currency, target_currency, targetDate)

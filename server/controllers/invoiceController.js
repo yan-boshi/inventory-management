@@ -1,4 +1,5 @@
 import Invoice from '../models/Invoice.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllInvoices = async (req, res) => {
   try {
@@ -17,17 +18,17 @@ export const getAllInvoices = async (req, res) => {
 
     if (invoiceNumber) {
       where.push('invoice_number LIKE ?')
-      params.push(`%${invoiceNumber}%`)
+      params.push(`%${escapeLike(invoiceNumber)}%`)
     }
 
     if (soNumber) {
       where.push('so_number LIKE ?')
-      params.push(`%${soNumber}%`)
+      params.push(`%${escapeLike(soNumber)}%`)
     }
 
     if (buyerName) {
       where.push('buyer_name LIKE ?')
-      params.push(`%${buyerName}%`)
+      params.push(`%${escapeLike(buyerName)}%`)
     }
 
     if (startDate && endDate) {

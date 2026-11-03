@@ -150,7 +150,7 @@ import { message, Modal } from 'ant-design-vue'
 import { SearchOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { packingListsApi } from '@/api/packingLists'
 import PackingListForm from '@/components/PackingListForm.vue'
-import dayjs from 'dayjs'
+import { formatDate, formatFullDateTime as formatDateTime } from '@/utils/date'
 
 const packingLists = ref<any[]>([])
 const loading = ref(false)
@@ -299,16 +299,6 @@ const itemColumns = [
     width: 100,
   },
 ]
-
-const formatDate = (date: string) => {
-  if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD')
-}
-
-const formatDateTime = (date: string) => {
-  if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
-}
 
 const getItemCount = (items: string) => {
   try {

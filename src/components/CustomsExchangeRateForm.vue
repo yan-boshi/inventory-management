@@ -130,7 +130,7 @@ watch(() => props.visible, (val) => {
         source_currency: props.rateData.source_currency,
         target_currency: props.rateData.target_currency,
         effective_month: monthDate,
-        effective_month_str: props.rateData.effective_month.slice(0, 10),
+        effective_month_str: getFirstDayStr(monthDate),
         rate: Number(props.rateData.rate),
         remarks: props.rateData.remarks || '',
       })

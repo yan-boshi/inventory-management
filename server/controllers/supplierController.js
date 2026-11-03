@@ -1,5 +1,6 @@
 import Supplier from '../models/Supplier.js'
 import { handleDbError } from '../utils/errorHandler.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllSuppliers = async (req, res) => {
   try {
@@ -9,12 +10,12 @@ export const getAllSuppliers = async (req, res) => {
 
     if (name) {
       where.push('supplier_name LIKE ?')
-      params.push(`%${name}%`)
+      params.push(`%${escapeLike(name)}%`)
     }
 
     if (code) {
       where.push('supplier_code LIKE ?')
-      params.push(`%${code}%`)
+      params.push(`%${escapeLike(code)}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''

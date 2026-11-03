@@ -128,6 +128,7 @@ import { ref, reactive, watch, computed, nextTick } from 'vue'
 import dayjs from 'dayjs'
 import type { DeliveryOrder } from '@/types'
 import { useUserStore } from '@/stores/user'
+import { formatDate } from '@/utils/date'
 
 interface Props {
   visible: boolean
@@ -221,11 +222,6 @@ watch(editModalVisible, newVal => {
     })
   }
 })
-
-const formatDate = (date: string) => {
-  if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD')
-}
 
 const handleEdit = (field: string, rowIndex?: number) => {
   editField.value = field

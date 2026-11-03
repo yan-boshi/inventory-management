@@ -555,7 +555,7 @@ const handleReset = () => {
   searchParams.startDate = undefined
   searchParams.endDate = undefined
   searchParams.orderNumber = undefined
-  searchParams.purchaseOrderNumber = undefined
+  searchParams.contractNumber = undefined
   searchParams.productKeyword = undefined
   pagination.current = 1
   fetchReport()

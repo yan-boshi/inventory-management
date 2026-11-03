@@ -151,7 +151,7 @@ import { message, Modal } from 'ant-design-vue'
 import { PlusOutlined, SearchOutlined, ReloadOutlined, DownOutlined } from '@ant-design/icons-vue'
 import { quotationsApi } from '@/api/quotations'
 import { customersApi } from '@/api/customers'
-import { formatMoney4 } from '@/utils/money'
+import { formatMoney4, round4 } from '@/utils/money'
 import type { Quotation, QuotationQueryParams } from '@/types'
 import QuotationForm from '@/components/QuotationForm.vue'
 import QuotationPrint from '@/components/QuotationPrint.vue'
@@ -447,26 +447,33 @@ const handleConvertToSales = async (quotation: Quotation) => {
         ? JSON.parse(detail.quotation_items)
         : detail.quotation_items
     console.log('items', items)
-    const salesItems = items.map((item: any) => ({
-      no: item.no,
-      business_category: '',
-      product_name: item.product_name,
-      model: item.model || '',
-      description: item.description || '',
-      unit: item.unit || '',
-      quantity: item.quantity,
-      tax_rate: detail.tax_rate,
-      tax_included_price: item.unit_price,
-      tax_excluded_price: Number(item.unit_price) * (1 - Number(detail.tax_rate) / 100),
-      tax_included_amount: Number(item.unit_price) * Number(item.quantity),
-      tax_excluded_amount:
-        Number(item.unit_price) * (1 - Number(detail.tax_rate) / 100) * Number(item.quantity),
-      tax_amount:
-        ((Number(item.unit_price) * Number(detail.tax_rate)) / 100) * Number(item.quantity),
-      status: 1,
-      remarks: item.remarks || '',
-      product_code: item.product_code || '',
-    }))
+    const taxRateDecimal = Number(detail.tax_rate ?? 0) / 100
+    const salesItems = items.map((item: any) => {
+      const quantity = Number(item.quantity)
+      const unitPrice = Number(item.unit_price)
+      // 含税价 ÷ (1 + 税率) 反算未税价（与 SalesOrderForm / 后端 calculateTaxExcludedPrice 同口径）
+      const taxExcludedPrice = round4(unitPrice / (1 + taxRateDecimal))
+      const taxIncludedAmount = round4(unitPrice * quantity)
+      const taxExcludedAmount = round4(taxExcludedPrice * quantity)
+      return {
+        no: item.no,
+        business_category: '',
+        product_name: item.product_name,
+        model: item.model || '',
+        description: item.description || '',
+        unit: item.unit || '',
+        quantity: item.quantity,
+        tax_rate: detail.tax_rate,
+        tax_included_price: item.unit_price,
+        tax_excluded_price: taxExcludedPrice,
+        tax_included_amount: taxIncludedAmount,
+        tax_excluded_amount: taxExcludedAmount,
+        tax_amount: round4(taxIncludedAmount - taxExcludedAmount),
+        status: 1,
+        remarks: item.remarks || '',
+        product_code: item.product_code || '',
+      }
+    })
 
     salesOrderData.value = {
       quotation_number: detail.quotation_number,
@@ -500,35 +507,38 @@ const handleConvertFromForm = (data: any) => {
     isRowConvert,
   } = data
 
+  // 报价明细 → 销售明细字段映射（行级转换与整单转换共用）
+  const toSalesItem = (item: any) => ({
+    no: item.no,
+    business_category: '',
+    product_name: item.product_name,
+    model: item.model || '',
+    description: item.description || '',
+    unit: item.unit || '',
+    quantity: item.quantity,
+    tax_rate: tax_rate ?? 13,
+    tax_included_price: item.unit_price || 0,
+    tax_excluded_price: 0,
+    tax_included_amount: item.total_amount || 0,
+    tax_excluded_amount: 0,
+    tax_amount: 0,
+    status: 1,
+    remarks: item.remarks || '',
+    product_code: '',
+  })
+
   // 根据是否为行级别转换，准备商品数据
   let salesItems
   let orderNumber
 
   if (isRowConvert) {
-    // 行级别转换：单据编号为报价单单据编号-行编号
+    // 行级别转换：单据编号为报价单单据编号-行编号（quotation_items 只含当前行）
     orderNumber = `${quotation_number}-${quotation_items[0].no}`
-    salesItems = [quotation_items[0]] // 只取当前行
+    salesItems = quotation_items.map(toSalesItem) // 只转换当前行
   } else {
     // 整单转换：单据编号为报价单单据编号
     orderNumber = quotation_number
-    salesItems = quotation_items.map((item: any) => ({
-      no: item.no,
-      business_category: '',
-      product_name: item.product_name,
-      model: item.model || '',
-      description: item.description || '',
-      unit: item.unit || '',
-      quantity: item.quantity,
-      tax_rate: tax_rate ?? 13,
-      tax_included_price: item.unit_price || 0,
-      tax_excluded_price: 0,
-      tax_included_amount: item.total_amount || 0,
-      tax_excluded_amount: 0,
-      tax_amount: 0,
-      status: 1,
-      remarks: item.remarks || '',
-      product_code: '',
-    }))
+    salesItems = quotation_items.map(toSalesItem)
   }
 
   const totalTaxIncludedAmount = salesItems.reduce(

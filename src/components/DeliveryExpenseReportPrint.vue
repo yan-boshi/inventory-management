@@ -13,8 +13,8 @@
         <span v-if="searchParams.orderNumber" class="filter-item">
           出库单号：{{ searchParams.orderNumber }}
         </span>
-        <span v-if="searchParams.salesOrderNumber" class="filter-item">
-          销售合同编号：{{ searchParams.salesOrderNumber }}
+        <span v-if="searchParams.contractNumber" class="filter-item">
+          销售合同编号：{{ searchParams.contractNumber }}
         </span>
         <span v-if="searchParams.productKeyword" class="filter-item">
           商品关键字：{{ searchParams.productKeyword }}

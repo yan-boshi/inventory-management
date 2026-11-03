@@ -1,4 +1,5 @@
 import Currency from '../models/Currency.js'
+import { escapeLike } from '../utils/sql.js'
 
 // 获取币种列表（分页）
 export const getAllCurrencies = async (req, res) => {
@@ -9,11 +10,11 @@ export const getAllCurrencies = async (req, res) => {
 
     if (currency_code) {
       where.push('currency_code LIKE ?')
-      params.push(`%${currency_code}%`)
+      params.push(`%${escapeLike(currency_code)}%`)
     }
     if (currency_name) {
       where.push('currency_name LIKE ?')
-      params.push(`%${currency_name}%`)
+      params.push(`%${escapeLike(currency_name)}%`)
     }
     if (is_active !== undefined && is_active !== '') {
       where.push('is_active = ?')

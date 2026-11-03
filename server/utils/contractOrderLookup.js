@@ -26,11 +26,12 @@ export const parseOrderItems = (row, keys) => {
   }
 }
 
-// 按合同编号加载全部订单及其明细
+// 按合同编号加载全部订单及其明细（forUpdate 行锁：调用方均在事务内做读-改-写，防止并发丢失更新）
 export const loadContractOrders = async (Model, contractNumber, keys, conn) => {
   const orders = await Model.findAll({
     where: 'contract_number = ?',
-    params: [contractNumber]
+    params: [contractNumber],
+    forUpdate: true
   }, conn)
   const itemsMap = new Map()
   for (const order of orders) {
@@ -40,12 +41,18 @@ export const loadContractOrders = async (Model, contractNumber, keys, conn) => {
 }
 
 // 在该合同下的多张订单中查找包含指定商品的明细行
-// 优先匹配剩余可入/出库数量大于 0 的订单，避免把数量同步到已完成的订单上；
-// 若前端明确指定了订单（preferOrderId），则优先使用该订单
+// 优先匹配剩余可入/出库数量大于 0 的订单/行，避免把数量同步到已完成的行上；
+// 若前端明确指定了订单（preferOrderId），优先使用该订单中仍有剩余量的行，
+// 该订单同商品行已满时回落到其他订单（原来是命中即返回，会把量堆到已满的行上超量）
 export const findItemByProduct = (orders, itemsMap, productCode, keys, preferOrderId) => {
+  const remainingOf = (item) => (Number(item.quantity) || 0) - (Number(item[keys.qtyField]) || 0)
+  // 同商品多行时按行顺序取第一个还有剩余量的行
+  const pickRowWithCapacity = (items) =>
+    items.filter((it) => it.product_code === productCode).find((it) => remainingOf(it) > 0) || null
+
   if (preferOrderId && itemsMap.has(preferOrderId)) {
     const items = itemsMap.get(preferOrderId) || []
-    const item = items.find((it) => it.product_code === productCode)
+    const item = pickRowWithCapacity(items)
     if (item) {
       return {
         order: orders.find((o) => o[keys.idField] === preferOrderId),
@@ -53,16 +60,17 @@ export const findItemByProduct = (orders, itemsMap, productCode, keys, preferOrd
         targetItem: item
       }
     }
+    // 指定订单的同商品行已出满，继续走下面的全合同查找
   }
 
   let fallback = null
   for (const order of orders) {
     const items = itemsMap.get(order[keys.idField]) || []
-    const item = items.find((it) => it.product_code === productCode)
-    if (!item) continue
-    const match = { order, items, targetItem: item }
-    const remaining = (Number(item.quantity) || 0) - (Number(item[keys.qtyField]) || 0)
-    if (remaining > 0) return match
+    const candidates = items.filter((it) => it.product_code === productCode)
+    if (candidates.length === 0) continue
+    const item = candidates.find((it) => remainingOf(it) > 0)
+    const match = { order, items, targetItem: item || candidates[0] }
+    if (item) return match
     if (!fallback) fallback = match
   }
   return fallback
@@ -72,9 +80,13 @@ export const findItemByProduct = (orders, itemsMap, productCode, keys, preferOrd
 // 否则会扣到从未入/出库的订单上，把它的状态误改成已完成；
 // preferOrderId 为创建单据时定位到的具体订单，优先回退到同一张订单，避免加到 A 单却从 B 单回退
 export const findItemForRollback = (orders, itemsMap, productCode, keys, preferOrderId) => {
+  // 同商品多行时按行顺序取第一个实际发/收过货的行
+  const pickRowWithShipped = (items) =>
+    items.filter((it) => it.product_code === productCode).find((it) => (Number(it[keys.qtyField]) || 0) > 0) || null
+
   if (preferOrderId && itemsMap.has(preferOrderId)) {
     const items = itemsMap.get(preferOrderId) || []
-    const item = items.find((it) => it.product_code === productCode)
+    const item = pickRowWithShipped(items)
     if (item) {
       return {
         order: orders.find((o) => o[keys.idField] === preferOrderId),
@@ -82,15 +94,17 @@ export const findItemForRollback = (orders, itemsMap, productCode, keys, preferO
         targetItem: item
       }
     }
+    // 指定订单没发/收过货，走全合同查找真正发/收过货的订单
   }
 
   let fallback = null
   for (const order of orders) {
     const items = itemsMap.get(order[keys.idField]) || []
-    const item = items.find((it) => it.product_code === productCode)
-    if (!item) continue
-    const match = { order, items, targetItem: item }
-    if ((Number(item[keys.qtyField]) || 0) > 0) return match
+    const candidates = items.filter((it) => it.product_code === productCode)
+    if (candidates.length === 0) continue
+    const item = candidates.find((it) => (Number(it[keys.qtyField]) || 0) > 0)
+    const match = { order, items, targetItem: item || candidates[0] }
+    if (item) return match
     if (!fallback) fallback = match
   }
   return fallback
@@ -136,14 +150,20 @@ export const syncQuantityDeltaToOrders = async (Model, keys, contractNumber, del
     if (!match) continue
 
     const current = Number(match.targetItem[keys.qtyField]) || 0
-    const next = Math.max(0, current + delta)
+    const quantity = Number(match.targetItem.quantity) || 0
+    // 双向封顶：下限 0、上限订单数量（已超发的历史数据保留存量但不继续扩大），
+    // 被截断的差量记日志，不再静默吞掉
+    const raw = current + delta
+    const next = Math.min(Math.max(0, raw), Math.max(quantity, current))
+    if (Math.abs(next - raw) > 1e-6) {
+      console.warn(`订单 ${match.order[keys.idField]} 商品 ${productCode} 入/出库差量被截断：目标 ${raw}，实际 ${next}`)
+    }
     match.targetItem[keys.qtyField] = next
 
-    // 更新行状态
-    const quantity = Number(match.targetItem.quantity) || 0
-    if (next === 0) {
+    // 更新行状态（浮点容差比较）
+    if (Math.abs(next) < 1e-6) {
       match.targetItem.status = 1 // 未入/出库
-    } else if (next >= quantity) {
+    } else if (next >= quantity - 1e-6) {
       match.targetItem.status = 2 // 已全部入/出库
     } else {
       match.targetItem.status = 3 // 已部分入/出库

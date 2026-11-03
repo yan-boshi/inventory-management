@@ -1,4 +1,5 @@
 import ProductClassification from '../models/ProductClassification.js'
+import { escapeLike } from '../utils/sql.js'
 
 // 获取分类列表（分页）
 export const getAllProductClassifications = async (req, res) => {
@@ -9,7 +10,7 @@ export const getAllProductClassifications = async (req, res) => {
 
     if (name) {
       where.push('classification_name LIKE ?')
-      params.push(`%${name}%`)
+      params.push(`%${escapeLike(name)}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''

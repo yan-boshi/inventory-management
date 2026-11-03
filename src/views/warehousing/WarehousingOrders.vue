@@ -259,7 +259,7 @@ const expandedOrders = computed(() => {
   return result
 })
 
-const searchParams = reactive<WarehousingOrderQueryParams>({
+const searchParams = reactive<WarehousingOrderQueryParams & { endDate?: string }>({
   page: 1,
   pageSize: 100,
   orderNumber: '',
@@ -269,6 +269,7 @@ const searchParams = reactive<WarehousingOrderQueryParams>({
   productCode: '',
   productModel: '',
   warehousingDate: '',
+  endDate: '',
   trackingNumber: '',
 })
 
@@ -510,6 +511,7 @@ const handleReset = () => {
   searchParams.productModel = ''
   searchParams.trackingNumber = ''
   searchParams.warehousingDate = ''
+  searchParams.endDate = ''
   dateRange.value = undefined
   handleSearch()
 }
@@ -517,8 +519,10 @@ const handleReset = () => {
 const handleDateRangeChange = (dates: [any, any]) => {
   if (dates && dates[0] && dates[1]) {
     searchParams.warehousingDate = dates[0].format('YYYY-MM-DD')
+    searchParams.endDate = dates[1].format('YYYY-MM-DD')
   } else {
     searchParams.warehousingDate = ''
+    searchParams.endDate = ''
   }
 }
 

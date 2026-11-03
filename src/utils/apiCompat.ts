@@ -3,7 +3,7 @@
 
 export { deliveryOrdersApi as getDeliveryOrdersApi } from '@/api/deliveryOrders'
 export { warehousingOrdersApi as getWarehousingOrdersApi } from '@/api/warehousingOrders'
-export { productApi as getProductApi } from '@/api/products'
-export { supplierApi as getSupplierApi } from '@/api/suppliers'
-export { customerApi as getCustomerApi } from '@/api/customers'
+export { productsApi as getProductApi } from '@/api/products'
+export { suppliersApi as getSupplierApi } from '@/api/suppliers'
+export { customersApi as getCustomerApi } from '@/api/customers'
 export { salesOrdersApi as getSalesOrdersApi } from '@/api/salesOrders'

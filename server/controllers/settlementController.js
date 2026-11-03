@@ -7,6 +7,7 @@ import Payable from '../models/Payable.js'
 import { handleDbError } from '../utils/errorHandler.js'
 import { generateUUID } from '../utils/uuid.js'
 import { round4 } from '../utils/round.js'
+import { escapeLike } from '../utils/sql.js'
 
 // 获取下一个对账单编号
 export const getNextStatementNumber = async (req, res) => {
@@ -20,7 +21,7 @@ export const getNextStatementNumber = async (req, res) => {
 }
 
 // 根据已开票金额更新关联的应收/应付单的开票状态
-const updateItemBillingStatus = async (items, invoicedAmount) => {
+const updateItemBillingStatus = async (items, invoicedAmount, conn = pool) => {
   let remainingInvoiced = invoicedAmount || 0
 
   for (const item of items) {
@@ -40,9 +41,9 @@ const updateItemBillingStatus = async (items, invoicedAmount) => {
 
     // 更新对应的应收/应付单的开票状态
     if (item.source_type === 1 && item.source_id) {
-      await Receivable.update(item.source_id, { billing_status: billingStatus })
+      await Receivable.update(item.source_id, { billing_status: billingStatus }, conn)
     } else if (item.source_type === 2 && item.source_id) {
-      await Payable.update(item.source_id, { billing_status: billingStatus })
+      await Payable.update(item.source_id, { billing_status: billingStatus }, conn)
     }
   }
 }
@@ -84,7 +85,7 @@ export const getSettlementList = async (req, res) => {
 
     if (entity_name) {
       where.push('entity_name LIKE ?')
-      params.push(`%${entity_name}%`)
+      params.push(`%${escapeLike(entity_name)}%`)
     }
 
     // 制单日期范围筛选
@@ -317,7 +318,7 @@ export const createSettlement = async (req, res) => {
       }
 
       // 根据已开票金额更新关联的应收/应付单的开票状态
-      await updateItemBillingStatus(items, invoiced_amount)
+      await updateItemBillingStatus(items, resolvedInvoicedAmount, connection)
     }
 
     // 创建开票记录
@@ -348,7 +349,10 @@ export const createSettlement = async (req, res) => {
 
 // 更新对账单
 export const updateSettlement = async (req, res) => {
+  const connection = await pool.getConnection()
   try {
+    await connection.beginTransaction()
+
     const { id } = req.params
     const {
       type, entity_id, entity_name, billing_month, settlement_date, payment_method,
@@ -360,8 +364,9 @@ export const updateSettlement = async (req, res) => {
     // 兼容前端发送的 settlement_date，映射到 billing_month
     const resolvedBillingMonth = billing_month || (settlement_date ? settlement_date.substring(0, 7) : null)
 
-    const existing = await SettlementStatement.findById(id)
+    const existing = await SettlementStatement.findById(id, connection)
     if (!existing) {
+      await connection.rollback()
       return res.status(404).json({ success: false, message: '对账单不存在' })
     }
 
@@ -384,12 +389,12 @@ export const updateSettlement = async (req, res) => {
     if (handling_fee !== undefined) updateData.handling_fee = handling_fee
     if (remarks !== undefined) updateData.remarks = remarks
 
-    const statement = await SettlementStatement.update(id, updateData)
+    const statement = await SettlementStatement.update(id, updateData, connection)
 
     // 如果提供了新的明细，更新明细
     if (items) {
       // 删除旧明细
-      await SettlementStatementItem.deleteByStatementId(id)
+      await SettlementStatementItem.deleteByStatementId(id, connection)
 
       // 创建新明细
       for (const item of items) {
@@ -410,7 +415,7 @@ export const updateSettlement = async (req, res) => {
           unit_price: item.unit_price,
           amount_with_tax: item.amount_with_tax,
           remarks: item.remarks
-        })
+        }, connection)
       }
 
       // 将手续费均分给每个应收/应付单
@@ -420,22 +425,27 @@ export const updateSettlement = async (req, res) => {
         for (const item of items) {
           if (item.source_type === 1) {
             // 应收单
-            await Receivable.update(item.source_id, { handling_fee: feePerItem })
+            await Receivable.update(item.source_id, { handling_fee: feePerItem }, connection)
           } else if (item.source_type === 2) {
             // 应付单
-            await Payable.update(item.source_id, { handling_fee: feePerItem })
+            await Payable.update(item.source_id, { handling_fee: feePerItem }, connection)
           }
         }
       }
 
       // 根据已开票金额更新关联的应收/应付单的开票状态
-      await updateItemBillingStatus(items, invoiced_amount)
+      // 请求未带 invoiced_amount 时取原值，避免把开票状态全部清零
+      await updateItemBillingStatus(
+        items,
+        invoiced_amount !== undefined ? invoiced_amount : existing.invoiced_amount,
+        connection
+      )
     }
 
     // 更新开票记录
     if (invoice_records !== undefined) {
       // 删除旧的开票记录
-      await SettlementInvoiceRecord.deleteByStatementId(id)
+      await SettlementInvoiceRecord.deleteByStatementId(id, connection)
 
       // 创建新的开票记录
       if (invoice_records && invoice_records.length > 0) {
@@ -446,34 +456,57 @@ export const updateSettlement = async (req, res) => {
             invoice_number: record.invoice_number,
             invoiced_amount: record.invoiced_amount,
             uninvoiced_amount: record.uninvoiced_amount
-          })
+          }, connection)
         }
       }
     }
 
+    await connection.commit()
     res.json({ success: true, data: statement })
   } catch (error) {
+    await connection.rollback()
     const { statusCode, message } = handleDbError(error, '更新对账单')
     res.status(statusCode).json({ success: false, message })
+  } finally {
+    connection.release()
   }
 }
 
 // 删除对账单
 export const deleteSettlement = async (req, res) => {
+  const connection = await pool.getConnection()
   try {
+    await connection.beginTransaction()
+
     const { id } = req.params
 
-    const existing = await SettlementStatement.findById(id)
+    const existing = await SettlementStatement.findById(id, connection)
     if (!existing) {
+      await connection.rollback()
       return res.status(404).json({ success: false, message: '对账单不存在' })
     }
 
-    await SettlementStatement.delete(id)
+    // 删除前还原写到应收/应付上的手续费与开票状态（明细/开票记录由外键级联删除）
+    const items = await SettlementStatementItem.findByStatementId(id, connection)
+    for (const item of items) {
+      if (!item.source_id) continue
+      if (item.source_type === 1) {
+        await Receivable.update(item.source_id, { handling_fee: 0, billing_status: 0 }, connection)
+      } else if (item.source_type === 2) {
+        await Payable.update(item.source_id, { handling_fee: 0, billing_status: 0 }, connection)
+      }
+    }
 
+    await SettlementStatement.delete(id, connection)
+
+    await connection.commit()
     res.json({ success: true, message: '对账单删除成功' })
   } catch (error) {
+    await connection.rollback()
     const { statusCode, message } = handleDbError(error, '删除对账单')
     res.status(statusCode).json({ success: false, message })
+  } finally {
+    connection.release()
   }
 }
 

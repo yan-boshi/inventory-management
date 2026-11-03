@@ -290,6 +290,7 @@ import { useUserStore } from '@/stores/user'
 import { customersApi } from '@/api/customers'
 import { getLocale, type Lang } from '@/locales'
 import { round4, formatMoney4, amountToChinese, amountToEnglish } from '@/utils/money'
+import { formatDate } from '@/utils/date'
 
 const lang = ref<Lang>('zh')
 const t = computed(() => getLocale(lang.value))
@@ -500,11 +501,6 @@ watch(editModalVisible, newVal => {
     })
   }
 })
-
-const formatDate = (date: string | undefined) => {
-  if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD')
-}
 
 const formatPrice = (price: number | string | undefined) => {
   const numPrice = typeof price === 'string' ? parseFloat(price) : price || 0

@@ -1,4 +1,5 @@
 import Quotation from '../models/Quotation.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllQuotations = async (req, res) => {
   try {
@@ -17,17 +18,17 @@ export const getAllQuotations = async (req, res) => {
 
     if (quotationNumber) {
       where.push('quotation_number LIKE ?')
-      params.push(`%${quotationNumber}%`)
+      params.push(`%${escapeLike(quotationNumber)}%`)
     }
 
     if (customerName) {
       where.push('customer_name LIKE ?')
-      params.push(`%${customerName}%`)
+      params.push(`%${escapeLike(customerName)}%`)
     }
 
     if (customerCode) {
       where.push('customer_code LIKE ?')
-      params.push(`%${customerCode}%`)
+      params.push(`%${escapeLike(customerCode)}%`)
     }
 
     if (startDate && endDate) {
@@ -105,7 +106,7 @@ export const createQuotation = async (req, res) => {
       quotation_items,
       validity_period,
       delivery_method,
-      tax_rate: parseFloat(tax_rate) ?? 13,
+      tax_rate: Number.isFinite(parseFloat(tax_rate)) ? parseFloat(tax_rate) : 13,
       currency,
       payment_terms,
       trade_terms,
@@ -150,7 +151,7 @@ export const updateQuotation = async (req, res) => {
     if (quotation_items !== undefined) updateData.quotation_items = quotation_items
     if (validity_period !== undefined) updateData.validity_period = validity_period
     if (delivery_method !== undefined) updateData.delivery_method = delivery_method
-    if (tax_rate !== undefined) updateData.tax_rate = parseFloat(tax_rate)
+    if (tax_rate !== undefined && Number.isFinite(parseFloat(tax_rate))) updateData.tax_rate = parseFloat(tax_rate)
     if (currency !== undefined) updateData.currency = currency
     if (payment_terms !== undefined) updateData.payment_terms = payment_terms
     if (trade_terms !== undefined) updateData.trade_terms = trade_terms

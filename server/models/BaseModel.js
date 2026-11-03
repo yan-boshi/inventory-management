@@ -17,7 +17,7 @@ class BaseModel {
     return sanitized ? ` ORDER BY ${sanitized}` : ''
   }
 
-  // 验证并格式化 LIMIT 参数
+  // 验证并格式化 LIMIT 参数（非法/超限时钳到上限 10000，而不是取消 LIMIT 放开全表）
   validateLimit(limit) {
     if (!limit) return ''
     // 如果是 "offset, count" 格式，验证两个数字
@@ -25,28 +25,30 @@ class BaseModel {
     if (parts.length === 2) {
       const offset = parseInt(parts[0], 10)
       const count = parseInt(parts[1], 10)
-      if (isNaN(offset) || isNaN(count) || offset < 0 || count < 0 || count > 10000) {
-        return ''
+      if (isNaN(offset) || isNaN(count) || offset < 0 || count < 0) {
+        return ' LIMIT 0, 10000'
       }
-      return ` LIMIT ${offset}, ${count}`
+      return ` LIMIT ${offset}, ${Math.min(count, 10000)}`
     } else if (parts.length === 1) {
       const count = parseInt(parts[0], 10)
-      if (isNaN(count) || count < 0 || count > 10000) {
-        return ''
+      if (isNaN(count) || count < 0) {
+        return ' LIMIT 10000'
       }
-      return ` LIMIT ${count}`
+      return ` LIMIT ${Math.min(count, 10000)}`
     }
-    return ''
+    return ' LIMIT 10000'
   }
 
   // 所有方法支持传入事务连接 conn（pool.getConnection() 获取的 connection），
   // 不传时使用连接池。conn 只需暴露 query()，pool 与 connection 均满足
   async findAll(options = {}, conn = pool) {
-    const { where = '', orderBy = '', limit = '', params = [] } = options
+    const { where = '', orderBy = '', limit = '', params = [], forUpdate = false } = options
     const orderClause = this.validateOrderBy(orderBy)
     const limitClause = this.validateLimit(limit)
     const whereClause = where ? ` WHERE ${where}` : ''
-    const sql = `SELECT * FROM ${this.tableName}${whereClause}${orderClause}${limitClause}`
+    // forUpdate：事务内对读取的行加锁，防止 JSON 明细读-改-写的并发丢失更新
+    const lockClause = forUpdate ? ' FOR UPDATE' : ''
+    const sql = `SELECT * FROM ${this.tableName}${whereClause}${orderClause}${limitClause}${lockClause}`
     const [rows] = await conn.query(sql, params)
     return rows
   }

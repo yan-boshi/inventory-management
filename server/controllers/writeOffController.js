@@ -2,72 +2,101 @@ import pool from '../config/database.js'
 import WriteOffDocument from '../models/WriteOffDocument.js'
 import WriteOffItem from '../models/WriteOffItem.js'
 import { round4 } from '../utils/round.js'
+import { escapeLike } from '../utils/sql.js'
 
 // 同步核销信息到销售订单/采购订单的商品信息
-async function syncOrderSettlementInfo(connection, type, sourceBillId, writeOffDate, afterReceived, balanceAmount, calcStatus) {
+// 优先按出库/入库单定位到其关联的具体订单，避免按合同扇出把无关订单的结算金额全部覆盖
+// （毛利表直接调整已结算金额时也复用本函数保持订单显示一致）
+export async function syncOrderSettlementInfo(connection, type, sourceBillId, writeOffDate, afterReceived, balanceAmount, calcStatus) {
   const statusText = calcStatus === 2 ? '全部结算' : calcStatus === 1 ? '部分结算' : '未结算'
 
   if (parseInt(type) === 1) {
     // 应收核销 → 更新销售订单
-    // 通过出库单号找到合同号，再通过合同号找到销售订单
+    // 通过出库单号定位到具体销售订单（创建出库单时已落库 sales_order_id）
     const [deliveryRows] = await connection.query(
-      'SELECT contract_number FROM delivery_orders WHERE order_number = ? LIMIT 1',
+      'SELECT contract_number, sales_order_id FROM delivery_orders WHERE order_number = ? LIMIT 1',
       [sourceBillId]
     )
-    if (deliveryRows.length > 0 && deliveryRows[0].contract_number) {
-      const contractNumber = deliveryRows[0].contract_number
-      // 同一销售合同编号可能对应多张销售订单，全部同步
-      const [salesRows] = await connection.query(
+    if (deliveryRows.length === 0) return
+    const contractNumber = deliveryRows[0].contract_number
+    const salesOrderId = deliveryRows[0].sales_order_id
+
+    let salesRows = []
+    if (salesOrderId) {
+      // 精确同步：只更新出库单关联的那张销售订单
+      const [rows] = await connection.query(
+        'SELECT sales_order_id, sales_items FROM sales_orders WHERE sales_order_id = ? FOR UPDATE',
+        [salesOrderId]
+      )
+      salesRows = rows
+    } else if (contractNumber) {
+      // 历史数据没有关联具体订单时，回退为同步同合同下的订单
+      const [rows] = await connection.query(
         'SELECT sales_order_id, sales_items FROM sales_orders WHERE contract_number = ? FOR UPDATE',
         [contractNumber]
       )
-      for (const salesOrder of salesRows) {
-        let salesItems = []
-        try { salesItems = JSON.parse(salesOrder.sales_items || '[]') } catch { }
+      salesRows = rows
+    }
 
-        for (const item of salesItems) {
-          item.settlement_date = writeOffDate
-          item.settlement_amount = afterReceived
-          item.unsettled_amount = balanceAmount
-          item.settlement_status = statusText
-        }
+    for (const salesOrder of salesRows) {
+      let salesItems = []
+      try { salesItems = JSON.parse(salesOrder.sales_items || '[]') } catch { }
 
-        await connection.query(
-          'UPDATE sales_orders SET sales_items = ? WHERE sales_order_id = ?',
-          [JSON.stringify(salesItems), salesOrder.sales_order_id]
-        )
+      for (const item of salesItems) {
+        item.settlement_date = writeOffDate
+        item.settlement_amount = afterReceived
+        item.unsettled_amount = balanceAmount
+        item.settlement_status = statusText
       }
+
+      await connection.query(
+        'UPDATE sales_orders SET sales_items = ? WHERE sales_order_id = ?',
+        [JSON.stringify(salesItems), salesOrder.sales_order_id]
+      )
     }
   } else {
     // 应付核销 → 更新采购订单
-    // 通过入库单号找到合同号，再通过合同号找到采购订单
+    // 通过入库单号定位到具体采购订单（创建入库单时已落库 purchase_order_id）
     const [warehousingRows] = await connection.query(
-      'SELECT contract_number FROM warehousing_orders WHERE order_number = ? LIMIT 1',
+      'SELECT contract_number, purchase_order_id FROM warehousing_orders WHERE order_number = ? LIMIT 1',
       [sourceBillId]
     )
-    if (warehousingRows.length > 0 && warehousingRows[0].contract_number) {
-      const contractNumber = warehousingRows[0].contract_number
-      // 同一采购合同编号可能对应多张采购订单，全部同步
-      const [purchaseRows] = await connection.query(
+    if (warehousingRows.length === 0) return
+    const contractNumber = warehousingRows[0].contract_number
+    const purchaseOrderId = warehousingRows[0].purchase_order_id
+
+    let purchaseRows = []
+    if (purchaseOrderId) {
+      // 精确同步：只更新入库单关联的那张采购订单
+      const [rows] = await connection.query(
+        'SELECT purchase_order_id, purchase_items FROM purchase_orders WHERE purchase_order_id = ? FOR UPDATE',
+        [purchaseOrderId]
+      )
+      purchaseRows = rows
+    } else if (contractNumber) {
+      // 历史数据没有关联具体订单时，回退为同步同合同下的订单
+      const [rows] = await connection.query(
         'SELECT purchase_order_id, purchase_items FROM purchase_orders WHERE contract_number = ? FOR UPDATE',
         [contractNumber]
       )
-      for (const purchaseOrder of purchaseRows) {
-        let purchaseItems = []
-        try { purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]') } catch { }
+      purchaseRows = rows
+    }
 
-        for (const item of purchaseItems) {
-          item.settlement_date = writeOffDate
-          item.settlement_amount = afterReceived
-          item.unsettled_amount = balanceAmount
-          item.settlement_status = statusText
-        }
+    for (const purchaseOrder of purchaseRows) {
+      let purchaseItems = []
+      try { purchaseItems = JSON.parse(purchaseOrder.purchase_items || '[]') } catch { }
 
-        await connection.query(
-          'UPDATE purchase_orders SET purchase_items = ? WHERE purchase_order_id = ?',
-          [JSON.stringify(purchaseItems), purchaseOrder.purchase_order_id]
-        )
+      for (const item of purchaseItems) {
+        item.settlement_date = writeOffDate
+        item.settlement_amount = afterReceived
+        item.unsettled_amount = balanceAmount
+        item.settlement_status = statusText
       }
+
+      await connection.query(
+        'UPDATE purchase_orders SET purchase_items = ? WHERE purchase_order_id = ?',
+        [JSON.stringify(purchaseItems), purchaseOrder.purchase_order_id]
+      )
     }
   }
 }
@@ -102,7 +131,7 @@ export const getWriteOffList = async (req, res) => {
 
     if (entity_name) {
       where.push('entity_name LIKE ?')
-      params.push(`%${entity_name}%`)
+      params.push(`%${escapeLike(entity_name)}%`)
     }
 
     if (write_off_date_start) {
@@ -285,10 +314,10 @@ export const getPendingRecords = async (req, res) => {
   }
 }
 
-// 计算应收/应付状态
+// 计算应收/应付状态（带 0.00001 容差，避免浮点累加导致该置 2 的判成 1）
 const calcStatus = (receivedAmount, totalAmount) => {
   if (receivedAmount <= 0) return 0
-  if (receivedAmount >= totalAmount) return 2
+  if (receivedAmount >= totalAmount - 0.00001) return 2
   return 1
 }
 
@@ -388,7 +417,7 @@ export const createWriteOff = async (req, res) => {
       remarks,
       status: 1,
       document_date
-    })
+    }, connection)
 
     // 创建核销单明细
     for (const pItem of processedItems) {
@@ -396,7 +425,7 @@ export const createWriteOff = async (req, res) => {
         write_off_id: document.write_off_id,
         source_type: parseInt(type),
         ...pItem
-      })
+      }, connection)
     }
 
     await connection.commit()
@@ -430,7 +459,7 @@ export const updateWriteOff = async (req, res) => {
       remarks, document_date, items
     } = req.body
 
-    const existing = await WriteOffDocument.findById(id)
+    const existing = await WriteOffDocument.findById(id, connection)
     if (!existing) {
       await connection.rollback()
       return res.status(404).json({ success: false, message: '核销单不存在' })
@@ -441,11 +470,17 @@ export const updateWriteOff = async (req, res) => {
       return res.status(400).json({ success: false, message: '已作废的核销单不可编辑' })
     }
 
+    // 明细为空直接拒绝：否则旧明细被回滚删除后主表金额/状态不更新，账实不对称
+    if (!items || items.length === 0) {
+      await connection.rollback()
+      return res.status(400).json({ success: false, message: '核销明细不能为空' })
+    }
+
     const tableName = parseInt(existing.type) === 1 ? 'receivables' : 'payables'
     const idField = parseInt(existing.type) === 1 ? 'receivable_id' : 'payable_id'
 
     // 回滚旧明细
-    const oldItems = await WriteOffItem.findByWriteOffId(id)
+    const oldItems = await WriteOffItem.findByWriteOffId(id, connection)
     for (const oldItem of oldItems) {
       const [rows] = await connection.query(
         `SELECT * FROM ${tableName} WHERE ${idField} = ? FOR UPDATE`,
@@ -473,8 +508,8 @@ export const updateWriteOff = async (req, res) => {
       }
     }
 
-    // 删除旧明细
-    await WriteOffItem.deleteByWriteOffId(id)
+    // 删除旧明细（必须走事务连接，否则自动提交后失败无法回滚，明细永久丢失）
+    await WriteOffItem.deleteByWriteOffId(id, connection)
 
     // 应用新明细
     if (items && items.length > 0) {
@@ -528,7 +563,7 @@ export const updateWriteOff = async (req, res) => {
           before_received: currentReceived,
           after_received: afterReceived,
           remarks: item.remarks || null
-        })
+        }, connection)
 
         totalAmount += writeOffAmount
       }
@@ -542,7 +577,7 @@ export const updateWriteOff = async (req, res) => {
         remarks: remarks !== undefined ? remarks : existing.remarks,
         document_date: document_date !== undefined ? document_date : existing.document_date,
         total_amount: totalAmount
-      })
+      }, connection)
     }
 
     await connection.commit()
@@ -571,7 +606,7 @@ export const voidWriteOff = async (req, res) => {
 
     const { id } = req.params
 
-    const existing = await WriteOffDocument.findById(id)
+    const existing = await WriteOffDocument.findById(id, connection)
     if (!existing) {
       await connection.rollback()
       return res.status(404).json({ success: false, message: '核销单不存在' })
@@ -586,7 +621,7 @@ export const voidWriteOff = async (req, res) => {
     const idField = parseInt(existing.type) === 1 ? 'receivable_id' : 'payable_id'
 
     // 回滚所有明细
-    const items = await WriteOffItem.findByWriteOffId(id)
+    const items = await WriteOffItem.findByWriteOffId(id, connection)
     for (const item of items) {
       const [rows] = await connection.query(
         `SELECT * FROM ${tableName} WHERE ${idField} = ? FOR UPDATE`,
@@ -622,7 +657,7 @@ export const voidWriteOff = async (req, res) => {
     }
 
     // 作废核销单
-    await WriteOffDocument.update(id, { status: 0 })
+    await WriteOffDocument.update(id, { status: 0 }, connection)
 
     await connection.commit()
 

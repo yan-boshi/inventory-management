@@ -3,11 +3,39 @@ import Currency from '../models/Currency.js'
 import { generateUUID } from '../utils/uuid.js'
 import { handleDbError } from '../utils/errorHandler.js'
 
-// 获取本月1日日期
+// 获取本月1日日期（字符串直接取年月，本地时区拼接，
+// 避免 new Date('YYYY-MM-DD') 按 UTC 解析在西半球串到上个月、toISOString 转 UTC 串月）
 function getFirstDayOfMonth(date) {
+  const m = String(date ?? '').match(/^(\d{4})-(\d{2})/)
+  if (m) return `${m[1]}-${m[2]}-01`
   const d = new Date(date)
-  d.setDate(1)
-  return d.toISOString().slice(0, 10)
+  const y = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  return `${y}-${mo}-01`
+}
+
+// 校验并归一化生效月：必须是每月 1 日，返回 'YYYY-MM-01'，非法返回 null
+// 直接解析字符串里的日期部分做判断，不受服务器时区影响（new Date('YYYY-MM-DD') 按 UTC 解析，西半球会串到上个月）
+function normalizeEffectiveMonth(value) {
+  if (value instanceof Date) {
+    if (isNaN(value.getTime())) return null
+    return getFirstDayOfMonth(value)
+  }
+  const str = String(value ?? '').trim()
+  // 'YYYY-MM' 视为当月 1 日
+  const ym = str.match(/^(\d{4})-(\d{1,2})$/)
+  if (ym && isValidMonth(ym[2])) return `${ym[1]}-${ym[2].padStart(2, '0')}-01`
+  // 'YYYY-MM-DD' 或带时间的 ISO 字符串，取日期部分判断
+  const ymd = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
+  if (ymd && isValidMonth(ymd[2])) {
+    return parseInt(ymd[3], 10) === 1 ? `${ymd[1]}-${ymd[2].padStart(2, '0')}-01` : null
+  }
+  return null
+}
+
+function isValidMonth(m) {
+  const num = parseInt(m, 10)
+  return num >= 1 && num <= 12
 }
 
 // 获取海关汇率列表（分页）
@@ -73,12 +101,11 @@ export const createCustomsExchangeRate = async (req, res) => {
       return res.status(400).json({ success: false, message: '币种不存在' })
     }
 
-    // effective_month 必须是每月1日
-    const monthDate = new Date(effective_month)
-    if (monthDate.getDate() !== 1) {
+    // effective_month 必须是每月1日（直接校验日期字符串，不受服务器时区影响）
+    const monthStr = normalizeEffectiveMonth(effective_month)
+    if (!monthStr) {
       return res.status(400).json({ success: false, message: '生效月必须选择每月1日的日期' })
     }
-    const monthStr = effective_month.slice(0, 10)
 
     // 检查是否已存在
     const existing = await CustomsExchangeRate.findRate(source_currency, target_currency, monthStr)
@@ -116,14 +143,14 @@ export const updateCustomsExchangeRate = async (req, res) => {
     // 如果修改了币种或月份，验证不重复
     const newSource = source_currency || existing.source_currency
     const newTarget = target_currency || existing.target_currency
-    let newMonth = existing.effective_month
+    let newMonth = normalizeEffectiveMonth(existing.effective_month)
 
     if (effective_month) {
-      const monthDate = new Date(effective_month)
-      if (monthDate.getDate() !== 1) {
+      const monthStr = normalizeEffectiveMonth(effective_month)
+      if (!monthStr) {
         return res.status(400).json({ success: false, message: '生效月必须选择每月1日的日期' })
       }
-      newMonth = effective_month.slice(0, 10)
+      newMonth = monthStr
     }
 
     if (source_currency || target_currency || effective_month) {

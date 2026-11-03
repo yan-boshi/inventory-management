@@ -1,5 +1,6 @@
 import Customer from '../models/Customer.js'
 import { handleDbError } from '../utils/errorHandler.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllCustomers = async (req, res) => {
   try {
@@ -9,7 +10,7 @@ export const getAllCustomers = async (req, res) => {
 
     if (name) {
       where.push('customer_name LIKE ?')
-      params.push(`%${name}%`)
+      params.push(`%${escapeLike(name)}%`)
     }
 
     if (code) {

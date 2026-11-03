@@ -1,6 +1,7 @@
 import BaseModel from './BaseModel.js'
 import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
+import { nextSequence, localDateStr } from '../utils/sequence.js'
 
 class PurchasePlan extends BaseModel {
   constructor() {
@@ -8,29 +9,7 @@ class PurchasePlan extends BaseModel {
   }
 
   async generatePlanNumber() {
-    const date = new Date()
-    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    const dateStr = fullDateStr.slice(2)
-
-    const query = `
-      SELECT plan_number
-      FROM ${this.tableName}
-      WHERE plan_number LIKE ?
-      ORDER BY plan_number DESC
-      LIMIT 1
-    `
-    const [result] = await pool.query(query, [`XSD-PP-${dateStr}-%`])
-
-    let sequence = 1
-    if (result.length > 0) {
-      const lastNumber = result[0].plan_number
-      const lastSequence = parseInt(lastNumber.split('-').pop(), 10)
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1
-      }
-    }
-
-    return `XSD-PP-${dateStr}-${sequence.toString().padStart(3, '0')}`
+    return nextSequence(this.tableName, 'plan_number', `XSD-PP-${localDateStr().slice(2)}-`)
   }
 
   async create(data, conn) {
@@ -72,19 +51,15 @@ class PurchasePlan extends BaseModel {
       where: 'contract_number = ?',
       orderBy: 'created_at ASC, plan_number ASC',
       params: [contractNumber],
+      forUpdate: true
     }, conn)
   }
 
-  async deleteBySalesOrderId(salesOrderId) {
-    const connection = await pool.getConnection()
-    try {
-      await connection.query(
-        `DELETE FROM ${this.tableName} WHERE sales_order_id = ?`,
-        [salesOrderId]
-      )
-    } finally {
-      connection.release()
-    }
+  async deleteBySalesOrderId(salesOrderId, conn = pool) {
+    await conn.query(
+      `DELETE FROM ${this.tableName} WHERE sales_order_id = ?`,
+      [salesOrderId]
+    )
   }
 }
 

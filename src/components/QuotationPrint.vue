@@ -223,14 +223,14 @@ const items = computed(() => {
   if (props.printData?.quotation_items) {
     return props.printData.quotation_items
   }
-  if (props.quotation?.quotation_items && typeof props.quotation.quotation_items === 'string') {
-    try {
-      return JSON.parse(props.quotation.quotation_items)
-    } catch {
-      return []
-    }
+  const raw: any = props.quotation?.quotation_items
+  if (!raw) return []
+  try {
+    // 兜底 '[]'，兼容字符串 / 已解析数组两种形态
+    return typeof raw === 'string' ? JSON.parse(raw || '[]') : raw
+  } catch {
+    return []
   }
-  return []
 })
 
 const totalAmount = computed(() => {

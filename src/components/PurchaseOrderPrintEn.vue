@@ -67,7 +67,7 @@
             <td>{{ item.unit || '-' }}</td>
             <td>{{ item.tax_included_price }}</td>
             <td>{{ item.tax_included_amount }}</td>
-            <td>{{ formatDate(orderData.arrival_date) }}</td>
+            <td>{{ formatDate(item.delivery_date) }}</td>
             <td>
               <span class="value editable" @click="handleEdit('remarks')"> - </span>
             </td>
@@ -219,7 +219,7 @@ import dayjs from 'dayjs'
 import type { PurchaseOrder } from '@/types'
 import { useUserStore } from '@/stores/user'
 import { suppliersApi } from '@/api/suppliers'
-import { formatMoney4 } from '@/utils/money'
+import { formatMoney4, round4 } from '@/utils/money'
 
 interface Props {
   visible: boolean
@@ -256,7 +256,7 @@ const currentUser = computed(() => userStore.user)
 
 const formData = reactive({
   orderDate: '',
-  taxRate: 0,
+  taxRate: 0 as number | string,
   remarks: '',
   total: 0,
   buyerContact: '',
@@ -290,9 +290,28 @@ const initializeFormData = () => {
   const order = orderData.value
   const supplier = supplierData.value
   formData.orderDate = order.created_at || new Date().toISOString()
-  formData.taxRate = order.tax_rate || 0
   formData.remarks = ''
-  formData.total = order.tax_included_amount || 0
+
+  // 从purchase_items中计算总金额与税率（订单级 tax_included_amount/tax_rate 字段已迁移删除）
+  try {
+    const items = JSON.parse(order.purchase_items || '[]')
+    const total = items.reduce((sum: number, item: any) => {
+      return sum + (parseFloat(item.total_price) || 0)
+    }, 0)
+    formData.total = round4(total)
+    const rates = [
+      ...new Set(
+        items
+          .map((item: any) => item.tax_rate)
+          .filter((rate: any) => rate !== null && rate !== undefined && rate !== '' && Number.isFinite(Number(rate)))
+          .map((rate: any) => Number(rate))
+      ),
+    ]
+    formData.taxRate = rates.length > 0 ? rates.join('%/') : 0
+  } catch {
+    formData.total = 0
+    formData.taxRate = 0
+  }
   formData.buyerContact = user?.username || ''
   formData.buyerPhone = user?.phone || ''
   formData.buyerEmail = user?.email || ''

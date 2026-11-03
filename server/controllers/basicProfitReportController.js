@@ -1,5 +1,6 @@
 import pool from '../config/database.js'
 import { round4 } from '../utils/round.js'
+import { escapeLike } from '../utils/sql.js'
 
 /**
  * 基础毛利表Controller
@@ -19,8 +20,11 @@ function formatDateStr(date) {
 }
 
 // 获取月份第一天日期字符串（用于匹配 effective_month）
+// 直接解析字符串年月，不走 new Date('YYYY-MM-DD')（按 UTC 解析，西半球会串到上月导致海关汇率查空）
 function getMonthStr(dateStr) {
   if (!dateStr) return null
+  const m = String(dateStr).match(/^(\d{4})-(\d{2})/)
+  if (m) return `${m[1]}-${m[2]}-01`
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return null
   const year = d.getFullYear()
@@ -46,15 +50,15 @@ export const getBasicProfitReport = async (req, res) => {
     }
     if (contractNumber) {
       conditions.push('so.contract_number LIKE ?')
-      params.push(`%${contractNumber}%`)
+      params.push(`%${escapeLike(contractNumber)}%`)
     }
     if (customerName) {
       conditions.push('so.customer_name LIKE ?')
-      params.push(`%${customerName}%`)
+      params.push(`%${escapeLike(customerName)}%`)
     }
     if (salesPerson) {
       conditions.push('so.sales_person LIKE ?')
-      params.push(`%${salesPerson}%`)
+      params.push(`%${escapeLike(salesPerson)}%`)
     }
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
@@ -375,7 +379,9 @@ export const getBasicProfitReport = async (req, res) => {
           const expHandling = parseFloat(poExpenses.handlingFee) || 0
           const expOther = parseFloat(poExpenses.otherFee) || 0
           const totalExpense = expTransportation + expOperating + expVat + expHandling + expOther
-          const expenseCNY = poCurrency !== 'CNY' ? totalExpense * poCustomsRate : totalExpense
+          // 费用录入即为人民币，不再按采购海关汇率换算（与 profitReportController 的口径一致，
+          // 原来的 * poCustomsRate 会把人民币费用再乘一次汇率≈7.2 倍）；若业务口径相反请回滚此行
+          const expenseCNY = totalExpense
 
           // 累加（一个销售商品可能关联多个采购订单）
           purchaseContractNumber = purchaseContractNumber

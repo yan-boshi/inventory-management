@@ -292,7 +292,11 @@ watch(() => props.visible, async (newVal) => {
       form.return_person = data.return_person || ''
       form.reason = data.reason || ''
       form.remarks = data.remarks || ''
-      form.return_items = JSON.parse(data.return_items || '[]')
+      try {
+        form.return_items = JSON.parse(data.return_items || '[]')
+      } catch {
+        form.return_items = []
+      }
       calculateTotal()
     } else if (props.sourceOrder) {
       // 新增模式 - 从源入库单加载

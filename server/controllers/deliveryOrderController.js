@@ -20,6 +20,7 @@ import {
   restorePlanDeductions,
   restoreQuantitiesToPlans
 } from '../utils/planRestore.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllDeliveryOrders = async (req, res) => {
   try {
@@ -33,6 +34,7 @@ export const getAllDeliveryOrders = async (req, res) => {
       contractNumber,
       customerName,
       deliveryDate,
+      endDate,
       trackingNumber
     } = req.query
 
@@ -41,42 +43,48 @@ export const getAllDeliveryOrders = async (req, res) => {
 
     if (orderNumber) {
       where.push('order_number LIKE ?')
-      params.push(`%${orderNumber}%`)
+      params.push(`%${escapeLike(orderNumber)}%`)
     }
 
     if (contractNumber) {
       where.push('contract_number LIKE ?')
-      params.push(`%${contractNumber}%`)
+      params.push(`%${escapeLike(contractNumber)}%`)
     }
 
     if (customerName) {
       where.push('customer_name LIKE ?')
-      params.push(`%${customerName}%`)
+      params.push(`%${escapeLike(customerName)}%`)
     }
 
     if (productName) {
       where.push('delivery_items LIKE ?')
-      params.push(`%${productName}%`)
+      params.push(`%${escapeLike(productName)}%`)
     }
 
     if (productCode) {
       where.push('delivery_items LIKE ?')
-      params.push(`%${productCode}%`)
+      params.push(`%${escapeLike(productCode)}%`)
     }
 
     if (productModel) {
       where.push('delivery_items LIKE ?')
-      params.push(`%${productModel}%`)
+      params.push(`%${escapeLike(productModel)}%`)
     }
 
     if (deliveryDate) {
       where.push('delivery_time >= ?')
-      params.push(deliveryDate)
+      params.push(deliveryDate.length === 10 ? deliveryDate + ' 00:00:00' : deliveryDate)
+    }
+
+    // 范围上界（delivery_time 是 DATETIME，日期补 23:59:59，否则末日整天被漏掉）
+    if (endDate) {
+      where.push('delivery_time <= ?')
+      params.push(endDate.length === 10 ? endDate + ' 23:59:59' : endDate)
     }
 
     if (trackingNumber) {
       where.push('tracking_number LIKE ?')
-      params.push(`%${trackingNumber}%`)
+      params.push(`%${escapeLike(trackingNumber)}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
@@ -149,6 +157,17 @@ export const createDeliveryOrder = async (req, res) => {
     }
 
     const parsedItems = typeof delivery_items === 'string' ? JSON.parse(delivery_items) : delivery_items
+
+    // 数量必须为正数（负数出库会反向加库存）
+    for (const item of parsedItems) {
+      const qty = parseFloat(item.quantity)
+      if (!(qty > 0)) {
+        return res.status(400).json({
+          success: false,
+          message: `商品 ${item.product_name || item.product_code || '未知'} 的出库数量必须大于0`
+        })
+      }
+    }
 
     // 先校验库存是否充足（在创建出库单之前）
     for (const item of parsedItems) {
@@ -283,8 +302,8 @@ export const createDeliveryOrder = async (req, res) => {
             const newOutbound = currentOutbound + (parseFloat(deliveryItem.quantity) || 0)
             match.targetItem.outbound_quantity = newOutbound
 
-            // 更新行状态
-            if (newOutbound === match.targetItem.quantity) {
+            // 更新行状态（浮点容差比较，0.1+0.2 之类的累加会卡死"已全部出库"）
+            if (Math.abs(newOutbound - match.targetItem.quantity) < 1e-6) {
               match.targetItem.status = 2 // 已全部出库
             } else if (newOutbound > 0) {
               match.targetItem.status = 3 // 已部分出库
@@ -343,7 +362,10 @@ export const createDeliveryOrder = async (req, res) => {
 }
 
 export const updateDeliveryOrder = async (req, res) => {
+  const connection = await pool.getConnection()
   try {
+    await connection.beginTransaction()
+
     const { id } = req.params
     const {
       order_number,
@@ -365,8 +387,9 @@ export const updateDeliveryOrder = async (req, res) => {
       total_amount
     } = req.body
 
-    const existing = await DeliveryOrder.findById(id)
+    const existing = await DeliveryOrder.findById(id, connection)
     if (!existing) {
+      await connection.rollback()
       return res.status(404).json({ success: false, message: '出库单不存在' })
     }
 
@@ -375,7 +398,25 @@ export const updateDeliveryOrder = async (req, res) => {
     const newItems = delivery_items !== undefined
       ? (typeof delivery_items === 'string' ? JSON.parse(delivery_items) : delivery_items)
       : oldItems
+
+    // 优先定位到单据关联的具体销售订单（本次带入的优先，其次创建时落库的）
+    const preferSalesOrderId = sales_order_id || existing.sales_order_id || undefined
+    const oldContractNumber = existing.contract_number || ''
+    const newContractNumber = contract_number !== undefined ? (contract_number || '') : oldContractNumber
+
     if (delivery_items !== undefined) {
+
+      // 数量必须为正数（负数出库会反向加库存）
+      for (const item of newItems) {
+        const qty = parseFloat(item.quantity)
+        if (!(qty > 0)) {
+          await connection.rollback()
+          return res.status(400).json({
+            success: false,
+            message: `商品 ${item.product_name || item.product_code || '未知'} 的出库数量必须大于0`
+          })
+        }
+      }
 
       // 计算每个产品的新旧数量差（正数表示需要多扣库存）
       const quantityDelta = new Map()
@@ -391,17 +432,39 @@ export const updateDeliveryOrder = async (req, res) => {
       // 校验库存是否充足（仅针对需要多扣库存的产品）
       for (const [productCode, delta] of quantityDelta) {
         if (delta <= 0) continue
-        const [productResult] = await pool.query(
+        const [productResult] = await connection.query(
           'SELECT stock, product_name FROM products WHERE product_code = ?',
           [productCode]
         )
         if (productResult.length > 0) {
           const currentStock = parseFloat(productResult[0].stock || 0)
           if (delta > currentStock) {
+            await connection.rollback()
             return res.status(400).json({
               success: false,
               message: `商品 ${productResult[0].product_name}(${productCode}) 库存不足，当前库存: ${currentStock}，需额外扣减: ${delta}`
             })
+          }
+        }
+      }
+
+      // 超量校验：加量后订单出库数量不得超过销售数量（创建时有校验，编辑同样要有）
+      if (newContractNumber) {
+        const { orders, itemsMap } = await loadContractOrders(SalesOrder, newContractNumber, SALES_ORDER_KEYS, connection)
+        if (orders.length > 0) {
+          for (const [productCode, delta] of quantityDelta) {
+            if (delta <= 0) continue
+            const match = findItemByProduct(orders, itemsMap, productCode, SALES_ORDER_KEYS, preferSalesOrderId)
+            if (!match) continue
+            const currentOutbound = parseFloat(match.targetItem.outbound_quantity || 0)
+            const maxQty = parseFloat(match.targetItem.quantity) || 0
+            if (currentOutbound + delta > maxQty + 1e-6) {
+              await connection.rollback()
+              return res.status(400).json({
+                success: false,
+                message: `商品 ${productCode} 出库超量：已出库 ${currentOutbound} + 本次增加 ${delta} 超过销售数量 ${maxQty}`
+              })
+            }
           }
         }
       }
@@ -411,16 +474,17 @@ export const updateDeliveryOrder = async (req, res) => {
         if (delta === 0) continue
         if (delta > 0) {
           // 需要多扣库存，使用原子操作检查并扣减
-          const [result] = await pool.query(
+          const [result] = await connection.query(
             'UPDATE products SET stock = stock - ? WHERE product_code = ? AND stock >= ?',
             [delta, productCode, delta]
           )
           if (result.affectedRows === 0) {
-            const [productCheck] = await pool.query(
+            const [productCheck] = await connection.query(
               'SELECT stock, product_name FROM products WHERE product_code = ?',
               [productCode]
             )
             if (productCheck.length > 0) {
+              await connection.rollback()
               return res.status(400).json({
                 success: false,
                 message: `商品 ${productCheck[0].product_name}(${productCode}) 库存不足，当前库存: ${productCheck[0].stock}，需额外扣减: ${delta}`
@@ -429,7 +493,7 @@ export const updateDeliveryOrder = async (req, res) => {
           }
         } else {
           // 需要加回库存（delta < 0），直接加
-          await pool.query(
+          await connection.query(
             'UPDATE products SET stock = stock + ? WHERE product_code = ?',
             [Math.abs(delta), productCode]
           )
@@ -438,22 +502,15 @@ export const updateDeliveryOrder = async (req, res) => {
     }
 
     // 同步出库数量到销售订单：编辑时不回写会导致订单上的出库数量与单据不一致
-    // 优先定位到单据关联的具体销售订单（本次带入的优先，其次创建时落库的）
-    const preferSalesOrderId = sales_order_id || existing.sales_order_id || undefined
-    const oldContractNumber = existing.contract_number || ''
-    const newContractNumber = contract_number !== undefined ? (contract_number || '') : oldContractNumber
+    // 同步失败直接抛错回滚，不能吞掉（吞掉会造成订单与单据数量不一致且无法察觉）
     if (delivery_items !== undefined || contract_number !== undefined) {
-      try {
-        if (oldContractNumber !== newContractNumber) {
-          // 合同变更：旧合同按旧明细全部回退，新合同按新明细全部累加
-          await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, oldContractNumber, itemsToDeltaMap(oldItems, -1), existing.sales_order_id || undefined)
-          await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, newContractNumber, itemsToDeltaMap(newItems, 1), preferSalesOrderId)
-        } else {
-          // 同一合同：按新旧明细差量调整
-          await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, newContractNumber, buildQuantityDeltaMap(oldItems, newItems), preferSalesOrderId)
-        }
-      } catch (syncErr) {
-        console.error('同步销售订单出库数量失败（不影响出库单更新）:', syncErr.message)
+      if (oldContractNumber !== newContractNumber) {
+        // 合同变更：旧合同按旧明细全部回退，新合同按新明细全部累加
+        await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, oldContractNumber, itemsToDeltaMap(oldItems, -1), existing.sales_order_id || undefined, connection)
+        await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, newContractNumber, itemsToDeltaMap(newItems, 1), preferSalesOrderId, connection)
+      } else {
+        // 同一合同：按新旧明细差量调整
+        await syncQuantityDeltaToOrders(SalesOrder, SALES_ORDER_KEYS, newContractNumber, buildQuantityDeltaMap(oldItems, newItems), preferSalesOrderId, connection)
       }
     }
 
@@ -474,35 +531,100 @@ export const updateDeliveryOrder = async (req, res) => {
     if (remarks !== undefined) updateData.remarks = remarks
     if (expenses !== undefined) updateData.expenses = expenses
     if (tracking_number !== undefined) updateData.tracking_number = tracking_number
+    // 明细变化时总额由模型按明细重算；仅改总额时同步落库，保证单据与应收一致
+    if (total_amount !== undefined && delivery_items === undefined) {
+      updateData.total_amount = parseFloat(total_amount) || 0
+    }
 
-    const order = await DeliveryOrder.update(id, updateData)
-
-    // 更新对应的应收账款记录
-    if (total_amount !== undefined || delivery_items !== undefined) {
+    // 联动出库计划扣减（编辑与创建/删除对称）：
+    // 按新旧明细差量补扣（正差）或回补（负差）计划待出库数量，并同步更新 plan_deductions 记录，
+    // 否则改小不回补、改大不补扣，删单按旧记录回补还会多补
+    if (delivery_items !== undefined && existing.plan_deductions != null) {
+      let oldDeductionRecords = []
       try {
-        const receivable = await Receivable.findOne('source_bill_id = ?', [existing.order_number])
-        if (receivable) {
-          const newTotalAmount = total_amount !== undefined
-            ? parseFloat(total_amount) || 0
-            : parseFloat(existing.total_amount) || 0
-          const receivedAmount = parseFloat(receivable.received_amount) || 0
-          const newBalanceAmount = Math.max(0, newTotalAmount - receivedAmount)
+        const raw = typeof existing.plan_deductions === 'string' ? JSON.parse(existing.plan_deductions) : existing.plan_deductions
+        oldDeductionRecords = Array.isArray(raw) ? raw : []
+      } catch {
+        oldDeductionRecords = []
+      }
 
-          await Receivable.update(receivable.receivable_id, {
-            amount: newTotalAmount,
-            balance_amount: newBalanceAmount,
-            delivery_time: delivery_time || existing.delivery_time || null
-          })
+      const planDelta = new Map()
+      for (const item of newItems) {
+        if (!item.product_code) continue
+        planDelta.set(item.product_code, (planDelta.get(item.product_code) || 0) + (parseFloat(item.quantity) || 0))
+      }
+      for (const item of oldItems) {
+        if (!item.product_code) continue
+        planDelta.set(item.product_code, (planDelta.get(item.product_code) || 0) - (parseFloat(item.quantity) || 0))
+      }
+
+      // 正差：按原扣减记录的计划行补扣
+      const deductItems = []
+      for (const [code, delta] of planDelta) {
+        if (delta > 1e-6) deductItems.push({ product_code: code, quantity: delta })
+      }
+      if (deductItems.length > 0 && oldDeductionRecords.length > 0) {
+        const added = await applyPlanDeductions(
+          OutboundPlan,
+          OUTBOUND_PLAN_KEYS,
+          oldDeductionRecords,
+          deductItems,
+          connection
+        )
+        oldDeductionRecords.push(...added)
+      }
+
+      // 负差：按原扣减记录自后向前冲减并回补计划
+      for (const [code, delta] of planDelta) {
+        let left = -delta
+        if (left <= 1e-6) continue
+        const refunds = []
+        for (let i = oldDeductionRecords.length - 1; i >= 0 && left > 1e-6; i--) {
+          const rec = oldDeductionRecords[i]
+          if (!rec || rec.product_code !== code) continue
+          const recQty = parseFloat(rec.quantity) || 0
+          const take = Math.min(left, recQty)
+          if (take <= 0) continue
+          refunds.push({ plan_id: rec.plan_id, item_index: rec.item_index, product_code: code, quantity: take })
+          rec.quantity = recQty - take
+          left -= take
         }
-      } catch (receivableError) {
-        console.error('更新应收账款记录失败:', receivableError)
+        if (refunds.length > 0) {
+          await restorePlanDeductions(OutboundPlan, OUTBOUND_PLAN_KEYS, refunds, connection)
+        }
+      }
+
+      // 记录清零的条目移除，其余落库
+      updateData.plan_deductions = oldDeductionRecords.filter(r => (parseFloat(r.quantity) || 0) > 1e-6)
+    }
+
+    const order = await DeliveryOrder.update(id, updateData, connection)
+
+    // 更新对应的应收账款记录（金额统一以服务端落库的单据总额为准；单号变更同步 source_bill_id）
+    if (total_amount !== undefined || delivery_items !== undefined || (order_number !== undefined && order_number !== existing.order_number)) {
+      const receivable = await Receivable.findOne('source_bill_id = ?', [existing.order_number], connection)
+      if (receivable) {
+        const newTotalAmount = parseFloat(order.total_amount) || 0
+        const receivedAmount = parseFloat(receivable.received_amount) || 0
+        const newBalanceAmount = Math.max(0, newTotalAmount - receivedAmount)
+
+        await Receivable.update(receivable.receivable_id, {
+          source_bill_id: order_number !== undefined ? order_number : existing.order_number,
+          amount: newTotalAmount,
+          balance_amount: newBalanceAmount,
+          delivery_time: delivery_time || existing.delivery_time || null
+        }, connection)
       }
     }
 
+    await connection.commit()
     res.json({ success: true, data: order })
   } catch (error) {
+    await connection.rollback()
     const { statusCode, message } = handleDbError(error, '操作出库单')
     res.status(statusCode).json({ success: false, message })
+  } finally {
+    connection.release()
   }
 }
 
@@ -526,6 +648,28 @@ export const deleteDeliveryOrder = async (req, res) => {
         success: false,
         message: '该出库单已关联退货单，不能删除；请先删除对应的退货单'
       })
+    }
+
+    // 已有收款/核销记录的出库单不允许删除：
+    // 连带删应收会让核销明细悬挂、已收金额凭空消失
+    const guardReceivable = await Receivable.findOne('source_bill_id = ?', [existing.order_number])
+    if (guardReceivable && parseFloat(guardReceivable.received_amount || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        message: '该出库单的应收账款已有收款/核销记录，不能删除；请先作废相关核销单'
+      })
+    }
+    if (guardReceivable) {
+      const [writeOffRefs] = await pool.query(
+        'SELECT COUNT(*) AS c FROM write_off_items WHERE source_id = ?',
+        [guardReceivable.receivable_id]
+      )
+      if ((writeOffRefs[0]?.c || 0) > 0) {
+        return res.status(400).json({
+          success: false,
+          message: '该出库单的应收账款已被核销单引用，不能删除；请先作废相关核销单'
+        })
+      }
     }
 
     // 删除出库单并回补计划/订单/库存/应收账款，整体走事务，任一步失败全部回滚
@@ -576,12 +720,12 @@ export const deleteDeliveryOrder = async (req, res) => {
             // 更新出库数量
             match.targetItem.outbound_quantity = newOutbound
 
-            // 更新行状态
-            if (newOutbound === 0) {
+            // 更新行状态（浮点容差比较）
+            if (Math.abs(newOutbound) < 1e-6) {
               match.targetItem.status = 1 // 未出库
             } else if (newOutbound < match.targetItem.quantity) {
               match.targetItem.status = 3 // 已部分出库
-            } else if (newOutbound === match.targetItem.quantity) {
+            } else if (Math.abs(newOutbound - match.targetItem.quantity) < 1e-6) {
               match.targetItem.status = 2 // 已全部出库
             }
 

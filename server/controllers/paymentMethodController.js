@@ -1,4 +1,5 @@
 import PaymentMethod from '../models/PaymentMethod.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllPaymentMethods = async (req, res) => {
   try {
@@ -8,7 +9,7 @@ export const getAllPaymentMethods = async (req, res) => {
 
     if (name) {
       where.push('payment_method_name LIKE ?')
-      params.push(`%${name}%`)
+      params.push(`%${escapeLike(name)}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''

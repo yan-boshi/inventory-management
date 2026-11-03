@@ -1,7 +1,7 @@
 import BaseModel from './BaseModel.js'
-import pool from '../config/database.js'
 import { generateUUID } from '../utils/uuid.js'
 import { round4 } from '../utils/round.js'
+import { nextSequence, localDateStr, localDateTime } from '../utils/sequence.js'
 
 class Quotation extends BaseModel {
   constructor() {
@@ -9,39 +9,22 @@ class Quotation extends BaseModel {
   }
 
   async generateQuotationNumber() {
-    const date = new Date()
-    const fullDateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-    // 年份取后两位 + 月日，共6位
-    const dateStr = fullDateStr.slice(2)
+    return nextSequence(this.tableName, 'quotation_number', `XSD-Q-${localDateStr().slice(2)}-`)
+  }
 
-    // 查询当天已有的报价单最大序号
-    const query = `
-      SELECT quotation_number
-      FROM ${this.tableName}
-      WHERE quotation_number LIKE ?
-      ORDER BY quotation_number DESC
-      LIMIT 1
-    `
-    const [result] = await pool.query(query, [`XSD-Q-${dateStr}-%`])
-
-    let sequence = 1
-    if (result.length > 0) {
-      const lastNumber = result[0].quotation_number
-      const lastSequence = parseInt(lastNumber.split('-').pop(), 10)
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1
-      }
-    }
-
-    return `XSD-Q-${dateStr}-${sequence.toString().padStart(3, '0')}`
+  // JSON 字段归一化：字符串原样保留，对象/数组序列化，避免 mysql2 把数组写成 '[object Object]'
+  normalizeJson(value, fallback = '[]') {
+    if (value === null || value === undefined) return fallback
+    if (typeof value === 'string') return value
+    return JSON.stringify(value)
   }
 
   async create(data) {
-    const quotationItems = data.quotation_items || '[]'
+    const quotationItems = this.normalizeJson(data.quotation_items)
     let taxIncludedAmount = 0
 
     try {
-      const items = typeof quotationItems === 'string' ? JSON.parse(quotationItems) : quotationItems
+      const items = JSON.parse(quotationItems)
       taxIncludedAmount = items.reduce((sum, item) => {
         return sum + (parseFloat(item.total_amount) || 0)
       }, 0)
@@ -55,7 +38,7 @@ class Quotation extends BaseModel {
       customer_name: data.customer_name,
       customer_code: data.customer_code,
       quotation_items: quotationItems,
-      created_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      created_at: localDateTime(),
       status: 1,
       validity_period: data.validity_period || '自报价之日起10个工作日',
       delivery_method: data.delivery_method || '送货上门',
@@ -74,8 +57,9 @@ class Quotation extends BaseModel {
     let taxIncludedAmount = null
 
     if (data.quotation_items !== undefined) {
+      data.quotation_items = this.normalizeJson(data.quotation_items)
       try {
-        const items = typeof data.quotation_items === 'string' ? JSON.parse(data.quotation_items) : data.quotation_items
+        const items = JSON.parse(data.quotation_items)
         taxIncludedAmount = items.reduce((sum, item) => {
           return sum + (parseFloat(item.total_amount) || 0)
         }, 0)

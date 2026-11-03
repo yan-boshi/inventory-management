@@ -1,4 +1,5 @@
 import Product from '../models/Product.js'
+import { escapeLike } from '../utils/sql.js'
 
 export const getAllProducts = async (req, res) => {
   try {
@@ -8,17 +9,17 @@ export const getAllProducts = async (req, res) => {
 
     if (name) {
       where.push('product_name LIKE ?')
-      params.push(`%${name}%`)
+      params.push(`%${escapeLike(name)}%`)
     }
 
     if (code) {
       where.push('product_code LIKE ?')
-      params.push(`%${code}%`)
+      params.push(`%${escapeLike(code)}%`)
     }
 
     if (model) {
       where.push('model LIKE ?')
-      params.push(`%${model}%`)
+      params.push(`%${escapeLike(model)}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
@@ -138,12 +139,12 @@ export const searchProducts = async (req, res) => {
 
     if (name) {
       where.push('product_name LIKE ?')
-      params.push(`%${name}%`)
+      params.push(`%${escapeLike(name)}%`)
     }
 
     if (code) {
       where.push('product_code LIKE ?')
-      params.push(`%${code}%`)
+      params.push(`%${escapeLike(code)}%`)
     }
 
     const whereClause = where.length > 0 ? where.join(' OR ') : ''
