@@ -62,7 +62,8 @@ export const getAllInvoices = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -75,7 +76,8 @@ export const getInvoiceById = async (req, res) => {
     }
     res.json({ success: true, data: invoice })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -87,7 +89,8 @@ export const createInvoice = async (req, res) => {
     })
     res.json({ success: true, data: invoice })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -101,7 +104,8 @@ export const updateInvoice = async (req, res) => {
     const invoice = await Invoice.update(id, req.body)
     res.json({ success: true, data: invoice })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -115,7 +119,8 @@ export const deleteInvoice = async (req, res) => {
     await Invoice.delete(id)
     res.json({ success: true, message: '发票删除成功' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -124,7 +129,8 @@ export const getNewInvoiceNumber = async (req, res) => {
     const invoiceNumber = await Invoice.generateInvoiceNumber()
     res.json({ success: true, data: invoiceNumber })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -134,6 +140,7 @@ export const getInvoicesBySalesOrder = async (req, res) => {
     const invoices = await Invoice.findBySalesOrderId(salesOrderId)
     res.json({ success: true, data: invoices })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

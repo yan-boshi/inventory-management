@@ -187,11 +187,18 @@ const isLevel2Visible = (_level1Name: string, level2Name: string) => {
   return level2Name.toLowerCase().includes(searchKeyword.value.toLowerCase())
 }
 
+const escapeHtml = (s: string) =>
+  String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+
 const highlightText = (text: string) => {
-  if (!searchKeyword.value) return text
+  // 先转义原文再高亮：分类名是用户可控数据，v-html 直出会成为存储型 XSS
+  const safe = escapeHtml(text)
+  if (!searchKeyword.value) return safe
   const keyword = searchKeyword.value
   const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
-  return text.replace(regex, '<span style="color: #1890ff; font-weight: bold;">$1</span>')
+  return safe.replace(regex, '<span style="color: #1890ff; font-weight: bold;">$1</span>')
 }
 
 const onSearch = () => {

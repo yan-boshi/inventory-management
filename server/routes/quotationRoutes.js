@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, advancedOrAdmin } from '../middleware/auth.js'
 import {
   getAllQuotations,
   getQuotationById,
@@ -16,6 +16,6 @@ router.get('/new-quotation-number', authMiddleware, getNewQuotationNumber)
 router.get('/:id', authMiddleware, getQuotationById)
 router.post('/', authMiddleware, createQuotation)
 router.put('/:id', authMiddleware, updateQuotation)
-router.delete('/:id', authMiddleware, deleteQuotation)
+router.delete('/:id', authMiddleware, advancedOrAdmin, deleteQuotation)
 
 export default router

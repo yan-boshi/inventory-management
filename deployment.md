@@ -113,7 +113,7 @@ CREATE DATABASE official_website
   COLLATE utf8mb4_unicode_ci;
 
 -- 创建专用用户（替换 your_password 为强密码）
-CREATE USER 'admin'@'localhost' IDENTIFIED BY 'abc1234!';
+CREATE USER 'admin'@'localhost' IDENTIFIED BY '';
 
 -- 授权
 GRANT ALL PRIVILEGES ON official_website.* TO 'official_admin'@'localhost';
@@ -197,11 +197,11 @@ NODE_ENV=production
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=admin
-DB_PASSWORD=abc1234!
+DB_PASSWORD=aabbcc123!
 DB_NAME=inventory_management
 
 # JWT 配置（必须修改为强密码）
-JWT_SECRET=x7K9mP2nR8vQz1wB4fL6sYjD5cVhN0pXqEaTgWuZiSbFkMlJdHrOyC
+JWT_SECRET=''
 JWT_EXPIRES_IN=24h
 ```
 

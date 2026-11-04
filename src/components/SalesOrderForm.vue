@@ -1034,17 +1034,20 @@ watch(
       if (!props.isEdit) {
         // 从报价单转换的情况
         if (props.salesOrderData?.quotation_number) {
+          // 先重置再覆写：modal 无 destroyOnClose，不清理会把上一张单的费用/录入日期等脏数据带进新单
+          resetForm()
           // 从报价单转换不检查暂存
           orderNumber.value = props.salesOrderData.quotation_number
           form.customer_name = props.salesOrderData.customer_name
           form.customer_code = props.salesOrderData.customer_code
           form.currency = props.salesOrderData.currency || 'CNY'
           form.payment_method = ''
-          // form.delivery_date = props.salesOrderData.delivery_date || dayjs().format('YYYY-MM-DD')
           form.remarks = ''
           form.status = props.salesOrderData.status || '1'
           form.tax_included_amount = props.salesOrderData.tax_included_amount || 0
           form.sales_items = props.salesOrderData.sales_items || []
+          form.contract_number = props.salesOrderData.contract_number || ''
+          form.sales_person = userStore.user?.username || ''
         } else {
           getNewSalesOrderNumber()
           resetForm()

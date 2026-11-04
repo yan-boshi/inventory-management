@@ -18,6 +18,6 @@ router.get('/:id', authMiddleware, getPurchaseOrderById)
 router.post('/', authMiddleware, createPurchaseOrder)
 router.put('/:id', authMiddleware, updatePurchaseOrder)
 router.put('/:id/status', authMiddleware, updatePurchaseOrderStatus)
-router.delete('/:id', authMiddleware, deletePurchaseOrder)
+router.delete('/:id', authMiddleware, advancedOrAdmin, deletePurchaseOrder)
 
 export default router

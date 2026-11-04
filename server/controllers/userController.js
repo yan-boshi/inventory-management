@@ -1,6 +1,13 @@
 import User from '../models/User.js'
 import { escapeLike } from '../utils/sql.js'
 
+// 返回前剔除密码哈希：接口绝不下发 password（哈希可被离线爆破）
+const toSafeUser = (user) => {
+  if (!user) return user
+  const { password, ...safe } = user
+  return safe
+}
+
 export const getAllUsers = async (req, res) => {
   try {
     const { page = 1, pageSize = 10, role, username } = req.query
@@ -28,7 +35,7 @@ export const getAllUsers = async (req, res) => {
 
     res.json({
       success: true,
-      data: result.data,
+      data: result.data.map(toSafeUser),
       pagination: {
         total: result.total,
         page: result.page,
@@ -37,7 +44,8 @@ export const getAllUsers = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -48,9 +56,10 @@ export const getUserById = async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' })
     }
-    res.json({ success: true, data: user })
+    res.json({ success: true, data: toSafeUser(user) })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -73,9 +82,10 @@ export const createUser = async (req, res) => {
     }
 
     const user = await User.create({ username, password, role, phone, email, remarks })
-    res.status(201).json({ success: true, data: user })
+    res.status(201).json({ success: true, data: toSafeUser(user) })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -116,9 +126,10 @@ export const updateUser = async (req, res) => {
       user = await User.update(id, updateData)
     }
 
-    res.json({ success: true, data: user })
+    res.json({ success: true, data: toSafeUser(user) })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -138,7 +149,8 @@ export const deleteUser = async (req, res) => {
     await User.delete(id)
     res.json({ success: true, message: 'User deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -164,6 +176,7 @@ export const changePassword = async (req, res) => {
     await User.updatePassword(id, newPassword)
     res.json({ success: true, message: 'Password changed successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

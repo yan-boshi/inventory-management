@@ -22,6 +22,10 @@ import {
   restoreQuantitiesToPlans
 } from '../utils/planRestore.js'
 import { escapeLike } from '../utils/sql.js'
+import { validateNonNegativeAmounts } from '../utils/amountValidation.js'
+
+// 入库明细中需要非负校验的金额字段
+const WAREHOUSING_AMOUNT_FIELDS = ['tax_included_price', 'total_price']
 
 // 按采购合同编号加载全部采购订单及其明细（同一合同编号可能对应多张采购订单）
 const loadContractPurchaseOrders = (contractNumber, conn) =>
@@ -185,6 +189,12 @@ export const createWarehousingOrder = async (req, res) => {
       }
     }
 
+    // 金额/单价必须非负（缺省不管，传了就必须是有限非负数字）
+    const createAmountError = validateNonNegativeAmounts(parsedItems, WAREHOUSING_AMOUNT_FIELDS)
+    if (createAmountError) {
+      return res.status(400).json({ success: false, message: createAmountError })
+    }
+
     // 如果关联了采购订单，先验证入库数量
     if (contract_number) {
       const { orders, itemsMap } = await loadContractPurchaseOrders(contract_number)
@@ -227,6 +237,11 @@ export const createWarehousingOrder = async (req, res) => {
     try {
       await connection.beginTransaction()
 
+      // 总额服务端按明细重算（与编辑路径同口径，不再信任前端传值）
+      const computedTotalAmount = round4(parsedItems.reduce((sum, it) => {
+        return sum + (parseFloat(it.quantity) || 0) * (parseFloat(it.tax_included_price) || 0)
+      }, 0))
+
       order = await WarehousingOrder.create({
         contract_number,
         purchase_order_id,
@@ -236,7 +251,7 @@ export const createWarehousingOrder = async (req, res) => {
         tracking_number,
         customer_name,
         customer_address,
-        total_amount,
+        total_amount: computedTotalAmount,
         currency,
         exchange_rate,
         warehousing_person,
@@ -322,8 +337,8 @@ export const createWarehousingOrder = async (req, res) => {
             // 更新入库数量
             match.targetItem.inbound_quantity = (parseFloat(match.targetItem.inbound_quantity) || 0) + (parseFloat(warehousingItem.quantity) || 0)
 
-            // 更新行状态
-            if (match.targetItem.inbound_quantity === match.targetItem.quantity) {
+            // 更新行状态（浮点容差比较，0.1+0.2 之类的累加会卡死"已全部入库"）
+            if (Math.abs(match.targetItem.inbound_quantity - match.targetItem.quantity) < 1e-6) {
               match.targetItem.status = 2 // 已全部入库
             } else if (match.targetItem.inbound_quantity > 0) {
               match.targetItem.status = 3 // 已部分入库
@@ -373,7 +388,7 @@ export const createWarehousingOrder = async (req, res) => {
       await connection.commit()
       res.status(201).json({ success: true, data: order })
     } catch (txError) {
-      await connection.rollback()
+      try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
       throw txError
     } finally {
       connection.release()
@@ -441,6 +456,13 @@ export const updateWarehousingOrder = async (req, res) => {
         }
       }
 
+      // 金额/单价必须非负（缺省不管，传了就必须是有限非负数字）
+      const updateAmountError = validateNonNegativeAmounts(newItems, WAREHOUSING_AMOUNT_FIELDS)
+      if (updateAmountError) {
+        await connection.rollback()
+        return res.status(400).json({ success: false, message: updateAmountError })
+      }
+
       // 计算每个产品的新旧数量差
       const quantityDelta = new Map()
       for (const item of newItems) {
@@ -482,19 +504,32 @@ export const updateWarehousingOrder = async (req, res) => {
         )
         if (productResult.length > 0) {
           const currentStock = parseFloat(productResult[0].stock || 0)
-          const newStock = Math.max(0, currentStock + delta)
+          const currentPrice = parseFloat(productResult[0].tax_included_price || 0)
+          const rawStock = currentStock + delta
+          const newStock = Math.max(0, rawStock)
+          // 减量被截断时告警，不再静默吞掉
+          if (Math.abs(newStock - rawStock) > 1e-6) {
+            console.warn(`商品 ${productCode} 编辑入库单减量被截断：目标库存 ${rawStock}，实际 ${newStock}`)
+          }
 
-          // 如果数量增加，使用移动平均法更新价格
+          // 数量增减都重算移动平均价（原来只处理增量，减量后均价与库存脱钩）
           const newItem = newItems.find((i) => i.product_code === productCode)
-          let newPrice = parseFloat(productResult[0].tax_included_price || 0)
+          const oldItem = oldItems.find((i) => i.product_code === productCode)
+          let newPrice = currentPrice
           let newTaxExcludedPrice = null
 
           if (delta > 0 && newItem && newItem.tax_included_price && newStock > 0) {
-            const currentPrice = parseFloat(productResult[0].tax_included_price || 0)
             const incomingPrice = parseFloat(newItem.tax_included_price)
             newPrice = (currentStock * currentPrice + delta * incomingPrice) / newStock
             if (newItem.tax_rate) {
               newTaxExcludedPrice = newPrice / (1 + parseFloat(newItem.tax_rate) / 100)
+            }
+          } else if (delta < 0 && oldItem && parseFloat(oldItem.tax_included_price || 0) > 0 && currentStock > 0 && newStock > 0) {
+            // 减量按旧明细单价反向还原均价（与退货/删除路径同款）
+            const outPrice = parseFloat(oldItem.tax_included_price)
+            newPrice = Math.max(0, (currentStock * currentPrice - Math.abs(delta) * outPrice) / newStock)
+            if (oldItem.tax_rate) {
+              newTaxExcludedPrice = newPrice / (1 + parseFloat(oldItem.tax_rate) / 100)
             }
           }
 
@@ -621,12 +656,17 @@ export const updateWarehousingOrder = async (req, res) => {
       if (payable) {
         const newTotalAmount = parseFloat(order.total_amount) || 0
         const receivedAmount = parseFloat(payable.received_amount) || 0
-        const newBalanceAmount = Math.max(0, newTotalAmount - receivedAmount)
+        const handlingFee = parseFloat(payable.handling_fee) || 0
+        // amount 不低于已付金额；余额按权威口径 amount + handling_fee - received
+        const amount = Math.max(newTotalAmount, receivedAmount)
+        const newBalanceAmount = round4(amount + handlingFee - receivedAmount)
+        const status = receivedAmount <= 0 ? 0 : (receivedAmount >= amount + handlingFee - 0.00001 ? 2 : 1)
 
         await Payable.update(payable.payable_id, {
           source_bill_id: order_number !== undefined ? order_number : existing.order_number,
-          amount: newTotalAmount,
+          amount,
           balance_amount: newBalanceAmount,
+          status,
           warehousing_time: warehousing_time || existing.warehousing_time || null
         }, connection)
       }
@@ -635,7 +675,7 @@ export const updateWarehousingOrder = async (req, res) => {
     await connection.commit()
     res.json({ success: true, data: order })
   } catch (error) {
-    await connection.rollback()
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
     const { statusCode, message } = handleDbError(error, '操作入库单')
     res.status(statusCode).json({ success: false, message })
   } finally {
@@ -715,6 +755,22 @@ export const deleteWarehousingOrder = async (req, res) => {
           existing.plan_deductions,
           connection
         )
+        // 计划被订单更新删除重建后，扣减记录指向死计划行、回补会静默丢量：
+        // unmatchedQty>0 时按合同兜底回补（单行封顶原始数量，不会重复多补）
+        if (planRestore.unmatchedQty > 0 && existing.contract_number) {
+          const fallback = await restoreQuantitiesToPlans(
+            InboundPlan,
+            INBOUND_PLAN_KEYS,
+            existing.contract_number,
+            warehousingItems,
+            connection
+          )
+          planRestore = {
+            ...planRestore,
+            restoredQty: planRestore.restoredQty + fallback.restoredQty,
+            restoredPlans: planRestore.restoredPlans + fallback.restoredPlans
+          }
+        }
       }
 
       // 回退入库数量到采购订单（优先回退到创建时关联的那张订单）
@@ -736,12 +792,12 @@ export const deleteWarehousingOrder = async (req, res) => {
             // 更新入库数量
             match.targetItem.inbound_quantity = newInbound
 
-            // 更新行状态
-            if (newInbound === 0) {
+            // 更新行状态（浮点容差比较，0.1+0.2 之类的累加会卡死行状态）
+            if (Math.abs(newInbound) < 1e-6) {
               match.targetItem.status = 1 // 未入库
             } else if (newInbound < match.targetItem.quantity) {
               match.targetItem.status = 3 // 已部分入库
-            } else if (newInbound === match.targetItem.quantity) {
+            } else if (Math.abs(newInbound - match.targetItem.quantity) < 1e-6) {
               match.targetItem.status = 2 // 已全部入库
             }
 
@@ -767,10 +823,15 @@ export const deleteWarehousingOrder = async (req, res) => {
         }
       }
 
-      // 扣减库存（入库单删除相当于撤销入库），失败直接抛错回滚，不能静默吞掉
+      // 扣减库存（入库单删除相当于撤销入库），并按移动平均反向还原单价，
+      // 失败直接抛错回滚，不能静默吞掉
       for (const item of warehousingItems) {
         if (!item.product_code || !item.quantity) continue
         const outQty = parseFloat(item.quantity) || 0
+        const [priceRows] = await connection.query(
+          'SELECT stock, tax_included_price FROM products WHERE product_code = ?',
+          [item.product_code]
+        )
         const [result] = await connection.query(
           'UPDATE products SET stock = stock - ? WHERE product_code = ? AND stock >= ?',
           [outQty, item.product_code, outQty]
@@ -784,6 +845,27 @@ export const deleteWarehousingOrder = async (req, res) => {
             throw new Error(`商品 ${productCheck[0].product_name}(${item.product_code}) 库存不足，无法扣回入库数量，当前库存: ${productCheck[0].stock}，需扣减: ${outQty}`)
           }
           throw new Error(`商品 ${item.product_code} 不存在，库存扣减失败`)
+        } else if (priceRows.length > 0) {
+          // 反向移动平均还原单价（与编辑/退货路径同口径，原来删除只减库存不还原价格）
+          const currentStock = parseFloat(priceRows[0].stock || 0)
+          const currentPrice = parseFloat(priceRows[0].tax_included_price || 0)
+          const outPrice = parseFloat(item.tax_included_price || 0)
+          const newStock = currentStock - outQty
+          if (outPrice > 0 && currentStock > 0 && newStock > 0) {
+            const newPrice = Math.max(0, (currentStock * currentPrice - outQty * outPrice) / newStock)
+            if (item.tax_rate) {
+              const newTaxExcludedPrice = newPrice / (1 + parseFloat(item.tax_rate) / 100)
+              await connection.query(
+                'UPDATE products SET tax_included_price = ?, tax_excluded_price = ? WHERE product_code = ?',
+                [round4(newPrice), round4(newTaxExcludedPrice), item.product_code]
+              )
+            } else {
+              await connection.query(
+                'UPDATE products SET tax_included_price = ? WHERE product_code = ?',
+                [round4(newPrice), item.product_code]
+              )
+            }
+          }
         }
       }
 
@@ -798,7 +880,7 @@ export const deleteWarehousingOrder = async (req, res) => {
       await connection.commit()
       res.json({ success: true, message: '入库单删除成功', data: planRestore })
     } catch (txError) {
-      await connection.rollback()
+      try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
       throw txError
     } finally {
       connection.release()

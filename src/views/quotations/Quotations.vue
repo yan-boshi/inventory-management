@@ -415,6 +415,7 @@ const handlePrint = async (quotation: Quotation, lang: 'zh' | 'en' = 'zh') => {
     const detail = await quotationsApi.getById(quotation.quotation_id)
     currentQuotation.value = detail.data
     printData.value = {
+      lang,
       quotation_number: detail.data.quotation_number,
       customer_name: detail.data.customer_name,
       customer_code: detail.data.customer_code,
@@ -508,24 +509,32 @@ const handleConvertFromForm = (data: any) => {
   } = data
 
   // 报价明细 → 销售明细字段映射（行级转换与整单转换共用）
-  const toSalesItem = (item: any) => ({
-    no: item.no,
-    business_category: '',
-    product_name: item.product_name,
-    model: item.model || '',
-    description: item.description || '',
-    unit: item.unit || '',
-    quantity: item.quantity,
-    tax_rate: tax_rate ?? 13,
-    tax_included_price: item.unit_price || 0,
-    tax_excluded_price: 0,
-    tax_included_amount: item.total_amount || 0,
-    tax_excluded_amount: 0,
-    tax_amount: 0,
-    status: 1,
-    remarks: item.remarks || '',
-    product_code: '',
-  })
+  // 未税字段按标准口径反算：含税÷(1+税率)（与 handleConvertToSales 一致，避免未税金额/税额落库全 0）
+  const toSalesItem = (item: any) => {
+    const rate = Number(tax_rate ?? 13)
+    const includedPrice = Number(item.unit_price) || 0
+    const includedAmount = Number(item.total_amount) || 0
+    const excludedPrice = round4(includedPrice / (1 + rate / 100))
+    const excludedAmount = round4(includedAmount / (1 + rate / 100))
+    return {
+      no: item.no,
+      business_category: '',
+      product_name: item.product_name,
+      product_code: item.product_code || '',
+      model: item.model || '',
+      description: item.description || '',
+      unit: item.unit || '',
+      quantity: item.quantity,
+      tax_rate: rate,
+      tax_included_price: includedPrice,
+      tax_excluded_price: excludedPrice,
+      tax_included_amount: includedAmount,
+      tax_excluded_amount: excludedAmount,
+      tax_amount: round4(includedAmount - excludedAmount),
+      status: 1,
+      remarks: item.remarks || '',
+    }
+  }
 
   // 根据是否为行级别转换，准备商品数据
   let salesItems
@@ -533,7 +542,7 @@ const handleConvertFromForm = (data: any) => {
 
   if (isRowConvert) {
     // 行级别转换：单据编号为报价单单据编号-行编号（quotation_items 只含当前行）
-    orderNumber = `${quotation_number}-${quotation_items[0].no}`
+    orderNumber = `${quotation_number}-${quotation_items[0].no ?? 1}`
     salesItems = quotation_items.map(toSalesItem) // 只转换当前行
   } else {
     // 整单转换：单据编号为报价单单据编号

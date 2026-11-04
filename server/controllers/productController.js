@@ -42,7 +42,8 @@ export const getAllProducts = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -55,7 +56,8 @@ export const getProductById = async (req, res) => {
     }
     res.json({ success: true, data: product })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -75,7 +77,8 @@ export const createProduct = async (req, res) => {
     const product = await Product.create({ product_name, model, description, product_code, unit, stock, tax_included_price, tax_excluded_price, product_classification, remarks })
     res.status(201).json({ success: true, data: product })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -111,7 +114,8 @@ export const updateProduct = async (req, res) => {
     const product = await Product.update(id, updateData)
     res.json({ success: true, data: product })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -127,7 +131,8 @@ export const deleteProduct = async (req, res) => {
     await Product.delete(id)
     res.json({ success: true, message: 'Product deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -167,7 +172,8 @@ export const searchProducts = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -187,6 +193,7 @@ export const getAllProductsList = async (req, res) => {
       }))
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

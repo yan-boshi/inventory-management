@@ -54,31 +54,40 @@ class DeliveryOrder extends BaseModel {
       no: index + 1
     }))
 
-    const orderNumber = data.order_number || await this.generateOrderNumber()
-
-    const orderData = {
-      delivery_order_id: generateUUID(),
-      order_number: orderNumber,
-      contract_number: data.contract_number || null,
-      sales_order_id: data.sales_order_id || null,
-      customer_name: data.customer_name || '',
-      customer_address: data.customer_address || '',
-      delivery_items: JSON.stringify(processedItems),
-      delivery_time: data.delivery_time || localDateTime().slice(0, 16),
-      delivery_date: data.delivery_date || null,
-      entry_date: data.entry_date || null,
-      currency: data.currency || 'CNY',
-      exchange_rate: data.exchange_rate || 1.0,
-      total_amount: totalAmount,
-      expenses: expensesJson,
-      plan_deductions: JSON.stringify(data.plan_deductions || []),
-      tracking_number: data.tracking_number || null,
-      delivery_person: data.delivery_person || '',
-      contact_phone: data.contact_phone || '',
-      remarks: data.remarks || null
+    // 取号撞号（ER_DUP_ENTRY）重试：每次重试重新取号，不复用已冲突的编号
+    const maxRetries = 3
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const orderData = {
+          delivery_order_id: generateUUID(),
+          order_number: data.order_number || await this.generateOrderNumber(),
+          contract_number: data.contract_number || null,
+          sales_order_id: data.sales_order_id || null,
+          customer_name: data.customer_name || '',
+          customer_address: data.customer_address || '',
+          delivery_items: JSON.stringify(processedItems),
+          delivery_time: data.delivery_time || localDateTime().slice(0, 16),
+          delivery_date: data.delivery_date || null,
+          entry_date: data.entry_date || null,
+          currency: data.currency || 'CNY',
+          exchange_rate: data.exchange_rate || 1.0,
+          total_amount: totalAmount,
+          expenses: expensesJson,
+          plan_deductions: JSON.stringify(data.plan_deductions || []),
+          tracking_number: data.tracking_number || null,
+          delivery_person: data.delivery_person || '',
+          contact_phone: data.contact_phone || '',
+          remarks: data.remarks || null
+        }
+        return await super.create(orderData, conn)
+      } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY' && attempt < maxRetries - 1) {
+          console.warn(`订单号冲突，重试第 ${attempt + 1} 次...`)
+          continue
+        }
+        throw error
+      }
     }
-
-    return super.create(orderData, conn)
   }
 
   // 获取未出库的销售订单

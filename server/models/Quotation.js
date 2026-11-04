@@ -32,25 +32,37 @@ class Quotation extends BaseModel {
       console.error('Error parsing quotation_items:', e)
     }
 
-    const orderData = {
-      quotation_id: generateUUID(),
-      quotation_number: data.quotation_number || await this.generateQuotationNumber(),
-      customer_name: data.customer_name,
-      customer_code: data.customer_code,
-      quotation_items: quotationItems,
-      created_at: localDateTime(),
-      status: 1,
-      validity_period: data.validity_period || '自报价之日起10个工作日',
-      delivery_method: data.delivery_method || '送货上门',
-      tax_rate: data.tax_rate ?? 13,
-      tax_included_amount: round4(taxIncludedAmount) || 0,
-      currency: data.currency || 'CNY',
-      payment_terms: data.payment_terms || null,
-      trade_terms: data.trade_terms || null,
-      entry_date: data.entry_date || null,
-      remarks: data.remarks || null
+    // 取号撞号（ER_DUP_ENTRY）重试：每次重试重新取号，不复用已冲突的编号
+    const maxRetries = 3
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const orderData = {
+          quotation_id: generateUUID(),
+          quotation_number: data.quotation_number || await this.generateQuotationNumber(),
+          customer_name: data.customer_name,
+          customer_code: data.customer_code,
+          quotation_items: quotationItems,
+          created_at: localDateTime(),
+          status: 1,
+          validity_period: data.validity_period || '自报价之日起10个工作日',
+          delivery_method: data.delivery_method || '送货上门',
+          tax_rate: data.tax_rate ?? 13,
+          tax_included_amount: round4(taxIncludedAmount) || 0,
+          currency: data.currency || 'CNY',
+          payment_terms: data.payment_terms || null,
+          trade_terms: data.trade_terms || null,
+          entry_date: data.entry_date || null,
+          remarks: data.remarks || null
+        }
+        return await super.create(orderData)
+      } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY' && attempt < maxRetries - 1) {
+          console.warn(`报价单号冲突，重试第 ${attempt + 1} 次...`)
+          continue
+        }
+        throw error
+      }
     }
-    return super.create(orderData)
   }
 
   async update(id, data) {

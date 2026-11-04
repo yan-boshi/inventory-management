@@ -33,7 +33,8 @@ export const getAllProductClassifications = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -49,7 +50,8 @@ export const getAllProductClassificationsList = async (req, res) => {
       }))
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -63,7 +65,8 @@ export const getProductClassificationById = async (req, res) => {
     }
     res.json({ success: true, data: ProductClassification.parseClassificationData(classification) })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -91,7 +94,8 @@ export const createProductClassification = async (req, res) => {
 
     res.status(201).json({ success: true, data: ProductClassification.parseClassificationData(classification) })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -122,7 +126,8 @@ export const updateProductClassification = async (req, res) => {
     const classification = await ProductClassification.update(id, updateData)
     res.json({ success: true, data: ProductClassification.parseClassificationData(classification) })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -138,7 +143,8 @@ export const deleteProductClassification = async (req, res) => {
     await ProductClassification.delete(id)
     res.json({ success: true, message: '产品分类删除成功' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -169,7 +175,8 @@ export const addLevel1 = async (req, res) => {
 
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -205,7 +212,8 @@ export const updateLevel1 = async (req, res) => {
     await ProductClassification.update(id, { classification_data: data })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -228,7 +236,8 @@ export const deleteLevel1 = async (req, res) => {
     await ProductClassification.update(id, { classification_data: data })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -262,7 +271,8 @@ export const addLevel2 = async (req, res) => {
     await ProductClassification.update(id, { classification_data: data })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -302,7 +312,8 @@ export const updateLevel2 = async (req, res) => {
     await ProductClassification.update(id, { classification_data: data })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -329,7 +340,8 @@ export const deleteLevel2 = async (req, res) => {
     await ProductClassification.update(id, { classification_data: data })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 

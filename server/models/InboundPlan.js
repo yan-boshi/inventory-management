@@ -13,22 +13,33 @@ class InboundPlan extends BaseModel {
   }
 
   async create(data, conn) {
-    const planData = {
-      inbound_plan_id: data.inbound_plan_id || generateUUID(),
-      plan_number: data.plan_number || await this.generatePlanNumber(),
-      purchase_order_id: data.purchase_order_id || null,
-      contract_number: data.contract_number || null,
-      supplier_name: data.supplier_name || null,
-      plan_items: typeof data.plan_items === 'string' ? data.plan_items : JSON.stringify(data.plan_items || []),
-      currency: data.currency || 'CNY',
-      entry_date: data.entry_date || null,
-      purchase_person: data.purchase_person || null,
-      status: data.status || 'pending',
-      remarks: data.remarks || null,
-      created_by: data.created_by || null,
+    // 取号撞号（ER_DUP_ENTRY）重试：每次重试重新取号，不复用已冲突的编号
+    const maxRetries = 3
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const planData = {
+          inbound_plan_id: data.inbound_plan_id || generateUUID(),
+          plan_number: data.plan_number || await this.generatePlanNumber(),
+          purchase_order_id: data.purchase_order_id || null,
+          contract_number: data.contract_number || null,
+          supplier_name: data.supplier_name || null,
+          plan_items: typeof data.plan_items === 'string' ? data.plan_items : JSON.stringify(data.plan_items || []),
+          currency: data.currency || 'CNY',
+          entry_date: data.entry_date || null,
+          purchase_person: data.purchase_person || null,
+          status: data.status || 'pending',
+          remarks: data.remarks || null,
+          created_by: data.created_by || null,
+        }
+        return await super.create(planData, conn)
+      } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY' && attempt < maxRetries - 1) {
+          console.warn(`计划编号冲突，重试第 ${attempt + 1} 次...`)
+          continue
+        }
+        throw error
+      }
     }
-
-    return super.create(planData, conn)
   }
 
   async update(id, data, conn) {

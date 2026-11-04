@@ -471,6 +471,6 @@ export const getBasicProfitReport = async (req, res) => {
     })
   } catch (error) {
     console.error('基础毛利表查询失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, advancedOrAdmin } from '../middleware/auth.js'
 import {
   getAllInvoices,
   getInvoiceById,
@@ -18,6 +18,6 @@ router.get('/by-sales-order/:salesOrderId', authMiddleware, getInvoicesBySalesOr
 router.get('/:id', authMiddleware, getInvoiceById)
 router.post('/', authMiddleware, createInvoice)
 router.put('/:id', authMiddleware, updateInvoice)
-router.delete('/:id', authMiddleware, deleteInvoice)
+router.delete('/:id', authMiddleware, advancedOrAdmin, deleteInvoice)
 
 export default router

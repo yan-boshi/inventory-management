@@ -1,10 +1,10 @@
 import User from '../models/User.js'
 import jwt from 'jsonwebtoken'
+import { revokeToken } from '../utils/tokenBlacklist.js'
 
-// 生产环境必须设置 JWT_SECRET 环境变量
-const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production'
-  ? (() => { throw new Error('JWT_SECRET environment variable is required in production') })()
-  : 'dev-only-secret-key-change-in-production')
+// 必须设置 JWT_SECRET 环境变量（由 loadEnv.js 从 .env 读取）；不再提供内置回退密钥
+const JWT_SECRET = process.env.JWT_SECRET ||
+  (() => { throw new Error('JWT_SECRET environment variable is required') })()
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h'
 
 export const register = async (req, res) => {
@@ -54,7 +54,8 @@ export const register = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -97,7 +98,8 @@ export const login = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -120,14 +122,23 @@ export const getCurrentUser = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
 export const logout = async (req, res) => {
   try {
+    // 将当前 token 加入黑名单，登出后立即失效
+    const authHeader = req.headers.authorization
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const decoded = jwt.decode(token)
+      revokeToken(token, decoded?.exp)
+    }
     res.json({ success: true, message: 'Logout successful' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

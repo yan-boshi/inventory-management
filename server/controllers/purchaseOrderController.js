@@ -12,6 +12,10 @@ import {
   restoreQuantitiesToPlans
 } from '../utils/planRestore.js'
 import { escapeLike } from '../utils/sql.js'
+import { validateNonNegativeAmounts } from '../utils/amountValidation.js'
+
+// 采购明细中需要非负校验的金额字段
+const PURCHASE_AMOUNT_FIELDS = ['tax_included_price', 'tax_excluded_price', 'tax_included_amount', 'tax_excluded_amount', 'tax_amount']
 
 export const getAllPurchaseOrders = async (req, res) => {
   try {
@@ -70,13 +74,13 @@ export const getAllPurchaseOrders = async (req, res) => {
 
     if (startDate && endDate) {
       where.push('po.created_at BETWEEN ? AND ?')
-      params.push(`${startDate} 00:00:00`, `${endDate} 23:59:59`)
+      params.push(startDate.length === 10 ? startDate + ' 00:00:00' : startDate, endDate.length === 10 ? endDate + ' 23:59:59' : endDate)
     } else if (startDate) {
       where.push('po.created_at >= ?')
-      params.push(`${startDate} 00:00:00`)
+      params.push(startDate.length === 10 ? startDate + ' 00:00:00' : startDate)
     } else if (endDate) {
       where.push('po.created_at <= ?')
-      params.push(`${endDate} 23:59:59`)
+      params.push(endDate.length === 10 ? endDate + ' 23:59:59' : endDate)
     }
 
     // 关联销售订单编号查询
@@ -189,7 +193,7 @@ export const getPurchaseOrderById = async (req, res) => {
 
 export const createPurchaseOrder = async (req, res) => {
   try {
-    const { supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person, related_sales_order_id, related_sales_orders, plan_rows } = req.body
+    const { order_number, supplier_name, supplier_code, purchase_items, currency, exchange_rate, entry_date, remarks, contract_number, expenses, purchase_person, related_sales_order_id, related_sales_orders, plan_rows } = req.body
 
     if (!supplier_name || !supplier_code) {
       return res.status(400).json({ success: false, message: 'Supplier name and code are required' })
@@ -199,6 +203,12 @@ export const createPurchaseOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Purchase items are required' })
     }
 
+    // 校验采购明细金额/单价非负（缺省不管，传了就必须是有限非负数字）
+    const amountError = validateNonNegativeAmounts(purchase_items, PURCHASE_AMOUNT_FIELDS)
+    if (amountError) {
+      return res.status(400).json({ success: false, message: amountError })
+    }
+
     // 创建采购订单并扣减采购计划待采购数量，整体走事务，任一步失败全部回滚
     const connection = await pool.getConnection()
     let order
@@ -206,6 +216,7 @@ export const createPurchaseOrder = async (req, res) => {
       await connection.beginTransaction()
 
       order = await PurchaseOrder.create({
+        order_number,
         supplier_name,
         supplier_code,
         purchase_items,
@@ -234,9 +245,12 @@ export const createPurchaseOrder = async (req, res) => {
         }, connection)
       }
 
+      // 自动生成入库计划（事务内 await：fire-and-forget 会静默丢计划/并发出重复计划）
+      await generateFromPurchaseOrder(order, connection)
+
       await connection.commit()
     } catch (txError) {
-      await connection.rollback()
+      try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
       throw txError
     } finally {
       connection.release()
@@ -255,11 +269,6 @@ export const createPurchaseOrder = async (req, res) => {
     }
 
     res.status(201).json({ success: true, data: order })
-
-    // 自动生成入库计划
-    generateFromPurchaseOrder(order).catch(err =>
-      console.error('Auto generate inbound plan failed:', err)
-    )
   } catch (error) {
     const { statusCode, message } = handleDbError(error, '操作采购订单')
     res.status(statusCode).json({ success: false, message })
@@ -295,8 +304,14 @@ export const updatePurchaseOrder = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Purchase items must be a non-empty array' })
       }
 
+      // 校验采购明细金额/单价非负（缺省不管，传了就必须是有限非负数字）
+      const amountError = validateNonNegativeAmounts(purchase_items, PURCHASE_AMOUNT_FIELDS)
+      if (amountError) {
+        return res.status(400).json({ success: false, message: amountError })
+      }
+
       const calculatedItems = purchase_items.map((item) => {
-        const taxRateDecimal = item.tax_rate / 100
+        const taxRateDecimal = item.tax_rate === null || item.tax_rate === undefined || item.tax_rate === '' ? null : Number(item.tax_rate) / 100
         const taxExcludedPrice = PurchaseOrder.calculateTaxExcludedPrice(item.tax_included_price, taxRateDecimal)
         const taxIncludedAmount = PurchaseOrder.calculateTaxIncludedAmount(item.quantity, item.tax_included_price)
         const taxExcludedAmount = PurchaseOrder.calculateTaxExcludedAmount(item.quantity, taxExcludedPrice)
@@ -315,7 +330,20 @@ export const updatePurchaseOrder = async (req, res) => {
       updateData.purchase_items = JSON.stringify(calculatedItems)
     }
 
-    const order = await PurchaseOrder.update(id, updateData)
+    // 订单更新与入库计划重建同事务（编辑采购单不再把入库计划重置为全量/静默丢失）
+    const connection = await pool.getConnection()
+    let order
+    try {
+      await connection.beginTransaction()
+      order = await PurchaseOrder.update(id, updateData, connection)
+      await generateFromPurchaseOrder(order, connection)
+      await connection.commit()
+    } catch (txError) {
+      try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
+      throw txError
+    } finally {
+      connection.release()
+    }
 
     // 更新关联销售订单商品的采购状态
     // 如果修改了关联的销售订单，需要同时更新旧的和新的销售订单
@@ -359,11 +387,6 @@ export const updatePurchaseOrder = async (req, res) => {
     }
 
     res.json({ success: true, data: order })
-
-    // 自动生成入库计划（更新时重新生成）
-    generateFromPurchaseOrder(order).catch(err =>
-      console.error('Auto regenerate inbound plan failed:', err)
-    )
   } catch (error) {
     const { statusCode, message } = handleDbError(error, '操作采购订单')
     res.status(statusCode).json({ success: false, message })
@@ -383,9 +406,10 @@ export const deletePurchaseOrder = async (req, res) => {
 
     // 已生成入库单的采购订单不允许删除：
     // 入库单已加库存、建应付，删采购单会让单据悬挂
+    // （只按 purchase_order_id 精确匹配：warehousing_orders 没有 source_order_number 列）
     const [relatedWarehousing] = await pool.query(
-      'SELECT warehousing_order_id FROM warehousing_orders WHERE purchase_order_id = ? OR source_order_number = ? LIMIT 1',
-      [id, existing.order_number]
+      'SELECT warehousing_order_id FROM warehousing_orders WHERE purchase_order_id = ? LIMIT 1',
+      [id]
     )
     if (relatedWarehousing.length > 0) {
       return res.status(400).json({
@@ -420,6 +444,22 @@ export const deletePurchaseOrder = async (req, res) => {
           existing.plan_deductions,
           connection
         )
+        // 计划被订单更新删除重建后，扣减记录指向死计划行、回补会静默丢量：
+        // unmatchedQty>0 时按合同兜底回补（单行封顶原始数量，不会重复多补）
+        if (planRestore.unmatchedQty > 0 && existing.contract_number) {
+          const fallback = await restoreQuantitiesToPlans(
+            PurchasePlan,
+            PURCHASE_PLAN_KEYS,
+            existing.contract_number,
+            docItems,
+            connection
+          )
+          planRestore = {
+            ...planRestore,
+            restoredQty: planRestore.restoredQty + fallback.restoredQty,
+            restoredPlans: planRestore.restoredPlans + fallback.restoredPlans
+          }
+        }
       }
 
       // 删除采购订单自动生成的入库计划（bug#1 同款孤儿清理）
@@ -429,7 +469,7 @@ export const deletePurchaseOrder = async (req, res) => {
 
       await connection.commit()
     } catch (txError) {
-      await connection.rollback()
+      try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
       throw txError
     } finally {
       connection.release()

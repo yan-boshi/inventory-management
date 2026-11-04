@@ -33,13 +33,13 @@ export const getAllQuotations = async (req, res) => {
 
     if (startDate && endDate) {
       where.push('created_at BETWEEN ? AND ?')
-      params.push(`${startDate} 00:00:00`, `${endDate} 23:59:59`)
+      params.push(startDate.length === 10 ? startDate + ' 00:00:00' : startDate, endDate.length === 10 ? endDate + ' 23:59:59' : endDate)
     } else if (startDate) {
       where.push('created_at >= ?')
-      params.push(`${startDate} 00:00:00`)
+      params.push(startDate.length === 10 ? startDate + ' 00:00:00' : startDate)
     } else if (endDate) {
       where.push('created_at <= ?')
-      params.push(`${endDate} 23:59:59`)
+      params.push(endDate.length === 10 ? endDate + ' 23:59:59' : endDate)
     }
 
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
@@ -62,7 +62,8 @@ export const getAllQuotations = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -75,7 +76,8 @@ export const getQuotationById = async (req, res) => {
     }
     res.json({ success: true, data: quotation })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -116,7 +118,8 @@ export const createQuotation = async (req, res) => {
     })
     res.status(201).json({ success: true, data: quotation })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -162,7 +165,8 @@ export const updateQuotation = async (req, res) => {
     const quotation = await Quotation.update(id, updateData)
     res.json({ success: true, data: quotation })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -178,7 +182,8 @@ export const deleteQuotation = async (req, res) => {
     await Quotation.delete(id)
     res.json({ success: true, message: 'Quotation deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -187,6 +192,7 @@ export const getNewQuotationNumber = async (req, res) => {
     const quotationNumber = await Quotation.generateQuotationNumber()
     res.json({ success: true, data: { quotation_number: quotationNumber } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

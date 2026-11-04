@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, advancedOrAdmin } from '../middleware/auth.js'
 import {
   getAllOutboundPlans,
   getOutboundPlanById,
@@ -16,6 +16,6 @@ router.get('/new-plan-number', authMiddleware, getNewPlanNumber)
 router.get('/:id', authMiddleware, getOutboundPlanById)
 router.post('/', authMiddleware, createOutboundPlan)
 router.put('/:id', authMiddleware, updateOutboundPlan)
-router.delete('/:id', authMiddleware, deleteOutboundPlan)
+router.delete('/:id', authMiddleware, advancedOrAdmin, deleteOutboundPlan)
 
 export default router

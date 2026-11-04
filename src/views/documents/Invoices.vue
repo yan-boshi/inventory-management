@@ -406,6 +406,18 @@ const handlePrint = (record: Invoice) => {
 
   const items = parseInvoiceItems(record.invoice_items)
 
+  // 拼 HTML 前转义所有字符串字段（防 document.write DOM XSS：用户可控内容可注入脚本）
+  const escHtml = (v: unknown) => String(v ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+  const escObj = (o: any) => {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(o ?? {})) out[k] = typeof v === 'string' ? escHtml(v) : v
+    return out
+  }
+  record = escObj(record) as Invoice
+  for (const it of items) Object.assign(it, escObj(it))
+
   printWindow.document.write(`
     <!DOCTYPE html>
     <html>

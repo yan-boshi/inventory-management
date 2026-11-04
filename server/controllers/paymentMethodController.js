@@ -32,7 +32,8 @@ export const getAllPaymentMethods = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -45,7 +46,8 @@ export const getPaymentMethodById = async (req, res) => {
     }
     res.json({ success: true, data: method })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -65,7 +67,8 @@ export const createPaymentMethod = async (req, res) => {
     const method = await PaymentMethod.create({ payment_method_name, remarks })
     res.status(201).json({ success: true, data: method })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -93,7 +96,8 @@ export const updatePaymentMethod = async (req, res) => {
     const method = await PaymentMethod.update(id, updateData)
     res.json({ success: true, data: method })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -109,7 +113,8 @@ export const deletePaymentMethod = async (req, res) => {
     await PaymentMethod.delete(id)
     res.json({ success: true, message: 'Payment method deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -124,6 +129,7 @@ export const getAllPaymentMethodsList = async (req, res) => {
       }))
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

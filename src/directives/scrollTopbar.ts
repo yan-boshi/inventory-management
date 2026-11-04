@@ -1,9 +1,19 @@
 import type { Directive } from 'vue'
 
-// 扩展 HTMLElement 类型
+// 每个滚动容器的接管记录（支持一个指令范围内多张表格各配一根顶条）
+interface ScrollbarEntry {
+  target: HTMLElement
+  bar: HTMLElement
+  barHandler: () => void
+  contentHandler: () => void
+}
+
 declare global {
   interface HTMLElement {
     _scrollTopbarObserver?: ResizeObserver
+    _scrollTopbarEntries?: ScrollbarEntry[]
+    _scrollTopbarTarget?: HTMLElement
+    _scrollTopbarBar?: HTMLElement
     _scrollTopbarHandler?: () => void
     _scrollContentHandler?: () => void
   }
@@ -12,141 +22,117 @@ declare global {
 /**
  * 自定义指令：将表格的水平滚动条移动到顶部
  * 使用方式：v-scroll-topbar
+ *
+ * 实现要点（修复"双滚动条/常驻灰条/多表格只接管第一个"）：
+ * 1. 对范围内每个真正横向滚动的容器各配一根顶部滚动条（幂等，绝不重复插条）；
+ * 2. 原生横向滚动条用 .hide-native-scrollbar 类隐藏（CSS 兜底）；
+ * 3. 顶部滚动条只在确实有横向溢出时显示，无溢出 display:none。
  */
 export const scrollTopbar: Directive = {
   mounted(el) {
-    // 延迟执行，确保表格已完全渲染
-    setTimeout(() => moveScrollbarToTop(el), 200)
-    // 再次延迟执行，确保所有内容都已加载
-    setTimeout(() => moveScrollbarToTop(el), 500)
+    // 延迟执行，确保表格已完全渲染（二次兜底覆盖晚到的异步数据）
+    setTimeout(() => ensureScrollbars(el), 200)
+    setTimeout(() => ensureScrollbars(el), 500)
   },
   updated(el) {
-    // 更新时重新计算滚动条宽度
     setTimeout(() => {
-      const tableContent = el.querySelector('.ant-table-content') as HTMLElement
-      const scrollbarContainer = el.querySelector('.top-scrollbar-container') as HTMLElement
-      if (tableContent && scrollbarContainer) {
-        updateScrollbarWidth(tableContent, scrollbarContainer)
-      }
+      // 表格 DOM 被整体重建时旧条/旧目标已游离，清理后重建；否则增量补齐/同步
+      const entries = el._scrollTopbarEntries || []
+      const stale = entries.some((e: ScrollbarEntry) => !el.contains(e.target))
+      if (stale) cleanupEntries(el)
+      ensureScrollbars(el)
     }, 100)
   },
   beforeUnmount(el) {
-    // 清理 observer
+    cleanupEntries(el)
     if (el._scrollTopbarObserver) {
       el._scrollTopbarObserver.disconnect()
       delete el._scrollTopbarObserver
     }
-
-    // 移除事件监听器
-    const tableContent = el.querySelector('.ant-table-content') as HTMLElement
-    const scrollbarContainer = el.querySelector('.top-scrollbar-container') as HTMLElement
-
-    if (tableContent && el._scrollContentHandler) {
-      tableContent.removeEventListener('scroll', el._scrollContentHandler)
-    }
-
-    if (scrollbarContainer && el._scrollTopbarHandler) {
-      scrollbarContainer.removeEventListener('scroll', el._scrollTopbarHandler)
-    }
-
-    // 恢复原始滚动条
-    if (tableContent) {
-      tableContent.style.overflowX = 'auto'
-    }
-
-    // 移除顶部滚动条
-    if (scrollbarContainer) {
-      scrollbarContainer.remove()
-    }
   },
 }
 
-function moveScrollbarToTop(el: HTMLElement) {
-  // 查找表格的内容容器 - 尝试多种选择器
-  let tableContent = el.querySelector('.ant-table-content') as HTMLElement
-  if (!tableContent) {
-    // 尝试其他选择器
-    tableContent = el.querySelector('.ant-table-body') as HTMLElement
-  }
-  if (!tableContent) {
-    // 尝试更通用的选择器
-    tableContent = el.querySelector('[class*="table-content"]') as HTMLElement
-  }
-  if (!tableContent) {
-    console.warn('未找到表格内容容器')
-    return
+// 为范围内每个横向溢出的容器建立顶部滚动条（已接管的跳过），并同步全部
+function ensureScrollbars(el: HTMLElement) {
+  const candidates = el.querySelectorAll<HTMLElement>(
+    '.ant-table-content, .ant-table-body, [class*="table-content"]'
+  )
+  const entries = el._scrollTopbarEntries || (el._scrollTopbarEntries = [])
+
+  for (const target of candidates) {
+    if (target.scrollWidth <= target.clientWidth) continue
+    if (entries.some(e => e.target === target)) continue
+    entries.push(createEntry(target))
   }
 
-  // 检查是否已经有滚动条容器
-  const existingScrollbar = el.querySelector('.top-scrollbar-container') as HTMLElement
-  if (existingScrollbar) {
-    // 更新滚动条宽度
-    updateScrollbarWidth(tableContent, existingScrollbar)
-    return
+  // 监听尺寸变化只挂一次
+  if (!el._scrollTopbarObserver) {
+    const observer = new ResizeObserver(() => syncEntries(el))
+    observer.observe(el)
+    el._scrollTopbarObserver = observer
   }
 
-  // 创建顶部滚动条容器
-  const scrollbarContainer = document.createElement('div')
-  scrollbarContainer.className = 'top-scrollbar-container'
-  scrollbarContainer.style.cssText = `
-    overflow-x: auto;
-    overflow-y: hidden;
-    height: 10px;
-    margin-bottom: 8px;
-    background: #f0f0f0;
-    border-radius: 5px;
-    cursor: pointer;
-  `
-
-  // 创建内部的滚动条宽度占位元素
-  const scrollbarInner = document.createElement('div')
-  scrollbarInner.className = 'top-scrollbar-inner'
-  scrollbarInner.style.cssText = `
-    height: 1px;
-    min-width: 100%;
-  `
-  scrollbarContainer.appendChild(scrollbarInner)
-
-  // 在表格内容前插入滚动条
-  tableContent.parentNode?.insertBefore(scrollbarContainer, tableContent)
-
-  // 隐藏原始的底部滚动条
-  tableContent.style.overflowX = 'hidden'
-  tableContent.style.scrollbarWidth = 'none'
-
-  // 同步滚动位置
-  const scrollbarHandler = () => {
-    tableContent.scrollLeft = scrollbarContainer.scrollLeft
-  }
-  const contentHandler = () => {
-    scrollbarContainer.scrollLeft = tableContent.scrollLeft
-  }
-
-  scrollbarContainer.addEventListener('scroll', scrollbarHandler)
-  tableContent.addEventListener('scroll', contentHandler)
-
-  // 存储 handler 以便清理
-  el._scrollTopbarHandler = scrollbarHandler
-  el._scrollContentHandler = contentHandler
-
-  // 更新滚动条宽度
-  updateScrollbarWidth(tableContent, scrollbarContainer)
-
-  // 监听窗口大小变化
-  const resizeObserver = new ResizeObserver(() => {
-    updateScrollbarWidth(tableContent, scrollbarContainer)
-  })
-  resizeObserver.observe(tableContent)
-
-  // 存储 observer 以便清理
-  el._scrollTopbarObserver = resizeObserver
+  syncEntries(el)
 }
 
-function updateScrollbarWidth(tableContent: HTMLElement, scrollbarContainer: HTMLElement) {
-  const inner = scrollbarContainer.querySelector('.top-scrollbar-inner') as HTMLElement
-  if (inner) {
-    const scrollWidth = tableContent.scrollWidth || tableContent.offsetWidth
-    inner.style.width = scrollWidth + 'px'
-    inner.style.height = '1px'
+// 为单个滚动容器创建顶部滚动条并绑定双向同步
+function createEntry(target: HTMLElement): ScrollbarEntry {
+  const bar = document.createElement('div')
+  bar.className = 'top-scrollbar-container'
+
+  const inner = document.createElement('div')
+  inner.className = 'top-scrollbar-inner'
+  inner.style.cssText = 'height: 1px; min-width: 100%;'
+  bar.appendChild(inner)
+
+  target.parentNode?.insertBefore(bar, target)
+
+  const barHandler = () => {
+    target.scrollLeft = bar.scrollLeft
   }
+  const contentHandler = () => {
+    bar.scrollLeft = target.scrollLeft
+  }
+  bar.addEventListener('scroll', barHandler)
+  target.addEventListener('scroll', contentHandler)
+
+  return { target, bar, barHandler, contentHandler }
+}
+
+// 同步所有接管条的宽度与显隐；无横向溢出时隐藏并不再压制原生条
+function syncEntries(el: HTMLElement) {
+  for (const entry of el._scrollTopbarEntries || []) {
+    const { target, bar } = entry
+    const inner = bar.querySelector('.top-scrollbar-inner') as HTMLElement | null
+    const hasOverflow = target.scrollWidth > target.clientWidth + 1
+
+    if (inner) {
+      inner.style.width = (target.scrollWidth || target.offsetWidth) + 'px'
+      inner.style.height = '1px'
+    }
+    bar.style.display = hasOverflow ? '' : 'none'
+
+    if (hasOverflow) {
+      target.classList.add('hide-native-scrollbar')
+      target.style.overflowX = 'hidden'
+      target.style.scrollbarWidth = 'none'
+    } else {
+      target.classList.remove('hide-native-scrollbar')
+      target.style.overflowX = ''
+      target.style.scrollbarWidth = ''
+    }
+  }
+}
+
+// 清理全部接管（卸载或目标游离时）：解绑监听、还原样式、移除顶条
+function cleanupEntries(el: HTMLElement) {
+  for (const entry of el._scrollTopbarEntries || []) {
+    entry.bar.removeEventListener('scroll', entry.barHandler)
+    entry.target.removeEventListener('scroll', entry.contentHandler)
+    entry.target.style.overflowX = ''
+    entry.target.style.scrollbarWidth = ''
+    entry.target.classList.remove('hide-native-scrollbar')
+    entry.bar.remove()
+  }
+  delete el._scrollTopbarEntries
 }

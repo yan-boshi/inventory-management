@@ -32,7 +32,8 @@ export const getAllBusinessCategories = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -45,7 +46,8 @@ export const getBusinessCategoryById = async (req, res) => {
     }
     res.json({ success: true, data: category })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -65,7 +67,8 @@ export const createBusinessCategory = async (req, res) => {
     const category = await BusinessCategory.create({ business_category_name, remarks })
     res.status(201).json({ success: true, data: category })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -93,7 +96,8 @@ export const updateBusinessCategory = async (req, res) => {
     const category = await BusinessCategory.update(id, updateData)
     res.json({ success: true, data: category })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -109,7 +113,8 @@ export const deleteBusinessCategory = async (req, res) => {
     await BusinessCategory.delete(id)
     res.json({ success: true, message: 'Business category deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -124,6 +129,7 @@ export const getAllBusinessCategoriesList = async (req, res) => {
       }))
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

@@ -21,6 +21,11 @@ import {
   restoreQuantitiesToPlans
 } from '../utils/planRestore.js'
 import { escapeLike } from '../utils/sql.js'
+import { validateNonNegativeAmounts } from '../utils/amountValidation.js'
+import { round4 } from '../utils/round.js'
+
+// 出库明细中需要非负校验的金额字段
+const DELIVERY_AMOUNT_FIELDS = ['tax_included_price', 'total_price']
 
 export const getAllDeliveryOrders = async (req, res) => {
   try {
@@ -129,6 +134,7 @@ export const getDeliveryOrderById = async (req, res) => {
 export const createDeliveryOrder = async (req, res) => {
   try {
     const {
+      order_number,
       contract_number,
       // 前端选择的具体销售订单（同一合同编号可能对应多张销售订单，用于定位明细并落库，删除时回退到同一张订单）
       sales_order_id,
@@ -167,6 +173,12 @@ export const createDeliveryOrder = async (req, res) => {
           message: `商品 ${item.product_name || item.product_code || '未知'} 的出库数量必须大于0`
         })
       }
+    }
+
+    // 金额/单价必须非负（缺省不管，传了就必须是有限非负数字）
+    const createAmountError = validateNonNegativeAmounts(parsedItems, DELIVERY_AMOUNT_FIELDS)
+    if (createAmountError) {
+      return res.status(400).json({ success: false, message: createAmountError })
     }
 
     // 先校验库存是否充足（在创建出库单之前）
@@ -232,6 +244,7 @@ export const createDeliveryOrder = async (req, res) => {
       await connection.beginTransaction()
 
       order = await DeliveryOrder.create({
+        order_number,
         contract_number,
         sales_order_id,
         customer_name,
@@ -350,7 +363,7 @@ export const createDeliveryOrder = async (req, res) => {
       await connection.commit()
       res.status(201).json({ success: true, data: order })
     } catch (txError) {
-      await connection.rollback()
+      try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
       throw txError
     } finally {
       connection.release()
@@ -416,6 +429,13 @@ export const updateDeliveryOrder = async (req, res) => {
             message: `商品 ${item.product_name || item.product_code || '未知'} 的出库数量必须大于0`
           })
         }
+      }
+
+      // 金额/单价必须非负（缺省不管，传了就必须是有限非负数字）
+      const updateAmountError = validateNonNegativeAmounts(newItems, DELIVERY_AMOUNT_FIELDS)
+      if (updateAmountError) {
+        await connection.rollback()
+        return res.status(400).json({ success: false, message: updateAmountError })
       }
 
       // 计算每个产品的新旧数量差（正数表示需要多扣库存）
@@ -606,12 +626,17 @@ export const updateDeliveryOrder = async (req, res) => {
       if (receivable) {
         const newTotalAmount = parseFloat(order.total_amount) || 0
         const receivedAmount = parseFloat(receivable.received_amount) || 0
-        const newBalanceAmount = Math.max(0, newTotalAmount - receivedAmount)
+        const handlingFee = parseFloat(receivable.handling_fee) || 0
+        // amount 不低于已收金额；余额按权威口径 amount + handling_fee - received（漏手续费会让余额对不上）
+        const amount = Math.max(newTotalAmount, receivedAmount)
+        const newBalanceAmount = round4(amount + handlingFee - receivedAmount)
+        const status = receivedAmount <= 0 ? 0 : (receivedAmount >= amount + handlingFee - 0.00001 ? 2 : 1)
 
         await Receivable.update(receivable.receivable_id, {
           source_bill_id: order_number !== undefined ? order_number : existing.order_number,
-          amount: newTotalAmount,
+          amount,
           balance_amount: newBalanceAmount,
+          status,
           delivery_time: delivery_time || existing.delivery_time || null
         }, connection)
       }
@@ -620,7 +645,7 @@ export const updateDeliveryOrder = async (req, res) => {
     await connection.commit()
     res.json({ success: true, data: order })
   } catch (error) {
-    await connection.rollback()
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
     const { statusCode, message } = handleDbError(error, '操作出库单')
     res.status(statusCode).json({ success: false, message })
   } finally {
@@ -700,6 +725,22 @@ export const deleteDeliveryOrder = async (req, res) => {
           existing.plan_deductions,
           connection
         )
+        // 计划被订单更新删除重建后，扣减记录指向死计划行、回补会静默丢量：
+        // unmatchedQty>0 时按合同兜底回补（单行封顶原始数量，不会重复多补）
+        if (planRestore.unmatchedQty > 0 && existing.contract_number) {
+          const fallback = await restoreQuantitiesToPlans(
+            OutboundPlan,
+            OUTBOUND_PLAN_KEYS,
+            existing.contract_number,
+            deliveryItems,
+            connection
+          )
+          planRestore = {
+            ...planRestore,
+            restoredQty: planRestore.restoredQty + fallback.restoredQty,
+            restoredPlans: planRestore.restoredPlans + fallback.restoredPlans
+          }
+        }
       }
 
       // 回退出库数量到销售订单（优先回退到创建时关联的那张订单）
@@ -768,7 +809,7 @@ export const deleteDeliveryOrder = async (req, res) => {
       await connection.commit()
       res.json({ success: true, message: '出库单删除成功', data: planRestore })
     } catch (txError) {
-      await connection.rollback()
+      try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
       throw txError
     } finally {
       connection.release()

@@ -13,9 +13,11 @@ class SalesOrder extends BaseModel {
     return nextSequence(this.tableName, 'order_number', `XSD-S-${localDateStr().slice(2)}-`)
   }
 
-  // 税率换算：0 是合法税率（出口免税），只拦 null/undefined/NaN，不拦 0
+  // 税率换算：0 是合法税率（出口免税），只拦 null/undefined/NaN，不拦 0；
+  // tax_rate=null/'' 表示未知税率，保持旧语义返回 0（Number(null)=0 会误把未税价算成含税全价）
   calculateTaxExcludedPrice(taxIncludedPrice, taxRate) {
     const price = Number(taxIncludedPrice)
+    if (taxRate === null || taxRate === undefined || taxRate === '') return 0
     const rate = Number(taxRate)
     if (Number.isNaN(price) || Number.isNaN(rate)) return 0
     return round4(price / (1 + rate))
@@ -37,6 +39,7 @@ class SalesOrder extends BaseModel {
 
   calculateTaxAmount(taxIncludedAmount, taxRate) {
     const amount = Number(taxIncludedAmount)
+    if (taxRate === null || taxRate === undefined || taxRate === '') return 0
     const rate = Number(taxRate)
     if (Number.isNaN(amount) || Number.isNaN(rate)) return 0
     return round4((amount / (1 + rate)) * rate)
@@ -71,25 +74,37 @@ class SalesOrder extends BaseModel {
       }
     }
 
-    const orderData = {
-      sales_order_id: generateUUID(),
-      order_number: data.order_number || await this.generateOrderNumber(),
-      contract_number: data.contract_number || null,
-      customer_name: data.customer_name,
-      customer_code: data.customer_code,
-      payment_method: data.payment_method,
-      sales_items: processedSalesItems,
-      sales_date: data.sales_date || localDateISO(),
-      status: 1,
-      tax_included_amount: data.tax_included_amount || 0,
-      currency: data.currency || 'CNY',
-      exchange_rate: parseFloat(data.exchange_rate) || 1.0,
-      entry_date: data.entry_date || null,
-      remarks: data.remarks || null,
-      expenses: expensesJson,
-      sales_person: data.sales_person || null
+    // 取号撞号（ER_DUP_ENTRY）重试：每次重试重新取号，不复用已冲突的编号
+    const maxRetries = 3
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const orderData = {
+          sales_order_id: generateUUID(),
+          order_number: data.order_number || await this.generateOrderNumber(),
+          contract_number: data.contract_number || null,
+          customer_name: data.customer_name,
+          customer_code: data.customer_code,
+          payment_method: data.payment_method,
+          sales_items: processedSalesItems,
+          sales_date: data.sales_date || localDateISO(),
+          status: 1,
+          tax_included_amount: data.tax_included_amount || 0,
+          currency: data.currency || 'CNY',
+          exchange_rate: parseFloat(data.exchange_rate) || 1.0,
+          entry_date: data.entry_date || null,
+          remarks: data.remarks || null,
+          expenses: expensesJson,
+          sales_person: data.sales_person || null
+        }
+        return await super.create(orderData, conn)
+      } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY' && attempt < maxRetries - 1) {
+          console.warn(`订单号冲突，重试第 ${attempt + 1} 次...`)
+          continue
+        }
+        throw error
+      }
     }
-    return super.create(orderData, conn)
   }
 
   async update(id, data, conn) {

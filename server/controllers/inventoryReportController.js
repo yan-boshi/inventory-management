@@ -256,6 +256,7 @@ export const getInventoryReport = async (req, res) => {
 
     res.json({ success: true, data: report })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

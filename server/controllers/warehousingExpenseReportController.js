@@ -12,12 +12,12 @@ export const getWarehousingExpenseReport = async (req, res) => {
 
     if (startDate) {
       conditions.push('wo.warehousing_time >= ?')
-      params.push(startDate + ' 00:00:00')
+      params.push(startDate.length === 10 ? startDate + ' 00:00:00' : startDate)
     }
 
     if (endDate) {
       conditions.push('wo.warehousing_time <= ?')
-      params.push(endDate + ' 23:59:59')
+      params.push(endDate.length === 10 ? endDate + ' 23:59:59' : endDate)
     }
 
     if (orderNumber) {
@@ -49,12 +49,12 @@ export const getWarehousingExpenseReport = async (req, res) => {
 
     if (startDate) {
       returnConditions.push('iro.return_time >= ?')
-      returnParams.push(startDate + ' 00:00:00')
+      returnParams.push(startDate.length === 10 ? startDate + ' 00:00:00' : startDate)
     }
 
     if (endDate) {
       returnConditions.push('iro.return_time <= ?')
-      returnParams.push(endDate + ' 23:59:59')
+      returnParams.push(endDate.length === 10 ? endDate + ' 23:59:59' : endDate)
     }
 
     if (orderNumber) {
@@ -294,6 +294,7 @@ export const getWarehousingExpenseReport = async (req, res) => {
 
     res.json({ success: true, data: reportRows })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, advancedOrAdmin } from '../middleware/auth.js'
 import {
   getAllSalesOrders,
   getSalesOrderById,
@@ -20,6 +20,6 @@ router.get('/by-contract/:contractNumber', authMiddleware, getSalesItemsByContra
 router.get('/:id', authMiddleware, getSalesOrderById)
 router.post('/', authMiddleware, createSalesOrder)
 router.put('/:id', authMiddleware, updateSalesOrder)
-router.delete('/:id', authMiddleware, deleteSalesOrder)
+router.delete('/:id', authMiddleware, advancedOrAdmin, deleteSalesOrder)
 
 export default router

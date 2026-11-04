@@ -644,7 +644,7 @@ const exportColumns: ExportColumn[] = [
 const handleExport = async () => {
   try {
     const params: any = { page: 1, pageSize: 99999 }
-    if (searchParams.statement_number) params.statement_number = searchParams.statement_number
+    // 注：账单编号筛选输入框与后端参数均未实现（原 statement_number 死分支已移除）
     if (searchParams.type !== undefined && searchParams.type !== null)
       params.type = searchParams.type
     if (searchParams.entity_name) params.entity_name = searchParams.entity_name

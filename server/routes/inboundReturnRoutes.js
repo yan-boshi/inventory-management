@@ -7,7 +7,7 @@ import {
   deleteInboundReturn,
   getNewOrderNumber
 } from '../controllers/inboundReturnController.js'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, advancedOrAdmin } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -18,6 +18,6 @@ router.get('/', getAllInboundReturns)
 router.get('/:id', getInboundReturnById)
 router.post('/', createInboundReturn)
 router.put('/:id', updateInboundReturn)
-router.delete('/:id', deleteInboundReturn)
+router.delete('/:id', advancedOrAdmin, deleteInboundReturn)
 
 export default router

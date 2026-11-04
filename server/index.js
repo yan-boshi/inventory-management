@@ -1,6 +1,7 @@
+// 环境变量必须最先加载（ESM import 先于模块体执行，顺序即优先级）
+import './loadEnv.js'
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 
 // Import routes
 import authRoutes from './routes/authRoutes.js'
@@ -35,15 +36,42 @@ import exchangeRateRoutes from './routes/exchangeRateRoutes.js'
 import customsExchangeRateRoutes from './routes/customsExchangeRateRoutes.js'
 import writeOffRoutes from './routes/writeOffRoutes.js'
 import basicProfitReportRoutes from './routes/basicProfitReportRoutes.js'
+import authRateLimit from './middleware/rateLimit.js'
 
-dotenv.config()
+// （环境变量已由 loadEnv.js 在 import 首位预加载）
 
 const app = express()
 const PORT = process.env.PORT || 3003
 
-// Middleware
-app.use(cors())
-app.use(express.json())
+// 不暴露服务器框架指纹
+app.disable('x-powered-by')
+
+// 基础安全响应头（SPA 页面由前端主机服务时，那边也应配置同款）
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'no-referrer')
+  next()
+})
+
+// CORS 白名单：只放行前端来源（ALLOWED_ORIGINS 逗号分隔可配，生产务必改成实际域名）
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ||
+  'http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // 无 Origin（同源/curl/非浏览器）放行；跨域来源必须在白名单内
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true)
+    cb(null, false)
+  },
+  credentials: false
+}))
+
+// 请求体大小限制（防超大 body 消耗内存）
+app.use(express.json({ limit: '2mb' }))
 
 // Health check
 app.get('/health', (req, res) => {
@@ -51,7 +79,8 @@ app.get('/health', (req, res) => {
 })
 
 // API Routes
-app.use('/api/auth', authRoutes)
+// 登录/注册限流（防暴力破解与批量注册）
+app.use('/api/auth', authRateLimit, authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/business-categories', businessCategoryRoutes)
 app.use('/api/payment-methods', paymentMethodRoutes)
@@ -85,9 +114,12 @@ app.use('/api/write-off', writeOffRoutes)
 app.use('/api/basic-profit-report', basicProfitReportRoutes)
 
 // Error handling middleware
+// 客户端错误（4xx，如 JSON 解析失败）保留原状态码，不一律伪装成 500；不向客户端泄露堆栈
 app.use((err, req, res, next) => {
   console.error(err.stack)
-  res.status(500).json({ success: false, message: 'Something went wrong!' })
+  const status = err.status || err.statusCode || 500
+  const message = status < 500 ? (err.message || '请求参数错误') : 'Something went wrong!'
+  res.status(status).json({ success: false, message })
 })
 
 // 404 handler

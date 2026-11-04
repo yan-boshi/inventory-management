@@ -41,7 +41,8 @@ export const getAllCurrencies = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -51,7 +52,8 @@ export const getActiveCurrencies = async (req, res) => {
     const currencies = await Currency.findAllActive()
     res.json({ success: true, data: currencies })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -65,7 +67,8 @@ export const getCurrencyById = async (req, res) => {
     }
     res.json({ success: true, data: currency })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -104,7 +107,8 @@ export const createCurrency = async (req, res) => {
 
     res.status(201).json({ success: true, data: currency })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -147,7 +151,8 @@ export const updateCurrency = async (req, res) => {
     const currency = await Currency.update(id, updateData)
     res.json({ success: true, data: currency })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -169,6 +174,7 @@ export const deleteCurrency = async (req, res) => {
     await Currency.delete(id)
     res.json({ success: true, message: '币种删除成功' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

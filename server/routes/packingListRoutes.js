@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, advancedOrAdmin } from '../middleware/auth.js'
 import {
   createPackingList,
   updatePackingList,
@@ -19,6 +19,6 @@ router.get('/:id', getPackingListById)
 router.get('/by-packing-no/:packingNo', getPackingListByPackingNo)
 router.post('/', createPackingList)
 router.put('/:id', updatePackingList)
-router.delete('/:id', deletePackingList)
+router.delete('/:id', advancedOrAdmin, deletePackingList)
 
 export default router

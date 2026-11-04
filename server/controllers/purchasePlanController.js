@@ -1,6 +1,7 @@
 import PurchasePlan from '../models/PurchasePlan.js'
 import pool from '../config/database.js'
 import { escapeLike } from '../utils/sql.js'
+import { localDateISO } from '../utils/sequence.js'
 
 export const getAllPurchasePlans = async (req, res) => {
   try {
@@ -83,7 +84,8 @@ export const getAllPurchasePlans = async (req, res) => {
       },
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -96,7 +98,8 @@ export const getPurchasePlanById = async (req, res) => {
     }
     res.json({ success: true, data: plan })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -133,7 +136,8 @@ export const createPurchasePlan = async (req, res) => {
 
     res.status(201).json({ success: true, data: plan })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -160,7 +164,8 @@ export const updatePurchasePlan = async (req, res) => {
     const plan = await PurchasePlan.update(id, updateData)
     res.json({ success: true, data: plan })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -175,7 +180,8 @@ export const deletePurchasePlan = async (req, res) => {
     await PurchasePlan.delete(id)
     res.json({ success: true, message: 'Purchase plan deleted' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -184,7 +190,8 @@ export const getNewPlanNumber = async (req, res) => {
     const planNumber = await PurchasePlan.generatePlanNumber()
     res.json({ success: true, data: { plan_number: planNumber } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -269,7 +276,7 @@ export const generateFromSalesOrder = async (salesOrder, conn = pool) => {
       customer_name: salesOrder.customer_name || '',
       plan_items: planItems,
       currency: salesOrder.currency || 'CNY',
-      entry_date: salesOrder.entry_date || new Date().toISOString().slice(0, 10),
+      entry_date: salesOrder.entry_date || localDateISO(),
       sales_person: salesOrder.sales_person || '',
       status: planStatus,
       remarks: salesOrder.remarks || '',

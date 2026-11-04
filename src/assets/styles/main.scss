@@ -10,7 +10,7 @@ body {
     'Noto Color Emoji';
 }
 
-// 全局滚动条样式
+// 全局滚动条样式：细、半透明、弱化存在感
 * {
   &::-webkit-scrollbar {
     width: 8px;
@@ -18,60 +18,61 @@ body {
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #1677ff;
+    background: rgba(0, 0, 0, 0.2);
     border-radius: 4px;
 
     &:hover {
-      background: #4096ff;
+      background: rgba(0, 0, 0, 0.35);
     }
   }
 
   &::-webkit-scrollbar-track {
-    background: #f0f0f0;
-    border-radius: 4px;
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }
 
-// 顶部滚动条样式（全局方案使用）
+// Firefox
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+// 隐藏原生滚动条（v-scroll-topbar 接管横向滚动时使用）
+.hide-native-scrollbar {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+// 顶部横向滚动条（v-scroll-topbar 注入；无溢出时指令会 display:none）
 .top-scrollbar-container {
   overflow-x: auto;
   overflow-y: hidden;
   height: 10px;
   margin-bottom: 8px;
-  background: #f0f0f0;
   border-radius: 5px;
-  cursor: pointer;
 
-  // 自定义滚动条样式
   &::-webkit-scrollbar {
     height: 10px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #1677ff;
+    background: rgba(0, 0, 0, 0.25);
     border-radius: 5px;
-    border: 2px solid #f0f0f0;
 
     &:hover {
-      background: #4096ff;
+      background: rgba(0, 0, 0, 0.4);
     }
   }
 
   &::-webkit-scrollbar-track {
-    background: #f0f0f0;
+    background: rgba(0, 0, 0, 0.05);
     border-radius: 5px;
-  }
-}
-
-// 隐藏原始的底部滚动条（通过JavaScript设置）
-.ant-table-content,
-.ant-table-body {
-  // 当添加了顶部滚动条时，隐藏底部滚动条
-  &[style*="overflow-x: hidden"] {
-    scrollbar-width: none;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
   }
 }

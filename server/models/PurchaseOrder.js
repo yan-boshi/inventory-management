@@ -13,9 +13,11 @@ class PurchaseOrder extends BaseModel {
     return nextSequence(this.tableName, 'order_number', `XSD-P-${localDateStr().slice(2)}-`)
   }
 
-  // 税率换算：0 是合法税率（出口免税），只拦 null/undefined/NaN，不拦 0
+  // 税率换算：0 是合法税率（出口免税），只拦 null/undefined/NaN，不拦 0；
+  // tax_rate=null/'' 表示未知税率，保持旧语义返回 0（Number(null)=0 会误把未税价算成含税全价）
   calculateTaxExcludedPrice(taxIncludedPrice, taxRate) {
     const price = Number(taxIncludedPrice)
+    if (taxRate === null || taxRate === undefined || taxRate === '') return 0
     const rate = Number(taxRate)
     if (Number.isNaN(price) || Number.isNaN(rate)) return 0
     return round4(price / (1 + rate))
@@ -37,6 +39,7 @@ class PurchaseOrder extends BaseModel {
 
   calculateTaxAmount(taxIncludedAmount, taxRate) {
     const amount = Number(taxIncludedAmount)
+    if (taxRate === null || taxRate === undefined || taxRate === '') return 0
     const rate = Number(taxRate)
     if (Number.isNaN(amount) || Number.isNaN(rate)) return 0
     return round4((amount / (1 + rate)) * rate)
@@ -51,10 +54,16 @@ class PurchaseOrder extends BaseModel {
       data.expenses = data.expenses ? JSON.stringify(data.expenses) : null
     }
 
+    // plan_deductions 是 JSON 列，数组必须序列化
+    //（漏掉会被 mysql2 写成 '[object Object]'，采购计划生成采购订单必失败）
+    if (data.plan_deductions !== undefined && typeof data.plan_deductions !== 'string') {
+      data.plan_deductions = JSON.stringify(data.plan_deductions)
+    }
+
     if (data.purchase_items !== undefined) {
       const purchaseItems = typeof data.purchase_items === 'string' ? JSON.parse(data.purchase_items) : data.purchase_items
       const calculatedItems = purchaseItems.map((item) => {
-        const taxRateDecimal = item.tax_rate / 100
+        const taxRateDecimal = item.tax_rate === null || item.tax_rate === undefined || item.tax_rate === '' ? null : Number(item.tax_rate) / 100
         const taxExcludedPrice = this.calculateTaxExcludedPrice(item.tax_included_price, taxRateDecimal)
         const taxIncludedAmount = this.calculateTaxIncludedAmount(item.quantity, item.tax_included_price)
         const taxExcludedAmount = this.calculateTaxExcludedAmount(item.quantity, taxExcludedPrice)
@@ -99,25 +108,37 @@ class PurchaseOrder extends BaseModel {
       }
     })
 
-    const orderData = {
-      purchase_order_id: generateUUID(),
-      order_number: data.order_number || await this.generateOrderNumber(),
-      contract_number: data.contract_number || null,
-      supplier_name: data.supplier_name,
-      supplier_code: data.supplier_code,
-      purchase_items: JSON.stringify(calculatedItems),
-      currency: data.currency || 'CNY',
-      exchange_rate: data.exchange_rate || 1.0,
-      entry_date: data.entry_date || null,
-      status: data.status || 1,
-      remarks: data.remarks || null,
-      expenses: expensesJson,
-      purchase_person: data.purchase_person || null,
-      related_sales_order_id: data.related_sales_order_id || null,
-      related_sales_orders: data.related_sales_orders ? JSON.stringify(data.related_sales_orders) : null,
-      plan_deductions: JSON.stringify(data.plan_deductions || [])
+    // 取号撞号（ER_DUP_ENTRY）重试：每次重试重新取号，不复用已冲突的编号
+    const maxRetries = 3
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const orderData = {
+          purchase_order_id: generateUUID(),
+          order_number: data.order_number || await this.generateOrderNumber(),
+          contract_number: data.contract_number || null,
+          supplier_name: data.supplier_name,
+          supplier_code: data.supplier_code,
+          purchase_items: JSON.stringify(calculatedItems),
+          currency: data.currency || 'CNY',
+          exchange_rate: data.exchange_rate || 1.0,
+          entry_date: data.entry_date || null,
+          status: data.status || 1,
+          remarks: data.remarks || null,
+          expenses: expensesJson,
+          purchase_person: data.purchase_person || null,
+          related_sales_order_id: data.related_sales_order_id || null,
+          related_sales_orders: data.related_sales_orders ? JSON.stringify(data.related_sales_orders) : null,
+          plan_deductions: JSON.stringify(data.plan_deductions || [])
+        }
+        return await super.create(orderData, conn)
+      } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY' && attempt < maxRetries - 1) {
+          console.warn(`订单号冲突，重试第 ${attempt + 1} 次...`)
+          continue
+        }
+        throw error
+      }
     }
-    return super.create(orderData, conn)
   }
 
   /**

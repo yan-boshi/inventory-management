@@ -1,5 +1,5 @@
 <template>
-  <a-layout style="min-height: 100vh">
+  <a-layout class="app-layout">
     <a-layout-sider v-model:collapsed="collapsed" style="position: relative">
       <div class="logo">
         <h3>旭思达ERP系统</h3>
@@ -201,7 +201,7 @@
         </a-dropdown>
       </div>
     </a-layout-sider>
-    <a-layout>
+    <a-layout class="main-column">
       <div class="tabs-container">
         <a-tabs
           v-model:activeKey="tabsStore.activeKey"
@@ -321,6 +321,10 @@ watch(
   (newPath, oldPath) => {
     // 路由已切换但 DOM 尚未更新，此时滚动位置仍是旧页面的
     if (oldPath) {
+      // 顺手清理已脱离 DOM 的元素，避免 Map 永久持有已关闭页的节点（内存泄漏）
+      for (const el of liveScrollMap.keys()) {
+        if (!(el as HTMLElement).isConnected) liveScrollMap.delete(el)
+      }
       routeScrollSnapshots.set(oldPath, new Map(liveScrollMap))
     }
 
@@ -352,6 +356,34 @@ watch(
 </script>
 
 <style scoped>
+/* 整体布局锁死视口高度、页面永不溢出 body —— 消灭页面右侧的整页竖向滚动条 */
+.app-layout {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 右侧内容栏自己承担竖向滚动，并隐藏滚动条（滚轮/触控板滚动保留）；
+   overflow-x 显式 hidden —— 单轴 auto 会把另一轴连带成 auto，防止引出新的横向条 */
+.main-column {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.main-column::-webkit-scrollbar {
+  display: none;
+}
+
+/* 侧边栏：隐藏竖向滚动条（滚轮/触控板滚动保留），并为底部用户信息预留空间 */
+:deep(.ant-layout-sider-children) {
+  scrollbar-width: none;
+  padding-bottom: 88px;
+}
+
+:deep(.ant-layout-sider-children::-webkit-scrollbar) {
+  display: none;
+}
+
 .logo {
   height: 32px;
   margin: 16px;

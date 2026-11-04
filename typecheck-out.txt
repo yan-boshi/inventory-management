@@ -1,0 +1,499 @@
+﻿
+> inventory-management@0.0.1 typecheck
+> vue-tsc --noEmit
+
+src/api/settlement.ts(29,71): error TS2552: Cannot find name 'SettlementStatementItem'. Did you mean 'SettlementStatement'?
+src/api/settlement.ts(34,83): error TS2552: Cannot find name 'SettlementStatementItem'. Did you mean 'SettlementStatement'?
+src/components/ColumnConfig.vue(218,39): error TS6133: 'index' is declared but its value is never read.
+src/components/CustomerForm.vue(209,5): error TS2322: Type '{ success: boolean; data: Currency[]; }' is not assignable to type 'Currency[] | { currency_id: string; currency_code: string; currency_name: string; currency_symbol: string; decimal_places: number; is_base_currency: number; is_active: number; sort_order: number; created_at: string; updated_at: string; }[]'.
+src/components/DeliveryOrderForm.vue(506,34): error TS2339: Property 'order_number' does not exist on type '{ success: boolean; data: { order_number: string; }; }'.
+src/components/DeliveryOrderForm.vue(604,52): error TS2339: Property 'receiver_address' does not exist on type '{ success: boolean; data: Customer; }'.
+src/components/DeliveryOrderForm.vue(623,50): error TS2339: Property 'map' does not exist on type '{ success: boolean; data: ProductOption[]; }'.
+src/components/DeliveryOrderForm.vue(669,5): error TS2322: Type '{ success: boolean; data: CustomerOption[]; }' is not assignable to type 'CustomerOption[] | { customer_id: string; customer_name: string; customer_code: string; }[]'.
+src/components/DeliveryOrderForm.vue(694,48): error TS2339: Property 'receiver_address' does not exist on type '{ success: boolean; data: Customer; }'.
+src/components/DeliveryOrderForm.vue(795,7): error TS2353: Object literal may only specify known properties, and 'order_number' does not exist in type 'CreateDeliveryOrderRequest'.
+src/components/DeliveryOrderForm.vue(1000,58): error TS2339: Property 'map' does not exist on type '{ success: boolean; data: ProductOption[]; }'.
+src/components/DeliveryOrderForm.vue(1009,5): error TS2322: Type '{ success: boolean; data: CustomerOption[]; }' is not assignable to type 'CustomerOption[] | { customer_id: string; customer_name: string; customer_code: string; }[]'.
+src/components/DeliveryOrderForm.vue(1019,5): error TS2322: Type '{ success: boolean; data: Currency[]; }' is not assignable to type 'Currency[] | { currency_id: string; currency_code: string; currency_name: string; currency_symbol: string; decimal_places: number; is_base_currency: number; is_active: number; sort_order: number; created_at: string; updated_at: string; }[]'.
+src/components/DeliveryOrderForm.vue(1041,48): error TS2339: Property 'rate' does not exist on type '{ success: boolean; data: CustomsExchangeRate | null; message?: string | undefined; }'.
+src/components/DeliveryOrderForm.vue(1043,7): error TS2322: Type 'undefined' is not assignable to type 'number'.
+src/components/DeliveryOrderForm.vue(1048,5): error TS2322: Type 'undefined' is not assignable to type 'number'.
+src/components/DeliveryOrderForm.vue(1101,58): error TS2339: Property 'receiver_address' does not exist on type '{ success: boolean; data: Customer; }'.
+src/components/InboundReturnForm.vue(102,33): error TS2339: Property 'total_amount' does not exist on type '{ source_order_id: string; source_order_number: string; contract_number: string; supplier_name: string; supplier_code: string; return_items: any[]; return_time: { clone: () => Dayjs; isValid: () => boolean; ... 36 more ...; weekday: { ...; }; }; ... 4 more ...; remarks: string; }'.
+src/components/InboundReturnForm.vue(267,8): error TS2339: Property 'total_amount' does not exist on type '{ source_order_id: string; source_order_number: string; contract_number: string; supplier_name: string; supplier_code: string; return_items: any[]; return_time: { clone: () => Dayjs; isValid: () => boolean; ... 36 more ...; weekday: { ...; }; }; ... 4 more ...; remarks: string; }'.
+src/components/InboundReturnForm.vue(335,26): error TS2339: Property 'total_amount' does not exist on type '{ source_order_id: string; source_order_number: string; contract_number: string; supplier_name: string; supplier_code: string; return_items: any[]; return_time: { clone: () => Dayjs; isValid: () => boolean; ... 36 more ...; weekday: { ...; }; }; ... 4 more ...; remarks: string; }'.
+src/components/InboundReturnForm.vue(339,67): error TS2345: Argument of type '{ return_items: string; return_time: string | null; entry_date: string | null; total_amount: any; source_order_id: string; source_order_number: string; contract_number: string; supplier_name: string; ... 4 more ...; remarks: string; }' is not assignable to parameter of type 'Partial<InboundReturnOrder>'.
+  Types of property 'return_time' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/components/InboundReturnForm.vue(342,33): error TS2345: Argument of type '{ return_items: string; return_time: string | null; entry_date: string | null; total_amount: any; source_order_id: string; source_order_number: string; contract_number: string; supplier_name: string; ... 4 more ...; remarks: string; }' is not assignable to parameter of type 'Partial<InboundReturnOrder>'.
+  Types of property 'return_time' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/components/InvoiceForm.vue(463,23): error TS2339: Property 'length' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/InvoiceForm.vue(464,28): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'PaginatedResponse<Customer>'.
+  Property '0' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/InvoiceForm.vue(520,34): error TS2339: Property 'map' does not exist on type '{ success: boolean; data: CustomerOption[]; }'.
+src/components/InvoiceForm.vue(542,32): error TS2339: Property 'find' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/OutboundReturnForm.vue(102,33): error TS2339: Property 'total_amount' does not exist on type '{ source_order_id: string; source_order_number: string; contract_number: string; customer_name: string; customer_code: string; return_items: any[]; return_time: { clone: () => Dayjs; isValid: () => boolean; ... 36 more ...; weekday: { ...; }; }; ... 4 more ...; remarks: string; }'.
+src/components/OutboundReturnForm.vue(267,8): error TS2339: Property 'total_amount' does not exist on type '{ source_order_id: string; source_order_number: string; contract_number: string; customer_name: string; customer_code: string; return_items: any[]; return_time: { clone: () => Dayjs; isValid: () => boolean; ... 36 more ...; weekday: { ...; }; }; ... 4 more ...; remarks: string; }'.
+src/components/OutboundReturnForm.vue(335,26): error TS2339: Property 'total_amount' does not exist on type '{ source_order_id: string; source_order_number: string; contract_number: string; customer_name: string; customer_code: string; return_items: any[]; return_time: { clone: () => Dayjs; isValid: () => boolean; ... 36 more ...; weekday: { ...; }; }; ... 4 more ...; remarks: string; }'.
+src/components/OutboundReturnForm.vue(339,69): error TS2345: Argument of type '{ return_items: string; return_time: string | null; entry_date: string | null; total_amount: any; source_order_id: string; source_order_number: string; contract_number: string; customer_name: string; ... 4 more ...; remarks: string; }' is not assignable to parameter of type 'Partial<OutboundReturnOrder>'.
+  Types of property 'return_time' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/components/OutboundReturnForm.vue(342,34): error TS2345: Argument of type '{ return_items: string; return_time: string | null; entry_date: string | null; total_amount: any; source_order_id: string; source_order_number: string; contract_number: string; customer_name: string; ... 4 more ...; remarks: string; }' is not assignable to parameter of type 'Partial<OutboundReturnOrder>'.
+  Types of property 'return_time' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/components/PackingListForm.vue(455,23): error TS2339: Property 'length' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/PackingListForm.vue(456,28): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'PaginatedResponse<Customer>'.
+  Property '0' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/PackingListForm.vue(520,34): error TS2339: Property 'map' does not exist on type '{ success: boolean; data: CustomerOption[]; }'.
+src/components/PackingListForm.vue(544,32): error TS2339: Property 'find' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/ProductClassificationDetail.vue(26,69): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/ProductClassificationDetail.vue(29,64): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/ProductClassificationDetail.vue(36,81): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/ProductClassificationDetail.vue(41,82): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/ProductClassificationDetail.vue(46,94): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/ProductClassificationDetail.vue(55,33): error TS6133: 'val' is declared but its value is never read.
+src/components/ProductClassificationDetail.vue(56,64): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/ProductClassificationDetail.vue(57,67): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/ProductClassificationDetail.vue(60,81): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/ProductClassificationDetail.vue(65,93): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/ProductForm.vue(186,5): error TS2322: Type '{ success: boolean; data: ProductClassificationOption[]; }' is not assignable to type '{ product_classification_id: string; classification_name: string; }[] | { product_classification_id: string; classification_name: string; }[]'.
+src/components/ProductForm.vue(192,24): error TS2339: Property 'classification_data' does not exist on type '{ success: boolean; data: ProductClassification; }'.
+src/components/ProductForm.vue(193,34): error TS2339: Property 'classification_data' does not exist on type '{ success: boolean; data: ProductClassification; }'.
+src/components/PurchaseOrderDetail.vue(98,30): error TS6196: 'PurchaseItem' is declared but never used.
+src/components/PurchaseOrderForm.vue(139,28): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/components/PurchaseOrderForm.vue(140,28): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/components/PurchaseOrderForm.vue(488,42): error TS6133: 'h' is declared but its value is never read.
+src/components/PurchaseOrderForm.vue(488,45): error TS6133: 'onUnmounted' is declared but its value is never read.
+src/components/PurchaseOrderForm.vue(488,58): error TS6133: 'nextTick' is declared but its value is never read.
+src/components/PurchaseOrderForm.vue(615,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/PurchaseOrderForm.vue(745,13): error TS2339: Property 'order_number' does not exist on type '{ success: boolean; data: { order_number: string; }; }'.
+src/components/PurchaseOrderForm.vue(755,5): error TS2322: Type '{ success: boolean; data: SupplierOption[]; }' is not assignable to type 'SupplierOption[] | { supplier_id: string; supplier_name: string; supplier_code: string; }[]'.
+src/components/PurchaseOrderForm.vue(761,43): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Supplier>'.
+src/components/PurchaseOrderForm.vue(791,51): error TS6133: 'index' is declared but its value is never read.
+src/components/PurchaseOrderForm.vue(794,5): error TS2322: Type '{ success: boolean; data: ProductOption[]; }' is not assignable to type 'ProductOption[] | { product_id: string; product_name: string; product_code: string; model?: string | undefined; description?: string | undefined; unit?: string | undefined; stock?: number | undefined; tax_included_price?: number | undefined; }[]'.
+src/components/PurchaseOrderForm.vue(800,42): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Product>'.
+src/components/PurchaseOrderForm.vue(831,7): error TS6133: 'handleSalesOrderChange' is declared but its value is never read.
+src/components/PurchaseOrderForm.vue(931,5): error TS2353: Object literal may only specify known properties, and 'invoice_date' does not exist in type '{ no: number; business_category: string; product_name: string; product_code: string; model?: string | undefined; description?: string | undefined; unit?: string | undefined; quantity: number; ... 10 more ...; total_price?: number | undefined; }'.
+src/components/PurchaseOrderForm.vue(993,7): error TS2353: Object literal may only specify known properties, and 'order_number' does not exist in type 'CreatePurchaseOrderRequest'.
+src/components/PurchaseOrderForm.vue(1049,5): error TS2322: Type '{ success: boolean; data: Currency[]; }' is not assignable to type 'Currency[] | { currency_id: string; currency_code: string; currency_name: string; currency_symbol: string; decimal_places: number; is_base_currency: number; is_active: number; sort_order: number; created_at: string; updated_at: string; }[]'.
+src/components/PurchaseOrderForm.vue(1071,44): error TS2339: Property 'rate' does not exist on type '{ success: boolean; data: CustomsExchangeRate | null; message?: string | undefined; }'.
+src/components/PurchaseOrderForm.vue(1102,9): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/PurchaseOrderForm.vue(1104,26): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/PurchaseOrderForm.vue(1133,26): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/PurchaseOrderForm.vue(1135,11): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/PurchaseOrderForm.vue(1137,11): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/PurchaseOrderForm.vue(1212,5): error TS2322: Type '{ success: boolean; data: SupplierOption[]; }' is not assignable to type 'SupplierOption[] | { supplier_id: string; supplier_name: string; supplier_code: string; }[]'.
+src/components/PurchaseOrderForm.vue(1213,5): error TS2322: Type '{ success: boolean; data: ProductOption[]; }' is not assignable to type 'ProductOption[] | { product_id: string; product_name: string; product_code: string; model?: string | undefined; description?: string | undefined; unit?: string | undefined; stock?: number | undefined; tax_included_price?: number | undefined; }[]'.
+src/components/PurchaseOrderForm.vue(1214,5): error TS2322: Type '{ success: boolean; data: BusinessCategoryOption[]; }' is not assignable to type 'BusinessCategoryOption[] | { business_category_id: string; business_category_name: string; }[]'.
+src/components/PurchaseOrderForm.vue(1229,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/PurchaseOrderForm.vue(1286,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/PurchaseOrderForm.vue(1297,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/PurchaseOrderPrint.vue(278,24): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'PaginatedResponse<Supplier>'.
+  Property '0' does not exist on type 'PaginatedResponse<Supplier>'.
+src/components/PurchaseOrderPrint.vue(283,7): error TS6133: 'currentUser' is declared but its value is never read.
+src/components/PurchaseOrderPrint.vue(370,7): error TS6133: 'user' is declared but its value is never read.
+src/components/PurchaseOrderPrint.vue(401,9): error TS6133: 'supplier' is declared but its value is never read.
+src/components/PurchaseOrderPrint.vue(454,7): error TS6133: 'formatPrice' is declared but its value is never read.
+src/components/PurchaseOrderPrint.vue(459,7): error TS6133: 'calculateAmount' is declared but its value is never read.
+src/components/PurchaseOrderPrint.vue(461,27): error TS2339: Property 'quantity' does not exist on type 'PurchaseOrder'.
+src/components/PurchaseOrderPrint.vue(461,61): error TS2339: Property 'tax_included_price' does not exist on type 'PurchaseOrder'.
+src/components/PurchaseOrderPrintEn.vue(250,24): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'PaginatedResponse<Supplier>'.
+  Property '0' does not exist on type 'PaginatedResponse<Supplier>'.
+src/components/PurchaseOrderPrintEn.vue(255,7): error TS6133: 'currentUser' is declared but its value is never read.
+src/components/PurchaseOrderPrintEn.vue(272,7): error TS6133: 'user' is declared but its value is never read.
+src/components/PurchaseOrderPrintEn.vue(291,9): error TS6133: 'supplier' is declared but its value is never read.
+src/components/PurchaseOrderPrintEn.vue(347,7): error TS6133: 'calculateAmount' is declared but its value is never read.
+src/components/PurchaseOrderPrintEn.vue(349,27): error TS2339: Property 'quantity' does not exist on type 'PurchaseOrder'.
+src/components/PurchaseOrderPrintEn.vue(349,61): error TS2339: Property 'tax_included_price' does not exist on type 'PurchaseOrder'.
+src/components/QuotationForm.vue(93,28): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/components/QuotationForm.vue(94,28): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/components/QuotationForm.vue(257,37): error TS2339: Property 'payment_terms' does not exist on type '{ customer_name: string; customer_code: string; quotation_items: string & QuotationItem[]; validity_period?: string | undefined; delivery_method?: string | undefined; tax_rate?: number | undefined; currency?: string | undefined; remarks?: string | undefined; entry_date?: string | undefined; }'.
+src/components/QuotationForm.vue(264,37): error TS2339: Property 'trade_terms' does not exist on type '{ customer_name: string; customer_code: string; quotation_items: string & QuotationItem[]; validity_period?: string | undefined; delivery_method?: string | undefined; tax_rate?: number | undefined; currency?: string | undefined; remarks?: string | undefined; entry_date?: string | undefined; }'.
+src/components/QuotationForm.vue(308,1): error TS6133: 'Quotation' is declared but its value is never read.
+src/components/QuotationForm.vue(310,1): error TS6133: 'scrollTopbar' is declared but its value is never read.
+src/components/QuotationForm.vue(345,3): error TS2322: Type 'never[]' is not assignable to type 'string & QuotationItem[]'.
+  Type 'never[]' is not assignable to type 'string'.
+src/components/QuotationForm.vue(353,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/QuotationForm.vue(375,38): error TS2339: Property 'quotation_number' does not exist on type '{ success: boolean; data: { quotation_number: string; }; }'.
+src/components/QuotationForm.vue(385,5): error TS2322: Type '{ success: boolean; data: CustomerOption[]; }' is not assignable to type 'CustomerOption[] | { customer_id: string; customer_name: string; customer_code: string; }[]'.
+src/components/QuotationForm.vue(391,43): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/QuotationForm.vue(411,51): error TS6133: 'index' is declared but its value is never read.
+src/components/QuotationForm.vue(414,5): error TS2322: Type '{ success: boolean; data: ProductOption[]; }' is not assignable to type 'ProductOption[] | { product_id: string; product_name: string; product_code: string; model?: string | undefined; description?: string | undefined; unit?: string | undefined; stock?: number | undefined; tax_included_price?: number | undefined; }[]'.
+src/components/QuotationForm.vue(420,42): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Product>'.
+src/components/QuotationForm.vue(517,27): error TS2339: Property 'payment_terms' does not exist on type '{ customer_name: string; customer_code: string; quotation_items: string & QuotationItem[]; validity_period?: string | undefined; delivery_method?: string | undefined; tax_rate?: number | undefined; currency?: string | undefined; remarks?: string | undefined; entry_date?: string | undefined; }'.
+src/components/QuotationForm.vue(518,25): error TS2339: Property 'trade_terms' does not exist on type '{ customer_name: string; customer_code: string; quotation_items: string & QuotationItem[]; validity_period?: string | undefined; delivery_method?: string | undefined; tax_rate?: number | undefined; currency?: string | undefined; remarks?: string | undefined; entry_date?: string | undefined; }'.
+src/components/QuotationForm.vue(536,26): error TS2339: Property 'message' does not exist on type '{}'.
+src/components/QuotationForm.vue(553,25): error TS2339: Property 'payment_terms' does not exist on type '{ customer_name: string; customer_code: string; quotation_items: string & QuotationItem[]; validity_period?: string | undefined; delivery_method?: string | undefined; tax_rate?: number | undefined; currency?: string | undefined; remarks?: string | undefined; entry_date?: string | undefined; }'.
+src/components/QuotationForm.vue(554,23): error TS2339: Property 'trade_terms' does not exist on type '{ customer_name: string; customer_code: string; quotation_items: string & QuotationItem[]; validity_period?: string | undefined; delivery_method?: string | undefined; tax_rate?: number | undefined; currency?: string | undefined; remarks?: string | undefined; entry_date?: string | undefined; }'.
+src/components/QuotationForm.vue(577,5): error TS2322: Type '{ success: boolean; data: Currency[]; }' is not assignable to type 'Currency[] | { currency_id: string; currency_code: string; currency_name: string; currency_symbol: string; decimal_places: number; is_base_currency: number; is_active: number; sort_order: number; created_at: string; updated_at: string; }[]'.
+src/components/QuotationForm.vue(600,14): error TS2339: Property 'payment_terms' does not exist on type '{ customer_name: string; customer_code: string; quotation_items: string & QuotationItem[]; validity_period?: string | undefined; delivery_method?: string | undefined; tax_rate?: number | undefined; currency?: string | undefined; remarks?: string | undefined; entry_date?: string | undefined; }'.
+src/components/QuotationForm.vue(601,14): error TS2339: Property 'trade_terms' does not exist on type '{ customer_name: string; customer_code: string; quotation_items: string & QuotationItem[]; validity_period?: string | undefined; delivery_method?: string | undefined; tax_rate?: number | undefined; currency?: string | undefined; remarks?: string | undefined; entry_date?: string | undefined; }'.
+src/components/QuotationForm.vue(605,11): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/QuotationForm.vue(607,11): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/QuotationForm.vue(612,11): error TS2322: Type 'never[]' is not assignable to type 'string & QuotationItem[]'.
+  Type 'never[]' is not assignable to type 'string'.
+src/components/QuotationForm.vue(628,5): error TS2322: Type '{ success: boolean; data: CustomerOption[]; }' is not assignable to type 'CustomerOption[] | { customer_id: string; customer_name: string; customer_code: string; }[]'.
+src/components/QuotationForm.vue(629,5): error TS2322: Type '{ success: boolean; data: ProductOption[]; }' is not assignable to type 'ProductOption[] | { product_id: string; product_name: string; product_code: string; model?: string | undefined; description?: string | undefined; unit?: string | undefined; stock?: number | undefined; tax_included_price?: number | undefined; }[]'.
+src/components/QuotationForm.vue(639,3): error TS2322: Type 'never[]' is not assignable to type 'string & QuotationItem[]'.
+  Type 'never[]' is not assignable to type 'string'.
+src/components/QuotationForm.vue(644,8): error TS2339: Property 'payment_terms' does not exist on type '{ customer_name: string; customer_code: string; quotation_items: string & QuotationItem[]; validity_period?: string | undefined; delivery_method?: string | undefined; tax_rate?: number | undefined; currency?: string | undefined; remarks?: string | undefined; entry_date?: string | undefined; }'.
+src/components/QuotationForm.vue(645,8): error TS2339: Property 'trade_terms' does not exist on type '{ customer_name: string; customer_code: string; quotation_items: string & QuotationItem[]; validity_period?: string | undefined; delivery_method?: string | undefined; tax_rate?: number | undefined; currency?: string | undefined; remarks?: string | undefined; entry_date?: string | undefined; }'.
+src/components/QuotationForm.vue(647,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/QuotationPrint.vue(99,84): error TS2339: Property 'payment_terms' does not exist on type 'Quotation'.
+src/components/QuotationPrint.vue(103,82): error TS2339: Property 'trade_terms' does not exist on type 'Quotation'.
+src/components/QuotationPrint.vue(174,15): error TS6133: 'reactive' is declared but its value is never read.
+src/components/QuotationPrint.vue(174,25): error TS6133: 'watch' is declared but its value is never read.
+src/components/QuotationPrint.vue(176,26): error TS6196: 'QuotationItem' is declared but never used.
+src/components/QuotationPrint.vue(204,52): error TS2339: Property 'lang' does not exist on type 'Quotation'.
+src/components/QuotationPrint.vue(215,28): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'PaginatedResponse<Customer>'.
+  Property '0' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/QuotationPrint.vue(237,30): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/components/QuotationPrint.vue(237,35): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/components/QuotationPrint.vue(240,7): error TS6133: 'amountInWords' is declared but its value is never read.
+src/components/QuotationPrint.vue(251,7): error TS6133: 'formatPrice' is declared but its value is never read.
+src/components/QuotationPrint.vue(256,7): error TS6133: 'getStatusText' is declared but its value is never read.
+src/components/SalesOrderForm.vue(66,35): error TS2339: Property 'paymentMethods' does not exist on type '{ customers: boolean; products: boolean; }'.
+src/components/SalesOrderForm.vue(120,39): error TS2339: Property 'businessCategories' does not exist on type '{ customers: boolean; products: boolean; }'.
+src/components/SalesOrderForm.vue(140,30): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/components/SalesOrderForm.vue(141,30): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/components/SalesOrderForm.vue(579,7): error TS6133: 'getPurchaseStatusColor' is declared but its value is never read.
+src/components/SalesOrderForm.vue(589,7): error TS6133: 'getPurchaseStatusText' is declared but its value is never read.
+src/components/SalesOrderForm.vue(719,13): error TS2339: Property 'order_number' does not exist on type '{ success: boolean; data: { order_number: string; }; }'.
+src/components/SalesOrderForm.vue(729,5): error TS2322: Type '{ success: boolean; data: PaymentMethodOption[]; }' is not assignable to type 'PaymentMethodOption[] | { payment_method_id: string; payment_method_name: string; }[]'.
+src/components/SalesOrderForm.vue(732,11): error TS2339: Property 'paymentMethods' does not exist on type '{ customers: boolean; products: boolean; }'.
+src/components/SalesOrderForm.vue(735,48): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<PaymentMethod>'.
+src/components/SalesOrderForm.vue(742,11): error TS2339: Property 'paymentMethods' does not exist on type '{ customers: boolean; products: boolean; }'.
+src/components/SalesOrderForm.vue(746,7): error TS6133: 'handleBusinessCategorySearch' is declared but its value is never read.
+src/components/SalesOrderForm.vue(749,5): error TS2322: Type '{ success: boolean; data: BusinessCategoryOption[]; }' is not assignable to type 'BusinessCategoryOption[] | { business_category_id: string; business_category_name: string; }[]'.
+src/components/SalesOrderForm.vue(752,11): error TS2339: Property 'businessCategories' does not exist on type '{ customers: boolean; products: boolean; }'.
+src/components/SalesOrderForm.vue(755,51): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<BusinessCategory>'.
+src/components/SalesOrderForm.vue(762,11): error TS2339: Property 'businessCategories' does not exist on type '{ customers: boolean; products: boolean; }'.
+src/components/SalesOrderForm.vue(769,5): error TS2322: Type '{ success: boolean; data: CustomerOption[]; }' is not assignable to type 'CustomerOption[] | { customer_id: string; customer_name: string; customer_code: string; }[]'.
+src/components/SalesOrderForm.vue(775,43): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/SalesOrderForm.vue(795,51): error TS6133: 'index' is declared but its value is never read.
+src/components/SalesOrderForm.vue(798,5): error TS2322: Type '{ success: boolean; data: ProductOption[]; }' is not assignable to type 'ProductOption[] | { product_id: string; product_name: string; product_code: string; model?: string | undefined; description?: string | undefined; unit?: string | undefined; stock?: number | undefined; tax_included_price?: number | undefined; }[]'.
+src/components/SalesOrderForm.vue(804,42): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Product>'.
+src/components/SalesOrderForm.vue(890,5): error TS2353: Object literal may only specify known properties, and 'delivery_date' does not exist in type '{ no: number; business_category: string; product_name: string; model?: string | undefined; description?: string | undefined; unit?: string | undefined; quantity: number; outbound_quantity: number; ... 9 more ...; product_code?: string | undefined; }'.
+src/components/SalesOrderForm.vue(974,72): error TS2345: Argument of type '{ order_number: string; contract_number: string; customer_name: string; customer_code: string; payment_method: string; sales_items: string; currency: string | undefined; entry_date: string | undefined; tax_included_amount: number; remarks: string | undefined; expenses: any; sales_person: string; }' is not assignable to parameter of type 'UpdateSalesOrderRequest'.
+  Types of property 'sales_items' are incompatible.
+    Type 'string' is not assignable to type 'SalesOrderItem[]'.
+src/components/SalesOrderForm.vue(978,35): error TS2345: Argument of type '{ order_number: string; contract_number: string; customer_name: string; customer_code: string; payment_method: string; sales_items: string; currency: string | undefined; entry_date: string | undefined; tax_included_amount: number; remarks: string | undefined; expenses: any; sales_person: string; }' is not assignable to parameter of type 'CreateSalesOrderRequest'.
+  Types of property 'sales_items' are incompatible.
+    Type 'string' is not assignable to type 'SalesOrderItem[]'.
+src/components/SalesOrderForm.vue(986,26): error TS2339: Property 'message' does not exist on type '{}'.
+src/components/SalesOrderForm.vue(1008,7): error TS6133: 'handleSaveAndPrint' is declared but its value is never read.
+src/components/SalesOrderForm.vue(1022,5): error TS2322: Type '{ success: boolean; data: Currency[]; }' is not assignable to type 'Currency[] | { currency_id: string; currency_code: string; currency_name: string; currency_symbol: string; decimal_places: number; is_base_currency: number; is_active: number; sort_order: number; created_at: string; updated_at: string; }[]'.
+src/components/SalesOrderForm.vue(1045,16): error TS2339: Property 'status' does not exist on type '{ contract_number?: string | undefined; customer_name: string; customer_code: string; payment_method: string; sales_items: { no: number; business_category: string; product_name: string; model?: string | undefined; ... 13 more ...; product_code?: string | undefined; }[]; ... 6 more ...; tax_included_amount?: number |...'.
+src/components/SalesOrderForm.vue(1062,11): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/SalesOrderForm.vue(1103,5): error TS2322: Type '{ success: boolean; data: CustomerOption[]; }' is not assignable to type 'CustomerOption[] | { customer_id: string; customer_name: string; customer_code: string; }[]'.
+src/components/SalesOrderForm.vue(1104,5): error TS2322: Type '{ success: boolean; data: ProductOption[]; }' is not assignable to type 'ProductOption[] | { product_id: string; product_name: string; product_code: string; model?: string | undefined; description?: string | undefined; unit?: string | undefined; stock?: number | undefined; tax_included_price?: number | undefined; }[]'.
+src/components/SalesOrderForm.vue(1105,5): error TS2322: Type '{ success: boolean; data: PaymentMethodOption[]; }' is not assignable to type 'PaymentMethodOption[] | { payment_method_id: string; payment_method_name: string; }[]'.
+src/components/SalesOrderForm.vue(1106,5): error TS2322: Type '{ success: boolean; data: BusinessCategoryOption[]; }' is not assignable to type 'BusinessCategoryOption[] | { business_category_id: string; business_category_name: string; }[]'.
+src/components/SalesOrderForm.vue(1120,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/SalesOrderForm.vue(1171,3): error TS2322: Type '"" | Dayjs' is not assignable to type 'string | undefined'.
+  Type 'Dayjs' is not assignable to type 'string'.
+src/components/SalesOrderPrint.vue(337,7): error TS6133: 'taxAmountInWords' is declared but its value is never read.
+src/components/SalesOrderPrint.vue(482,46): error TS2339: Property 'length' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/SalesOrderPrint.vue(483,34): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'PaginatedResponse<Customer>'.
+  Property '0' does not exist on type 'PaginatedResponse<Customer>'.
+src/components/SupplierForm.vue(180,5): error TS2322: Type '{ success: boolean; data: Currency[]; }' is not assignable to type 'Currency[] | { currency_id: string; currency_code: string; currency_name: string; currency_symbol: string; decimal_places: number; is_base_currency: number; is_active: number; sort_order: number; created_at: string; updated_at: string; }[]'.
+src/components/WarehousingOrderDetail.vue(94,1): error TS6133: 'computed' is declared but its value is never read.
+src/components/WarehousingOrderDetail.vue(95,1): error TS6133: 'message' is declared but its value is never read.
+src/components/WarehousingOrderForm.vue(50,33): error TS2339: Property 'suppliers' does not exist on type '{ purchaseOrders: boolean; }'.
+src/components/WarehousingOrderForm.vue(97,35): error TS2339: Property 'products' does not exist on type '{ purchaseOrders: boolean; }'.
+src/components/WarehousingOrderForm.vue(100,26): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/components/WarehousingOrderForm.vue(101,26): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/components/WarehousingOrderForm.vue(274,32): error TS18048: '__VLS_ctx.form.expenses' is possibly 'undefined'.
+src/components/WarehousingOrderForm.vue(284,32): error TS18048: '__VLS_ctx.form.expenses' is possibly 'undefined'.
+src/components/WarehousingOrderForm.vue(294,32): error TS18048: '__VLS_ctx.form.expenses' is possibly 'undefined'.
+src/components/WarehousingOrderForm.vue(304,32): error TS18048: '__VLS_ctx.form.expenses' is possibly 'undefined'.
+src/components/WarehousingOrderForm.vue(457,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(458,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(577,32): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(672,7): error TS2322: Type 'string' is not assignable to type 'WarehousingItem[]'.
+src/components/WarehousingOrderForm.vue(701,26): error TS2339: Property 'message' does not exist on type '{}'.
+src/components/WarehousingOrderForm.vue(735,5): error TS2322: Type '{ success: boolean; data: Currency[]; }' is not assignable to type 'Currency[] | { currency_id: string; currency_code: string; currency_name: string; currency_symbol: string; decimal_places: number; is_base_currency: number; is_active: number; sort_order: number; created_at: string; updated_at: string; }[]'.
+src/components/WarehousingOrderForm.vue(757,44): error TS2339: Property 'rate' does not exist on type '{ success: boolean; data: CustomsExchangeRate | null; message?: string | undefined; }'.
+src/components/WarehousingOrderForm.vue(794,13): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(800,28): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(820,11): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(822,11): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(826,11): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(828,11): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(843,15): error TS18048: 'form.expenses' is possibly 'undefined'.
+src/components/WarehousingOrderForm.vue(843,15): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ tariff?: number | undefined; transportationFee?: number | undefined; customsFee?: number | undefined; otherFee?: number | undefined; }'.
+  No index signature with a parameter of type 'string' was found on type '{ tariff?: number | undefined; transportationFee?: number | undefined; customsFee?: number | undefined; otherFee?: number | undefined; }'.
+src/components/WarehousingOrderForm.vue(856,26): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(869,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(870,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(937,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(938,3): error TS2322: Type 'Dayjs' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(949,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/WarehousingOrderForm.vue(994,51): error TS6133: 'index' is declared but its value is never read.
+src/components/WarehousingOrderForm.vue(997,5): error TS2322: Type '{ success: boolean; data: ProductOption[]; }' is not assignable to type 'ProductOption[] | { product_id: string; product_name: string; product_code: string; model?: string | undefined; description?: string | undefined; unit?: string | undefined; stock?: number | undefined; tax_included_price?: number | undefined; }[]'.
+src/components/WarehousingOrderForm.vue(1000,11): error TS2339: Property 'products' does not exist on type '{ purchaseOrders: boolean; }'.
+src/components/WarehousingOrderForm.vue(1003,42): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Product>'.
+src/components/WarehousingOrderForm.vue(1014,11): error TS2339: Property 'products' does not exist on type '{ purchaseOrders: boolean; }'.
+src/components/WarehousingOrderForm.vue(1034,5): error TS2740: Type '{ success: boolean; data: SupplierOption[]; }' is missing the following properties from type 'any[]': length, pop, push, concat, and 29 more.
+src/components/WarehousingOrderForm.vue(1035,5): error TS2322: Type '{ success: boolean; data: ProductOption[]; }' is not assignable to type 'ProductOption[] | { product_id: string; product_name: string; product_code: string; model?: string | undefined; description?: string | undefined; unit?: string | undefined; stock?: number | undefined; tax_included_price?: number | undefined; }[]'.
+src/components/WarehousingOrderForm.vue(1044,5): error TS2740: Type '{ success: boolean; data: SupplierOption[]; }' is missing the following properties from type 'any[]': length, pop, push, concat, and 29 more.
+src/components/WarehousingOrderForm.vue(1047,11): error TS2339: Property 'suppliers' does not exist on type '{ purchaseOrders: boolean; }'.
+src/components/WarehousingOrderForm.vue(1050,43): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Supplier>'.
+src/components/WarehousingOrderForm.vue(1058,11): error TS2339: Property 'suppliers' does not exist on type '{ purchaseOrders: boolean; }'.
+src/components/WarehousingOrderPrint.vue(113,1): error TS6133: 'WarehousingOrder' is declared but its value is never read.
+src/locales/index.ts(251,5): error TS2300: Duplicate identifier 'orderNumber'.
+src/locales/index.ts(323,5): error TS2300: Duplicate identifier 'orderNumber'.
+src/views/auth/Login.vue(63,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/views/auth/Login.vue(64,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/views/auth/Register.vue(126,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/views/auth/Register.vue(127,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/views/customers/Customers.vue(269,5): error TS2322: Type 'PaginatedResponse<Customer>' is not assignable to type 'Customer[] | { customer_id: string; customer_name: string; customer_code: string; customer_tax_number: string; register_address: string; customer_phone: string; customer_email: string; ... 15 more ...; updated_at: string; }[]'.
+src/views/customers/Customers.vue(270,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Customer>, any, {}>'.
+src/views/customers/Customers.vue(271,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Customer>, any, {}>'.
+src/views/customers/Customers.vue(272,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Customer>, any, {}>'.
+src/views/customers/Customers.vue(376,71): error TS2740: Type 'PaginatedResponse<Customer>' is missing the following properties from type 'any[]': length, pop, push, concat, and 29 more.
+src/views/delivery/DeliveryOrders.vue(233,1): error TS6133: 'dayjs' is declared but its value is never read.
+src/views/delivery/DeliveryOrders.vue(603,7): error TS6133: 'handleViewDetail' is declared but its value is never read.
+src/views/delivery/OutboundPlans.vue(173,18): error TS2339: Property 'length' does not exist on type '{ success: boolean; data: ProductOption[]; }'.
+src/views/delivery/OutboundPlans.vue(175,16): error TS2339: Property 'forEach' does not exist on type '{ success: boolean; data: ProductOption[]; }'.
+src/views/delivery/OutboundPlans.vue(504,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<any, any, {}>'.
+src/views/delivery/OutboundPlans.vue(505,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<any, any, {}>'.
+src/views/delivery/OutboundPlans.vue(506,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<any, any, {}>'.
+src/views/delivery/OutboundPlans.vue(550,7): error TS6133: 'handleGenerateDeliveryOrder' is declared but its value is never read.
+src/views/delivery/OutboundReturnOrders.vue(133,46): error TS6133: 'watch' is declared but its value is never read.
+src/views/delivery/OutboundReturnOrders.vue(269,5): error TS2322: Type '{ data: OutboundReturnOrder[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }' is not assignable to type 'OutboundReturnOrder[] | { outbound_return_id: string; order_number: string; source_order_id: string; source_order_number: string; contract_number: string; customer_name: string; ... 10 more ...; updated_at: string; }[]'.
+src/views/delivery/OutboundReturnOrders.vue(270,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ data: OutboundReturnOrder[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/documents/Invoices.vue(171,19): error TS6133: 'Modal' is declared but its value is never read.
+src/views/documents/Invoices.vue(177,3): error TS6133: 'DownloadOutlined' is declared but its value is never read.
+src/views/documents/Invoices.vue(380,38): error TS6133: 'filters' is declared but its value is never read.
+src/views/documents/PackingLists.vue(149,19): error TS6133: 'Modal' is declared but its value is never read.
+src/views/documents/PackingLists.vue(365,33): error TS2339: Property 'total' does not exist on type 'AxiosResponse<any, any, {}>'.
+src/views/documents/PackingLists.vue(423,7): error TS6133: 'handlePrint' is declared but its value is never read.
+src/views/documents/PackingLists.vue(423,22): error TS6133: 'record' is declared but its value is never read.
+src/views/products/ProductClassifications.vue(43,35): error TS6133: 'val' is declared but its value is never read.
+src/views/products/ProductClassifications.vue(134,1): error TS6133: 'dayjs' is declared but its value is never read.
+src/views/products/ProductClassifications.vue(233,5): error TS2322: Type 'PaginatedResponse<ProductClassification>' is not assignable to type 'ProductClassification[] | { product_classification_id: string; classification_name: string; classification_data: ClassificationTree; ... 4 more ...; updated_at: string; }[]'.
+src/views/products/ProductClassifications.vue(234,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<ProductClassification>, any, {}>'.
+src/views/products/ProductClassifications.vue(235,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<ProductClassification>, any, {}>'.
+src/views/products/ProductClassifications.vue(236,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<ProductClassification>, any, {}>'.
+src/views/products/ProductClassifications.vue(315,5): error TS2322: Type '{ success: boolean; data: ProductClassification; }' is not assignable to type 'ProductClassification | { product_classification_id: string; classification_name: string; classification_data: ClassificationTree; ... 4 more ...; updated_at: string; } | undefined'.
+src/views/products/ProductClassifications.vue(326,7): error TS2322: Type '{ success: boolean; data: ProductClassification; }' is not assignable to type 'ProductClassification | { product_classification_id: string; classification_name: string; classification_data: ClassificationTree; ... 4 more ...; updated_at: string; } | undefined'.
+src/views/products/Products.vue(106,1): error TS6133: 'dayjs' is declared but its value is never read.
+src/views/products/Products.vue(195,5): error TS2322: Type 'PaginatedResponse<Product>' is not assignable to type 'Product[] | { product_id: string; product_name: string; model?: string | undefined; description?: string | undefined; product_code: string; unit?: string | undefined; stock?: number | undefined; ... 5 more ...; updated_at: string; }[]'.
+src/views/products/Products.vue(196,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Product>, any, {}>'.
+src/views/products/Products.vue(197,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Product>, any, {}>'.
+src/views/products/Products.vue(198,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Product>, any, {}>'.
+src/views/purchase/PurchaseOrders.vue(214,1): error TS6133: 'suppliersApi' is declared but its value is never read.
+src/views/purchase/PurchaseOrders.vue(223,1): error TS6133: 'dayjs' is declared but its value is never read.
+src/views/purchase/PurchaseOrders.vue(688,5): error TS2322: Type 'PaginatedResponse<PurchaseOrder>' is not assignable to type 'PurchaseOrder[] | { purchase_order_id: string; order_number: string; contract_number?: string | undefined; plan_deductions?: string | null | undefined; supplier_name: string; ... 13 more ...; updated_at: string; }[]'.
+src/views/purchase/PurchaseOrders.vue(689,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<PurchaseOrder>, any, {}>'.
+src/views/purchase/PurchaseOrders.vue(690,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<PurchaseOrder>, any, {}>'.
+src/views/purchase/PurchaseOrders.vue(691,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<PurchaseOrder>, any, {}>'.
+src/views/purchase/PurchaseOrders.vue(750,7): error TS6133: 'handleViewDetail' is declared but its value is never read.
+src/views/purchase/PurchaseOrders.vue(777,7): error TS6133: 'handleStatusChange' is declared but its value is never read.
+src/views/purchase/PurchaseOrders.vue(808,7): error TS6133: 'getTotalAmount' is declared but its value is never read.
+src/views/purchase/PurchaseOrders.vue(892,11): error TS2740: Type 'PaginatedResponse<PurchaseOrder>' is missing the following properties from type 'PurchaseOrder[]': length, pop, push, concat, and 29 more.
+src/views/purchase/PurchasePlans.vue(266,7): error TS6133: 'formatMoney' is declared but its value is never read.
+src/views/purchase/PurchasePlans.vue(494,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<any, any, {}>'.
+src/views/purchase/PurchasePlans.vue(495,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<any, any, {}>'.
+src/views/purchase/PurchasePlans.vue(496,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<any, any, {}>'.
+src/views/quotations/Quotations.vue(151,56): error TS6133: 'DownOutlined' is declared but its value is never read.
+src/views/quotations/Quotations.vue(153,1): error TS6133: 'customersApi' is declared but its value is never read.
+src/views/quotations/Quotations.vue(316,45): error TS2339: Property 'visible' does not exist on type '{ title: string; key: string; width: number; align: string; customRender: ({ index }: { index: number; }) => number; dataIndex?: undefined; filters?: undefined; onFilter?: undefined; filterMultiple?: undefined; fixed?: undefined; } | ... 5 more ... | { ...; }'.
+  Property 'visible' does not exist on type '{ title: string; key: string; width: number; align: string; customRender: ({ index }: { index: number; }) => number; dataIndex?: undefined; filters?: undefined; onFilter?: undefined; filterMultiple?: undefined; fixed?: undefined; }'.
+src/views/quotations/Quotations.vue(323,5): error TS2322: Type 'PaginatedResponse<Quotation>' is not assignable to type 'Quotation[] | { quotation_id: string; quotation_number: string; customer_name: string; customer_code: string; quotation_items: string; created_at: string; status: 1 | 2 | 3 | 4; ... 7 more ...; updated_at: string; }[]'.
+src/views/quotations/Quotations.vue(324,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Quotation>, any, {}>'.
+src/views/quotations/Quotations.vue(325,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Quotation>, any, {}>'.
+src/views/quotations/Quotations.vue(326,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Quotation>, any, {}>'.
+src/views/quotations/Quotations.vue(380,7): error TS6133: 'handleViewDetail' is declared but its value is never read.
+src/views/quotations/Quotations.vue(413,7): error TS6133: 'handlePrint' is declared but its value is never read.
+src/views/quotations/Quotations.vue(413,50): error TS6133: 'lang' is declared but its value is never read.
+src/views/quotations/Quotations.vue(425,34): error TS2339: Property 'payment_terms' does not exist on type 'Quotation'.
+src/views/quotations/Quotations.vue(426,32): error TS2339: Property 'trade_terms' does not exist on type 'Quotation'.
+src/views/quotations/Quotations.vue(532,7): error TS6133: 'orderNumber' is declared but its value is never read.
+src/views/quotations/Quotations.vue(544,9): error TS6133: 'totalTaxIncludedAmount' is declared but its value is never read.
+src/views/reports/BasicProfitReport.vue(560,41): error TS2339: Property 'map' does not exist on type '{ success: boolean; data: BasicProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }'.
+src/views/reports/BasicProfitReport.vue(560,46): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/views/reports/BasicProfitReport.vue(560,52): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/views/reports/BasicProfitReport.vue(565,13): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: BasicProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/reports/BasicProfitReport.vue(566,30): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: BasicProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/reports/BasicProfitReport.vue(617,17): error TS2339: Property 'length' does not exist on type '{ success: boolean; data: BasicProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }'.
+src/views/reports/BasicProfitReport.vue(638,7): error TS2740: Type '{ success: boolean; data: BasicProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }' is missing the following properties from type 'any[]': length, pop, push, concat, and 29 more.
+src/views/reports/DeliveryExpenseReport.vue(199,8): error TS2322: Type '(string | undefined)[]' is not assignable to type 'string[]'.
+  Type 'string | undefined' is not assignable to type 'string'.
+    Type 'undefined' is not assignable to type 'string'.
+src/views/reports/DeliveryExpenseReport.vue(400,45): error TS2339: Property 'visible' does not exist on type '{ visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed: "left"; align?: undefined; children?: undefined; } | { visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed?: undefined; align?: undefined; children?: undefined; } | { ...; } | { ...; } | { ...; ...'.
+  Property 'visible' does not exist on type '{ title: string; key: string; width: number; align: "center"; fixed: "left"; customRender: ({ index }: { index: number; }) => number; }'.
+src/views/reports/DeliveryExpenseReport.vue(410,21): error TS2339: Property 'children' does not exist on type '{ visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed: "left"; align?: undefined; children?: undefined; } | { visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed?: undefined; align?: undefined; children?: undefined; } | { ...; } | { ...; } | { ...; ...'.
+  Property 'children' does not exist on type '{ title: string; key: string; width: number; align: "center"; fixed: "left"; customRender: ({ index }: { index: number; }) => number; }'.
+src/views/reports/DeliveryExpenseReport.vue(414,35): error TS2339: Property 'children' does not exist on type '{ visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed: "left"; align?: undefined; children?: undefined; } | { visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed?: undefined; align?: undefined; children?: undefined; } | { ...; } | { ...; } | { ...; ...'.
+  Property 'children' does not exist on type '{ title: string; key: string; width: number; align: "center"; fixed: "left"; customRender: ({ index }: { index: number; }) => number; }'.
+src/views/reports/DeliveryExpenseReport.vue(416,32): error TS2339: Property 'visible' does not exist on type '{ visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed: "left"; align?: undefined; children?: undefined; } | { visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed?: undefined; align?: undefined; children?: undefined; } | { ...; } | { ...; } | { ...; ...'.
+  Property 'visible' does not exist on type '{ title: string; key: string; width: number; align: "center"; fixed: "left"; customRender: ({ index }: { index: number; }) => number; }'.
+src/views/reports/DeliveryExpenseReport.vue(482,5): error TS2322: Type '{ success: boolean; data: DeliveryExpenseReportItem[]; }' is not assignable to type 'DeliveryExpenseReportItem[] | { delivery_order_id: string; order_number: string; delivery_time: string; contract_number: string; customer_name: string; ... 19 more ...; delivery_person: string; }[]'.
+src/views/reports/InventoryReport.vue(189,1): error TS6133: 'formatDate' is declared but its value is never read.
+src/views/reports/InventoryReport.vue(298,5): error TS2322: Type '{ success: boolean; data: InventoryReportItem[]; }' is not assignable to type 'InventoryReportItem[] | { product_id: string; product_name: string; product_code: string; model: string; unit: string; opening_stock: number; opening_stock_included_price: number; ... 17 more ...; closing_stock_excluded_amount: number; }[]'.
+src/views/reports/ProfitReport.vue(391,46): error TS6133: 'watch' is declared but its value is never read.
+src/views/reports/ProfitReport.vue(1166,41): error TS2339: Property 'map' does not exist on type '{ success: boolean; data: ProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }'.
+src/views/reports/ProfitReport.vue(1166,46): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/views/reports/ProfitReport.vue(1166,52): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/views/reports/ProfitReport.vue(1171,13): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: ProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/reports/ProfitReport.vue(1172,30): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: ProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/reports/ProfitReport.vue(1307,17): error TS2339: Property 'length' does not exist on type '{ success: boolean; data: ProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }'.
+src/views/reports/ProfitReport.vue(1331,7): error TS2740: Type '{ success: boolean; data: ProfitReportItem[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }' is missing the following properties from type 'any[]': length, pop, push, concat, and 29 more.
+src/views/reports/WarehousingExpenseReport.vue(211,8): error TS2322: Type '(string | undefined)[]' is not assignable to type 'string[]'.
+  Type 'string | undefined' is not assignable to type 'string'.
+    Type 'undefined' is not assignable to type 'string'.
+src/views/reports/WarehousingExpenseReport.vue(453,45): error TS2339: Property 'visible' does not exist on type '{ visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed: "left"; filters?: undefined; onFilter?: undefined; filterMultiple?: undefined; align?: undefined; children?: undefined; } | ... 5 more ... | { ...; }'.
+  Property 'visible' does not exist on type '{ title: string; key: string; width: number; align: "center"; fixed: "left"; customRender: ({ index }: { index: number; }) => number; }'.
+src/views/reports/WarehousingExpenseReport.vue(463,21): error TS2339: Property 'children' does not exist on type '{ visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed: "left"; filters?: undefined; onFilter?: undefined; filterMultiple?: undefined; align?: undefined; children?: undefined; } | ... 5 more ... | { ...; }'.
+  Property 'children' does not exist on type '{ title: string; key: string; width: number; align: "center"; fixed: "left"; customRender: ({ index }: { index: number; }) => number; }'.
+src/views/reports/WarehousingExpenseReport.vue(467,35): error TS2339: Property 'children' does not exist on type '{ visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed: "left"; filters?: undefined; onFilter?: undefined; filterMultiple?: undefined; align?: undefined; children?: undefined; } | ... 5 more ... | { ...; }'.
+  Property 'children' does not exist on type '{ title: string; key: string; width: number; align: "center"; fixed: "left"; customRender: ({ index }: { index: number; }) => number; }'.
+src/views/reports/WarehousingExpenseReport.vue(469,32): error TS2339: Property 'visible' does not exist on type '{ visible: boolean; title: string; dataIndex: string; key: string; width: number; fixed: "left"; filters?: undefined; onFilter?: undefined; filterMultiple?: undefined; align?: undefined; children?: undefined; } | ... 5 more ... | { ...; }'.
+  Property 'visible' does not exist on type '{ title: string; key: string; width: number; align: "center"; fixed: "left"; customRender: ({ index }: { index: number; }) => number; }'.
+src/views/reports/WarehousingExpenseReport.vue(539,5): error TS2322: Type '{ success: boolean; data: WarehousingExpenseReportItem[]; }' is not assignable to type 'WarehousingExpenseReportItem[] | { warehousing_order_id: string; order_number: string; warehousing_time: string; contract_number: string; currency: string; ... 20 more ...; warehousing_person: string; }[]'.
+src/views/sales/SalesOrders.vue(40,43): error TS2339: Property 'productCode' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(48,43): error TS2339: Property 'productName' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(56,43): error TS2339: Property 'productModel' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(73,50): error TS2339: Property 'export' does not exist on type '{ save: string; cancel: string; delete: string; edit: string; add: string; search: string; reset: string; confirm: string; loading: string; success: string; error: string; noData: string; action: string; ... 7 more ...; print: string; }'.
+src/views/sales/SalesOrders.vue(289,1): error TS6133: 'dayjs' is declared but its value is never read.
+src/views/sales/SalesOrders.vue(819,22): error TS2339: Property 'productCode' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(819,42): error TS2339: Property 'productCode' does not exist on type 'SalesOrderQueryParams'.
+src/views/sales/SalesOrders.vue(819,69): error TS2339: Property 'productCode' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(820,22): error TS2339: Property 'productName' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(820,42): error TS2339: Property 'productName' does not exist on type 'SalesOrderQueryParams'.
+src/views/sales/SalesOrders.vue(820,69): error TS2339: Property 'productName' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(821,22): error TS2339: Property 'productModel' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(821,43): error TS2339: Property 'productModel' does not exist on type 'SalesOrderQueryParams'.
+src/views/sales/SalesOrders.vue(821,71): error TS2339: Property 'productModel' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(827,5): error TS2322: Type 'PaginatedResponse<SalesOrder>' is not assignable to type 'SalesOrder[] | { sales_order_id: string; order_number: string; contract_number?: string | undefined; customer_name: string; customer_code: string; payment_method: string; ... 11 more ...; updated_at: string; }[]'.
+src/views/sales/SalesOrders.vue(828,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<SalesOrder>, any, {}>'.
+src/views/sales/SalesOrders.vue(829,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<SalesOrder>, any, {}>'.
+src/views/sales/SalesOrders.vue(830,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<SalesOrder>, any, {}>'.
+src/views/sales/SalesOrders.vue(851,16): error TS2339: Property 'productCode' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(852,16): error TS2339: Property 'productName' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(853,16): error TS2339: Property 'productModel' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(906,7): error TS6133: 'handlePrint' is declared but its value is never read.
+src/views/sales/SalesOrders.vue(942,7): error TS6133: 'getItemCount' is declared but its value is never read.
+src/views/sales/SalesOrders.vue(1007,7): error TS6133: 'getTotalAmount' is declared but its value is never read.
+src/views/sales/SalesOrders.vue(1084,22): error TS2339: Property 'productCode' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(1084,69): error TS2339: Property 'productCode' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(1085,22): error TS2339: Property 'productName' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(1085,69): error TS2339: Property 'productName' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(1086,22): error TS2339: Property 'productModel' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(1086,71): error TS2339: Property 'productModel' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; orderNumber?: string | undefined; customerName?: string | undefined; customerCode?: string | undefined; contractNumber?: string | undefined; quotationNumber?: string | undefined; salesDate?: string | undefined; startDate?: string | undefined; endDate?: stri...'.
+src/views/sales/SalesOrders.vue(1091,11): error TS2740: Type 'PaginatedResponse<SalesOrder>' is missing the following properties from type 'SalesOrder[]': length, pop, push, concat, and 29 more.
+src/views/settings/BusinessCategories.vue(82,1): error TS6133: 'dayjs' is declared but its value is never read.
+src/views/settings/BusinessCategories.vue(135,5): error TS2322: Type 'PaginatedResponse<BusinessCategory>' is not assignable to type 'BusinessCategory[] | { business_category_id: string; business_category_name: string; remarks?: string | undefined; created_at: string; updated_at: string; }[]'.
+src/views/settings/BusinessCategories.vue(136,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<BusinessCategory>, any, {}>'.
+src/views/settings/BusinessCategories.vue(137,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<BusinessCategory>, any, {}>'.
+src/views/settings/BusinessCategories.vue(138,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<BusinessCategory>, any, {}>'.
+src/views/settings/Currencies.vue(191,5): error TS2322: Type '{ success: boolean; data: Currency[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }' is not assignable to type 'Currency[] | { currency_id: string; currency_code: string; currency_name: string; currency_symbol: string; decimal_places: number; is_base_currency: number; is_active: number; sort_order: number; created_at: string; updated_at: string; }[]'.
+src/views/settings/Currencies.vue(192,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: Currency[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/settings/Currencies.vue(193,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: Currency[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/settings/Currencies.vue(194,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: Currency[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/settings/CustomsExchangeRates.vue(190,5): error TS2322: Type '{ success: boolean; data: Currency[]; }' is not assignable to type 'Currency[] | { currency_id: string; currency_code: string; currency_name: string; currency_symbol: string; decimal_places: number; is_base_currency: number; is_active: number; sort_order: number; created_at: string; updated_at: string; }[]'.
+src/views/settings/CustomsExchangeRates.vue(200,5): error TS2322: Type '{ success: boolean; data: CustomsExchangeRate[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }' is not assignable to type 'CustomsExchangeRate[] | { customs_exchange_rate_id: string; source_currency: string; target_currency: string; rate: number; effective_month: string; remarks?: string | undefined; created_by?: string | undefined; created_at: string; updated_at: string; }[]'.
+src/views/settings/CustomsExchangeRates.vue(201,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: CustomsExchangeRate[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/settings/CustomsExchangeRates.vue(202,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: CustomsExchangeRate[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/settings/CustomsExchangeRates.vue(203,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: CustomsExchangeRate[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/settings/ExchangeRates.vue(203,5): error TS2322: Type '{ success: boolean; data: Currency[]; }' is not assignable to type 'Currency[] | { currency_id: string; currency_code: string; currency_name: string; currency_symbol: string; decimal_places: number; is_base_currency: number; is_active: number; sort_order: number; created_at: string; updated_at: string; }[]'.
+src/views/settings/ExchangeRates.vue(213,5): error TS2322: Type '{ success: boolean; data: ExchangeRate[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }' is not assignable to type 'ExchangeRate[] | { exchange_rate_id: string; source_currency: string; target_currency: string; rate: number; effective_week: string; remarks?: string | undefined; created_by?: string | undefined; created_at: string; updated_at: string; }[]'.
+src/views/settings/ExchangeRates.vue(214,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: ExchangeRate[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/settings/ExchangeRates.vue(215,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: ExchangeRate[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/settings/ExchangeRates.vue(216,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ success: boolean; data: ExchangeRate[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/settings/PaymentMethods.vue(82,1): error TS6133: 'dayjs' is declared but its value is never read.
+src/views/settings/PaymentMethods.vue(135,5): error TS2322: Type 'PaginatedResponse<PaymentMethod>' is not assignable to type 'PaymentMethod[] | { payment_method_id: string; payment_method_name: string; remarks?: string | undefined; created_at: string; updated_at: string; }[]'.
+src/views/settings/PaymentMethods.vue(136,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<PaymentMethod>, any, {}>'.
+src/views/settings/PaymentMethods.vue(137,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<PaymentMethod>, any, {}>'.
+src/views/settings/PaymentMethods.vue(138,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<PaymentMethod>, any, {}>'.
+src/views/settlement/SettlementDetail.vue(169,24): error TS2339: Property 'data' does not exist on type 'SettlementDetail'.
+src/views/settlement/SettlementForm.vue(293,1): error TS6192: All imports in import declaration are unused.
+src/views/settlement/SettlementForm.vue(416,46): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Customer>'.
+src/views/settlement/SettlementForm.vue(423,46): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Supplier>'.
+src/views/settlement/SettlementForm.vue(437,5): error TS2322: Type '{ success: boolean; data: PaymentMethodOption[]; }' is not assignable to type '{ payment_method_id: string; payment_method_name: string; }[] | { payment_method_id: string; payment_method_name: string; }[]'.
+src/views/settlement/SettlementForm.vue(478,25): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/views/settlement/SettlementForm.vue(494,33): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/views/settlement/SettlementForm.vue(519,22): error TS2339: Property 'data' does not exist on type 'SettlementDetail'.
+src/views/settlement/SettlementForm.vue(598,61): error TS2345: Argument of type '{ type: 1 | 2; entity_id: string; entity_name: string; statement_number: string; settlement_date: string | null; settlement_date_end: string | null; payment_method: string; is_invoiced: 0 | 1; ... 10 more ...; items: any[]; }' is not assignable to parameter of type 'Partial<SettlementStatement & { items: SettlementStatementItem[]; }>'.
+  Types of property 'settlement_date' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/views/settlement/SettlementForm.vue(601,34): error TS2345: Argument of type '{ type: 1 | 2; entity_id: string; entity_name: string; statement_number: string; settlement_date: string | null; settlement_date_end: string | null; payment_method: string; is_invoiced: 0 | 1; ... 10 more ...; items: any[]; }' is not assignable to parameter of type 'Partial<SettlementStatement & { items: SettlementStatementItem[]; }>'.
+  Types of property 'settlement_date' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/views/settlement/SettlementFormModal.vue(513,46): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Customer>'.
+src/views/settlement/SettlementFormModal.vue(520,46): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Supplier>'.
+src/views/settlement/SettlementFormModal.vue(534,5): error TS2322: Type '{ success: boolean; data: PaymentMethodOption[]; }' is not assignable to type '{ payment_method_id: string; payment_method_name: string; }[] | { payment_method_id: string; payment_method_name: string; }[]'.
+src/views/settlement/SettlementFormModal.vue(575,25): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/views/settlement/SettlementFormModal.vue(591,33): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/views/settlement/SettlementFormModal.vue(616,22): error TS2339: Property 'data' does not exist on type 'SettlementDetail'.
+src/views/settlement/SettlementFormModal.vue(705,54): error TS2345: Argument of type '{ type: 1 | 2; entity_id: string; entity_name: string; statement_number: string; settlement_date: string | null; settlement_date_end: string | null; payment_method: string; is_invoiced: number; ... 8 more ...; invoice_records: { ...; }[]; }' is not assignable to parameter of type 'Partial<SettlementStatement & { items: SettlementStatementItem[]; }>'.
+  Types of property 'settlement_date' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/views/settlement/SettlementFormModal.vue(708,34): error TS2345: Argument of type '{ type: 1 | 2; entity_id: string; entity_name: string; statement_number: string; settlement_date: string | null; settlement_date_end: string | null; payment_method: string; is_invoiced: number; ... 8 more ...; invoice_records: { ...; }[]; }' is not assignable to parameter of type 'Partial<SettlementStatement & { items: SettlementStatementItem[]; }>'.
+  Types of property 'settlement_date' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/views/settlement/SettlementFormModal.vue(783,33): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/views/settlement/SettlementFormModal.vue(806,37): error TS2339: Property 'data' does not exist on type '{ statement_number: string; }'.
+src/views/settlement/SettlementStatement.vue(513,48): error TS2559: Type '{ settlement_date_start?: string | undefined; settlement_date_end?: string | undefined; }' has no properties in common with type '{ billing_month?: string | undefined; }'.
+src/views/settlement/SettlementStatement.vue(514,32): error TS2339: Property 'data' does not exist on type 'SettlementSummary'.
+src/views/settlement/SettlementStatement.vue(647,22): error TS2339: Property 'statement_number' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; type?: 1 | 2 | undefined; billing_status?: 0 | 1 | 2 | undefined; settlement_date_start?: string | undefined; settlement_date_end?: string | undefined; document_date_start?: string | undefined; document_date_end?: string | undefined; entity_name?: string | ...'.
+src/views/settlement/SettlementStatement.vue(647,79): error TS2339: Property 'statement_number' does not exist on type '{ page?: number | undefined; pageSize?: number | undefined; type?: 1 | 2 | undefined; billing_status?: 0 | 1 | 2 | undefined; settlement_date_start?: string | undefined; settlement_date_end?: string | undefined; document_date_start?: string | undefined; document_date_end?: string | undefined; entity_name?: string | ...'.
+src/views/suppliers/Suppliers.vue(235,5): error TS2322: Type 'PaginatedResponse<Supplier>' is not assignable to type 'Supplier[] | { supplier_id: string; supplier_name: string; supplier_code: string; supplier_tax_number: string; register_address: string; supplier_phone: string; supplier_email: string; ... 10 more ...; updated_at: string; }[]'.
+src/views/suppliers/Suppliers.vue(236,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Supplier>, any, {}>'.
+src/views/suppliers/Suppliers.vue(237,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Supplier>, any, {}>'.
+src/views/suppliers/Suppliers.vue(238,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<Supplier>, any, {}>'.
+src/views/suppliers/Suppliers.vue(337,72): error TS2740: Type 'PaginatedResponse<Supplier>' is missing the following properties from type 'any[]': length, pop, push, concat, and 29 more.
+src/views/users/Users.vue(206,5): error TS2322: Type 'UsersListResponse' is not assignable to type 'User[] | { user_id: string; username: string; role: "admin" | "advanced" | "normal"; phone: string; email: string; remarks?: string | undefined; created_at: string; updated_at: string; }[]'.
+src/views/users/Users.vue(207,28): error TS2339: Property 'pagination' does not exist on type 'ApiResponse<UsersListResponse>'.
+src/views/warehousing/InboundPlans.vue(474,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<any, any, {}>'.
+src/views/warehousing/InboundPlans.vue(475,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<any, any, {}>'.
+src/views/warehousing/InboundPlans.vue(476,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<any, any, {}>'.
+src/views/warehousing/InboundPlans.vue(520,7): error TS6133: 'handleGenerateWarehousingOrder' is declared but its value is never read.
+src/views/warehousing/InboundReturnOrders.vue(309,5): error TS2322: Type '{ data: InboundReturnOrder[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }' is not assignable to type 'InboundReturnOrder[] | { inbound_return_id: string; order_number: string; source_order_id: string; source_order_number: string; contract_number: string; supplier_name: string; ... 10 more ...; updated_at: string; }[]'.
+src/views/warehousing/InboundReturnOrders.vue(310,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<{ data: InboundReturnOrder[]; pagination: { total: number; page: number; pageSize: number; totalPages: number; }; }, any, {}>'.
+src/views/warehousing/WarehousingOrders.vue(199,1): error TS6133: 'dayjs' is declared but its value is never read.
+src/views/warehousing/WarehousingOrders.vue(486,5): error TS2322: Type 'PaginatedResponse<WarehousingOrder>' is not assignable to type 'WarehousingOrder[] | { warehousing_order_id: string; order_number: string; contract_number?: string | undefined; purchase_order_id?: string | undefined; plan_deductions?: string | ... 1 more ... | undefined; ... 14 more ...; updated_at: string; }[]'.
+src/views/warehousing/WarehousingOrders.vue(487,33): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<WarehousingOrder>, any, {}>'.
+src/views/warehousing/WarehousingOrders.vue(488,35): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<WarehousingOrder>, any, {}>'.
+src/views/warehousing/WarehousingOrders.vue(489,36): error TS2339: Property 'pagination' does not exist on type 'AxiosResponse<PaginatedResponse<WarehousingOrder>, any, {}>'.
+src/views/warehousing/WarehousingOrders.vue(550,7): error TS6133: 'handleViewDetail' is declared but its value is never read.
+src/views/warehousing/WarehousingOrders.vue(635,11): error TS2740: Type 'PaginatedResponse<WarehousingOrder>' is missing the following properties from type 'WarehousingOrder[]': length, pop, push, concat, and 29 more.
+src/views/write-off/WriteOffDetail.vue(194,24): error TS2339: Property 'data' does not exist on type 'WriteOffDetail'.
+src/views/write-off/WriteOffDocuments.vue(429,32): error TS2339: Property 'data' does not exist on type 'WriteOffSummary'.
+src/views/write-off/WriteOffFormModal.vue(232,1): error TS6133: 'formatDate' is declared but its value is never read.
+src/views/write-off/WriteOffFormModal.vue(343,46): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Customer>'.
+src/views/write-off/WriteOffFormModal.vue(350,46): error TS2339: Property 'map' does not exist on type 'PaginatedResponse<Supplier>'.
+src/views/write-off/WriteOffFormModal.vue(364,5): error TS2322: Type '{ success: boolean; data: PaymentMethodOption[]; }' is not assignable to type '{ payment_method_id: string; payment_method_name: string; }[] | { payment_method_id: string; payment_method_name: string; }[]'.
+src/views/write-off/WriteOffFormModal.vue(458,37): error TS2339: Property 'data' does not exist on type '{ write_off_number: string; }'.
+src/views/write-off/WriteOffFormModal.vue(470,22): error TS2339: Property 'data' does not exist on type 'WriteOffDetail'.

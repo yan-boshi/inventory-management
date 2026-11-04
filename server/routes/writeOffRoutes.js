@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, advancedOrAdmin } from '../middleware/auth.js'
 import {
   getWriteOffList,
   getWriteOffSummary,
@@ -20,6 +20,6 @@ router.get('/pending-records', authMiddleware, getPendingRecords)
 router.get('/:id', authMiddleware, getWriteOffById)
 router.post('/', authMiddleware, createWriteOff)
 router.put('/:id', authMiddleware, updateWriteOff)
-router.put('/:id/void', authMiddleware, voidWriteOff)
+router.put('/:id/void', authMiddleware, advancedOrAdmin, voidWriteOff)
 
 export default router

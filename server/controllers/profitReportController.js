@@ -143,7 +143,7 @@ export const updateSettlementDate = async (req, res) => {
     res.json({ success: true, message: '结算日期更新成功' })
   } catch (error) {
     console.error('更新结算日期失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -222,9 +222,9 @@ export const updateReceivedAmount = async (req, res) => {
       }
     })
   } catch (error) {
-    await connection.rollback()
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
     console.error('更新已结算金额失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   } finally {
     connection.release()
   }
@@ -1083,6 +1083,6 @@ export const getProfitReport = async (req, res) => {
     })
   } catch (error) {
     console.error('毛利表查询失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

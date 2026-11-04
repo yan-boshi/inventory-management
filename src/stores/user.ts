@@ -21,7 +21,7 @@ export const useUserStore = defineStore('user', () => {
   function setUser(userData: UserState, authToken: string) {
     user.value = userData
     token.value = authToken
-    console.log('setUser:', userData, authToken)
+    // 不要把 token 打进控制台（会被插件/截屏/日志采集截获）
     localStorage.setItem('token', authToken)
     localStorage.setItem('user', JSON.stringify(userData))
   }

@@ -1,6 +1,7 @@
 import InboundPlan from '../models/InboundPlan.js'
 import pool from '../config/database.js'
 import { escapeLike } from '../utils/sql.js'
+import { localDateISO } from '../utils/sequence.js'
 
 export const getAllInboundPlans = async (req, res) => {
   try {
@@ -81,7 +82,8 @@ export const getAllInboundPlans = async (req, res) => {
       },
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -94,7 +96,8 @@ export const getInboundPlanById = async (req, res) => {
     }
     res.json({ success: true, data: plan })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -131,7 +134,8 @@ export const createInboundPlan = async (req, res) => {
 
     res.status(201).json({ success: true, data: plan })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -158,7 +162,8 @@ export const updateInboundPlan = async (req, res) => {
     const plan = await InboundPlan.update(id, updateData)
     res.json({ success: true, data: plan })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -173,7 +178,8 @@ export const deleteInboundPlan = async (req, res) => {
     await InboundPlan.delete(id)
     res.json({ success: true, message: 'Inbound plan deleted' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -182,18 +188,16 @@ export const getNewPlanNumber = async (req, res) => {
     const planNumber = await InboundPlan.generatePlanNumber()
     res.json({ success: true, data: { plan_number: planNumber } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
 /**
- * 从采购订单生成入库计划（供内部调用）
+ * 从采购订单生成入库计划（供内部调用，可传事务连接）
  */
-export const generateFromPurchaseOrder = async (purchaseOrder) => {
+export const generateFromPurchaseOrder = async (purchaseOrder, conn = pool) => {
   try {
-    // 先删除该采购订单关联的旧入库计划
-    await InboundPlan.deleteByPurchaseOrderId(purchaseOrder.purchase_order_id)
-
     // 解析采购明细
     let purchaseItems = []
     try {
@@ -204,27 +208,41 @@ export const generateFromPurchaseOrder = async (purchaseOrder) => {
       purchaseItems = []
     }
 
+    // 先删除该采购订单关联的旧入库计划
+    await InboundPlan.deleteByPurchaseOrderId(purchaseOrder.purchase_order_id, conn)
+
     if (purchaseItems.length === 0) {
       return null
     }
 
-    // 构建入库计划明细
-    const planItems = purchaseItems.map((item, index) => ({
-      no: index + 1,
-      product_code: item.product_code || '',
-      product_name: item.product_name || '',
-      model: item.model || '',
-      description: item.description || '',
-      quantity: item.quantity || 0,
-      // 记录从采购订单生成入库计划时的采购数量
-      purchase_quantity: item.quantity || 0,
-      unit: item.unit || '',
-      tax_included_price: item.tax_included_price || 0,
-      tax_rate: item.tax_rate || 0,
-      delivery_date: item.delivery_date || '',
-      remarks: item.remarks || '',
-      inbound_status: 'pending',
-    }))
+    // 构建入库计划明细：
+    // quantity=剩余待入库（采购数量-已入库数量），purchase_quantity=原始采购数量，
+    // 防止编辑采购订单后计划被重置为全量导致重复入库
+    const planItems = purchaseItems.map((item, index) => {
+      const total = parseFloat(item.quantity) || 0
+      const received = parseFloat(item.inbound_quantity) || 0
+      const remaining = Math.max(0, total - received)
+      return {
+        no: index + 1,
+        product_code: item.product_code || '',
+        product_name: item.product_name || '',
+        model: item.model || '',
+        description: item.description || '',
+        quantity: remaining,
+        // 记录从采购订单生成入库计划时的采购数量
+        purchase_quantity: total,
+        unit: item.unit || '',
+        tax_included_price: item.tax_included_price || 0,
+        tax_rate: item.tax_rate || 0,
+        delivery_date: item.delivery_date || '',
+        remarks: item.remarks || '',
+        inbound_status: remaining <= 0 ? 'completed' : (received > 0 ? 'partial' : 'pending'),
+      }
+    })
+
+    const planStatus = planItems.every(i => i.inbound_status === 'completed')
+      ? 'completed'
+      : planItems.every(i => i.inbound_status === 'pending') ? 'pending' : 'partial'
 
     const plan = await InboundPlan.create({
       purchase_order_id: purchaseOrder.purchase_order_id,
@@ -232,12 +250,12 @@ export const generateFromPurchaseOrder = async (purchaseOrder) => {
       supplier_name: purchaseOrder.supplier_name || '',
       plan_items: planItems,
       currency: purchaseOrder.currency || 'CNY',
-      entry_date: purchaseOrder.entry_date || new Date().toISOString().slice(0, 10),
+      entry_date: purchaseOrder.entry_date || localDateISO(),
       purchase_person: purchaseOrder.purchase_person || '',
-      status: 'pending',
+      status: planStatus,
       remarks: purchaseOrder.remarks || '',
       created_by: purchaseOrder.purchase_person || null,
-    })
+    }, conn)
 
     return plan
   } catch (error) {

@@ -6,7 +6,7 @@ services:
     container_name: inventory-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: abc1234!
+      MYSQL_ROOT_PASSWORD: ''
       MYSQL_DATABASE: inventory_management
       TZ: Asia/Shanghai
     ports:

@@ -6,6 +6,10 @@ import { generateFromSalesOrder as generatePurchasePlan } from './purchasePlanCo
 import { generateFromSalesOrder as generateOutboundPlan } from './outboundPlanController.js'
 import { handleDbError } from '../utils/errorHandler.js'
 import { escapeLike } from '../utils/sql.js'
+import { validateNonNegativeAmounts } from '../utils/amountValidation.js'
+
+// 销售明细中需要非负校验的金额字段
+const SALES_AMOUNT_FIELDS = ['tax_included_price', 'tax_excluded_price', 'tax_included_amount', 'tax_excluded_amount', 'tax_amount']
 
 // 解析销售明细 JSON（兼容数组/字符串/坏数据）
 const parseSalesItems = (salesItems) => {
@@ -137,6 +141,7 @@ export const getSalesOrderById = async (req, res) => {
 export const createSalesOrder = async (req, res) => {
   try {
     const {
+      order_number,
       contract_number,
       customer_name,
       customer_code,
@@ -161,6 +166,12 @@ export const createSalesOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: createQtyError })
     }
 
+    // 校验销售明细金额/单价非负（缺省不管，传了就必须是有限非负数字）
+    const createAmountError = validateNonNegativeAmounts(parseSalesItems(sales_items), SALES_AMOUNT_FIELDS)
+    if (createAmountError) {
+      return res.status(400).json({ success: false, message: createAmountError })
+    }
+
     // 创建订单并生成采购/出库计划，整体走事务：
     // 计划生成完成后才返回（fire-and-forget 会静默丢计划，并发时还会交错出重复计划）
     const connection = await pool.getConnection()
@@ -169,6 +180,7 @@ export const createSalesOrder = async (req, res) => {
       await connection.beginTransaction()
 
       order = await SalesOrder.create({
+        order_number,
         contract_number,
         customer_name,
         customer_code,
@@ -191,7 +203,7 @@ export const createSalesOrder = async (req, res) => {
 
       await connection.commit()
     } catch (txError) {
-      await connection.rollback()
+      try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
       throw txError
     } finally {
       connection.release()
@@ -236,6 +248,11 @@ export const updateSalesOrder = async (req, res) => {
       if (qtyError) {
         return res.status(400).json({ success: false, message: qtyError })
       }
+      // 校验销售明细金额/单价非负（缺省不管，传了就必须是有限非负数字）
+      const amountError = validateNonNegativeAmounts(newItems, SALES_AMOUNT_FIELDS)
+      if (amountError) {
+        return res.status(400).json({ success: false, message: amountError })
+      }
       const oldOutboundByProduct = new Map()
       for (const it of parseSalesItems(existing.sales_items)) {
         if (!it.product_code) continue
@@ -252,6 +269,15 @@ export const updateSalesOrder = async (req, res) => {
           return res.status(400).json({
             success: false,
             message: `商品 ${code} 修改后的数量(${newQty})低于已出库数量(${out})，不能保存`
+          })
+        }
+      }
+      // 整行删除同样要校验：把已出库商品的行删掉会让出库/应收记录悬空
+      for (const [code, out] of oldOutboundByProduct) {
+        if (out > 1e-6 && !newQtyByProduct.has(code)) {
+          return res.status(400).json({
+            success: false,
+            message: `商品 ${code} 已出库 ${out}，不能从销售明细中删除`
           })
         }
       }
@@ -290,7 +316,7 @@ export const updateSalesOrder = async (req, res) => {
 
       await connection.commit()
     } catch (txError) {
-      await connection.rollback()
+      try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
       throw txError
     } finally {
       connection.release()
@@ -314,7 +340,7 @@ export const deleteSalesOrder = async (req, res) => {
 
     // 已有出库记录的销售订单不允许删除：
     // 出库单/应收/采购关联已生成，删除会让单据悬挂
-    const shippedItems = parseSalesItems(existing.sales_items).some(it => (parseFloat(it.outbound_quantity) || 0) > 0)
+    const shippedItems = parseSalesItems(existing.sales_items).some(it => (parseFloat(it.outbound_quantity) || 0) > 1e-6)
     if (shippedItems) {
       return res.status(400).json({ success: false, message: '该销售订单已有出库记录，不能删除；请先处理相关出库单' })
     }
@@ -338,7 +364,7 @@ export const deleteSalesOrder = async (req, res) => {
 
       await connection.commit()
     } catch (txError) {
-      await connection.rollback()
+      try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
       throw txError
     } finally {
       connection.release()

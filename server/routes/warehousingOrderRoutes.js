@@ -18,6 +18,6 @@ router.get('/purchase-orders', authMiddleware, getPurchaseOrdersForWarehousing)
 router.get('/:id', authMiddleware, getWarehousingOrderById)
 router.post('/', authMiddleware, createWarehousingOrder)
 router.put('/:id', authMiddleware, updateWarehousingOrder)
-router.delete('/:id', authMiddleware, deleteWarehousingOrder)
+router.delete('/:id', authMiddleware, advancedOrAdmin, deleteWarehousingOrder)
 
 export default router

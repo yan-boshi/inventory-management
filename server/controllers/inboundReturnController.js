@@ -97,8 +97,8 @@ const reducePayableForReturn = async (sourceOrderNumber, returnAmount, conn) => 
   const handlingFee = parseFloat(payable.handling_fee || 0)
   const newAmount = Math.max(received, round4(parseFloat(payable.amount || 0) - returnAmount))
 
-  if (newAmount <= 0 && received <= 0) {
-    // 全额退货且未发生付款/核销，才允许删除应付
+  if (newAmount <= 0 && received <= 0 && handlingFee <= 0) {
+    // 全额退货、无付款、无手续费才允许删除应付（带手续费删除会让手续费凭空消失）
     await Payable.delete(payable.payable_id, conn)
     return
   }
@@ -202,7 +202,8 @@ export const getAllInboundReturns = async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -215,7 +216,8 @@ export const getInboundReturnById = async (req, res) => {
     }
     res.json({ success: true, data: order })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -368,8 +370,9 @@ export const createInboundReturn = async (req, res) => {
     await connection.commit()
     res.status(201).json({ success: true, data: order })
   } catch (error) {
-    await connection.rollback()
-    res.status(500).json({ success: false, message: error.message })
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   } finally {
     connection.release()
   }
@@ -475,8 +478,9 @@ export const updateInboundReturn = async (req, res) => {
     await connection.commit()
     res.json({ success: true, data: order })
   } catch (error) {
-    await connection.rollback()
-    res.status(500).json({ success: false, message: error.message })
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   } finally {
     connection.release()
   }
@@ -549,7 +553,7 @@ export const deleteInboundReturn = async (req, res) => {
           const match = findItemByProduct(orders, itemsMap, returnItem.product_code, PURCHASE_ORDER_KEYS)
           if (!match) continue
 
-          match.targetItem.inbound_quantity = (match.targetItem.inbound_quantity || 0) + returnItem.quantity
+          match.targetItem.inbound_quantity = (parseFloat(match.targetItem.inbound_quantity) || 0) + (parseFloat(returnItem.quantity) || 0)
 
           if (match.targetItem.inbound_quantity >= match.targetItem.quantity) {
             match.targetItem.status = 2
@@ -589,8 +593,9 @@ export const deleteInboundReturn = async (req, res) => {
     await connection.commit()
     res.json({ success: true, message: '入库退货单删除成功' })
   } catch (error) {
-    await connection.rollback()
-    res.status(500).json({ success: false, message: error.message })
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   } finally {
     connection.release()
   }
@@ -601,6 +606,7 @@ export const getNewOrderNumber = async (req, res) => {
     const orderNumber = await InboundReturnOrder.generateOrderNumber()
     res.json({ success: true, data: { order_number: orderNumber } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }

@@ -108,7 +108,7 @@ export const getNextWriteOffNumber = async (req, res) => {
     res.json({ success: true, data: { write_off_number } })
   } catch (error) {
     console.error('获取核销单编号失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -176,7 +176,7 @@ export const getWriteOffList = async (req, res) => {
     })
   } catch (error) {
     console.error('获取核销单列表失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -226,7 +226,7 @@ export const getWriteOffSummary = async (req, res) => {
     })
   } catch (error) {
     console.error('获取核销单汇总失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -251,7 +251,7 @@ export const getWriteOffById = async (req, res) => {
     })
   } catch (error) {
     console.error('获取核销单详情失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -310,7 +310,7 @@ export const getPendingRecords = async (req, res) => {
     res.json({ success: true, data: records })
   } catch (error) {
     console.error('获取待核销记录失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -439,9 +439,9 @@ export const createWriteOff = async (req, res) => {
       data: { ...result, items: resultItems }
     })
   } catch (error) {
-    await connection.rollback()
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
     console.error('创建核销单失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   } finally {
     connection.release()
   }
@@ -590,9 +590,9 @@ export const updateWriteOff = async (req, res) => {
       data: { ...result, items: resultItems }
     })
   } catch (error) {
-    await connection.rollback()
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
     console.error('编辑核销单失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   } finally {
     connection.release()
   }
@@ -663,9 +663,9 @@ export const voidWriteOff = async (req, res) => {
 
     res.json({ success: true, message: '核销单已作废' })
   } catch (error) {
-    await connection.rollback()
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
     console.error('作废核销单失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   } finally {
     connection.release()
   }

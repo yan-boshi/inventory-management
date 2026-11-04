@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, advancedOrAdmin } from '../middleware/auth.js'
 import {
   getSettlementList,
   getSettlementSummary,
@@ -22,6 +22,6 @@ router.get('/order-items', authMiddleware, getOrderItems)
 router.get('/:id', authMiddleware, getSettlementById)
 router.post('/', authMiddleware, createSettlement)
 router.put('/:id', authMiddleware, updateSettlement)
-router.delete('/:id', authMiddleware, deleteSettlement)
+router.delete('/:id', authMiddleware, advancedOrAdmin, deleteSettlement)
 
 export default router

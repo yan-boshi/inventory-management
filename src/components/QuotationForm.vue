@@ -307,7 +307,6 @@ import { productsApi } from '@/api/products'
 import type { CreateQuotationRequest, QuotationItem, CustomerOption, ProductOption, Currency } from '@/types'
 import type { Quotation } from '@/types'
 import { getLocale, type Lang } from '@/locales'
-import { scrollTopbar } from '@/directives/scrollTopbar'
 import { round4 } from '@/utils/money'
 import { getActiveCurrencies } from '@/api/currencies'
 

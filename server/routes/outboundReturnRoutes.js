@@ -7,7 +7,7 @@ import {
   deleteOutboundReturn,
   getNewOrderNumber
 } from '../controllers/outboundReturnController.js'
-import { authMiddleware } from '../middleware/auth.js'
+import { authMiddleware, advancedOrAdmin } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -18,6 +18,6 @@ router.get('/', getAllOutboundReturns)
 router.get('/:id', getOutboundReturnById)
 router.post('/', createOutboundReturn)
 router.put('/:id', updateOutboundReturn)
-router.delete('/:id', deleteOutboundReturn)
+router.delete('/:id', advancedOrAdmin, deleteOutboundReturn)
 
 export default router

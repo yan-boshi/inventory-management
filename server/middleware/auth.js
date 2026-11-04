@@ -1,10 +1,11 @@
 import jwt from 'jsonwebtoken'
 import User from '../models/User.js'
+import { isRevoked } from '../utils/tokenBlacklist.js'
 
-// 生产环境必须设置 JWT_SECRET 环境变量
-const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production'
-  ? (() => { throw new Error('JWT_SECRET environment variable is required in production') })()
-  : 'dev-only-secret-key-change-in-production')
+// 必须设置 JWT_SECRET 环境变量（由 loadEnv.js 从 .env 读取）；
+// 不再提供内置回退密钥——默认密钥等于认证体系不设防
+const JWT_SECRET = process.env.JWT_SECRET ||
+  (() => { throw new Error('JWT_SECRET environment variable is required') })()
 
 export const authMiddleware = async (req, res, next) => {
   try {
@@ -15,7 +16,13 @@ export const authMiddleware = async (req, res, next) => {
     }
 
     const token = authHeader.substring(7)
-    const decoded = jwt.verify(token, JWT_SECRET)
+    // 固定算法为 HS256，防御 alg 混淆
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] })
+
+    // 已登出的 token 不再有效
+    if (isRevoked(token)) {
+      return res.status(401).json({ success: false, message: 'Invalid token' })
+    }
 
     const user = await User.findById(decoded.userId)
     if (!user) {
@@ -31,7 +38,8 @@ export const authMiddleware = async (req, res, next) => {
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ success: false, message: 'Invalid token' })
     }
-    res.status(500).json({ success: false, message: error.message })
+    console.error(error)
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 

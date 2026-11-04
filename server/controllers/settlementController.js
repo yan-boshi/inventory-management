@@ -8,6 +8,10 @@ import { handleDbError } from '../utils/errorHandler.js'
 import { generateUUID } from '../utils/uuid.js'
 import { round4 } from '../utils/round.js'
 import { escapeLike } from '../utils/sql.js'
+import { validateNonNegativeFields, validateNonNegativeAmounts } from '../utils/amountValidation.js'
+
+// 对账单明细中需要非负校验的金额字段
+const SETTLEMENT_ITEM_AMOUNT_FIELDS = ['amount', 'amount_with_tax']
 
 // 获取下一个对账单编号
 export const getNextStatementNumber = async (req, res) => {
@@ -16,7 +20,7 @@ export const getNextStatementNumber = async (req, res) => {
     res.json({ success: true, data: { statement_number } })
   } catch (error) {
     console.error('获取对账单编号失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -126,7 +130,7 @@ export const getSettlementList = async (req, res) => {
     })
   } catch (error) {
     console.error('获取对账单列表失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -189,7 +193,7 @@ export const getSettlementSummary = async (req, res) => {
     })
   } catch (error) {
     console.error('获取对账单汇总失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -220,7 +224,7 @@ export const getSettlementById = async (req, res) => {
     })
   } catch (error) {
     console.error('获取对账单详情失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -243,6 +247,14 @@ export const createSettlement = async (req, res) => {
     if (!type || !entity_id) {
       await connection.rollback()
       return res.status(400).json({ success: false, message: '缺少必要参数' })
+    }
+
+    // 金额/手续费必须非负（缺省不管，传了就必须是有限非负数字）
+    const amountError = validateNonNegativeFields({ handling_fee, total_amount }, ['handling_fee', 'total_amount'])
+      || validateNonNegativeAmounts(items, SETTLEMENT_ITEM_AMOUNT_FIELDS)
+    if (amountError) {
+      await connection.rollback()
+      return res.status(400).json({ success: false, message: amountError })
     }
 
     // 生成对账单编号和ID
@@ -339,7 +351,7 @@ export const createSettlement = async (req, res) => {
     const statement = await SettlementStatement.findById(statementId)
     res.status(201).json({ success: true, data: statement })
   } catch (error) {
-    await connection.rollback()
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
     const { statusCode, message } = handleDbError(error, '创建对账单')
     res.status(statusCode).json({ success: false, message })
   } finally {
@@ -363,6 +375,14 @@ export const updateSettlement = async (req, res) => {
 
     // 兼容前端发送的 settlement_date，映射到 billing_month
     const resolvedBillingMonth = billing_month || (settlement_date ? settlement_date.substring(0, 7) : null)
+
+    // 金额/手续费必须非负（缺省不管，传了就必须是有限非负数字）
+    const amountError = validateNonNegativeFields({ handling_fee, total_amount }, ['handling_fee', 'total_amount'])
+      || validateNonNegativeAmounts(items, SETTLEMENT_ITEM_AMOUNT_FIELDS)
+    if (amountError) {
+      await connection.rollback()
+      return res.status(400).json({ success: false, message: amountError })
+    }
 
     const existing = await SettlementStatement.findById(id, connection)
     if (!existing) {
@@ -393,6 +413,9 @@ export const updateSettlement = async (req, res) => {
 
     // 如果提供了新的明细，更新明细
     if (items) {
+      // 先取旧明细：被移除的行/手续费清零场景要还原其 handling_fee
+      const oldItems = await SettlementStatementItem.findByStatementId(id, connection)
+
       // 删除旧明细
       await SettlementStatementItem.deleteByStatementId(id, connection)
 
@@ -418,18 +441,32 @@ export const updateSettlement = async (req, res) => {
         }, connection)
       }
 
-      // 将手续费均分给每个应收/应付单
-      if (handling_fee && handling_fee > 0 && items.length > 0) {
-        const feePerItem = round4(handling_fee / items.length)
-
-        for (const item of items) {
-          if (item.source_type === 1) {
-            // 应收单
-            await Receivable.update(item.source_id, { handling_fee: feePerItem }, connection)
-          } else if (item.source_type === 2) {
-            // 应付单
-            await Payable.update(item.source_id, { handling_fee: feePerItem }, connection)
-          }
+      // 手续费同步（对称）：先清被移除旧行的手续费，再给新明细均分——
+      // 原来只在 fee>0 时覆盖，删行/清零不还原，会把手续费残留在应收/应付上
+      const totalFee = handling_fee !== undefined
+        ? (parseFloat(handling_fee) || 0)
+        : (parseFloat(existing.handling_fee) || 0)
+      const touchedKeys = new Set(items.map(i => `${i.source_type}:${i.source_id}`))
+      for (const old of oldItems) {
+        const key = `${old.source_type}:${old.source_id}`
+        if (touchedKeys.has(key)) continue
+        if (old.source_type === 1 && old.source_id) {
+          await Receivable.update(old.source_id, { handling_fee: 0 }, connection)
+        } else if (old.source_type === 2 && old.source_id) {
+          await Payable.update(old.source_id, { handling_fee: 0 }, connection)
+        }
+      }
+      const feePerItem = items.length > 0 ? round4(totalFee / items.length) : 0
+      let feeAssigned = 0
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        // 尾差给最后一行，保证分摊合计 = 总手续费
+        const fee = i < items.length - 1 ? feePerItem : round4(totalFee - feeAssigned)
+        feeAssigned = round4(feeAssigned + fee)
+        if (item.source_type === 1 && item.source_id) {
+          await Receivable.update(item.source_id, { handling_fee: fee }, connection)
+        } else if (item.source_type === 2 && item.source_id) {
+          await Payable.update(item.source_id, { handling_fee: fee }, connection)
         }
       }
 
@@ -464,7 +501,7 @@ export const updateSettlement = async (req, res) => {
     await connection.commit()
     res.json({ success: true, data: statement })
   } catch (error) {
-    await connection.rollback()
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
     const { statusCode, message } = handleDbError(error, '更新对账单')
     res.status(statusCode).json({ success: false, message })
   } finally {
@@ -502,7 +539,7 @@ export const deleteSettlement = async (req, res) => {
     await connection.commit()
     res.json({ success: true, message: '对账单删除成功' })
   } catch (error) {
-    await connection.rollback()
+    try { await connection.rollback() } catch (e) { console.error('rollback failed:', e) }
     const { statusCode, message } = handleDbError(error, '删除对账单')
     res.status(statusCode).json({ success: false, message })
   } finally {
@@ -551,7 +588,7 @@ export const getUninvoicedRecords = async (req, res) => {
     res.json({ success: true, data: records })
   } catch (error) {
     console.error('获取未开票记录失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
 
@@ -620,6 +657,6 @@ export const getOrderItems = async (req, res) => {
     res.json({ success: true, data: items })
   } catch (error) {
     console.error('获取订单商品信息失败:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: '服务器内部错误，请稍后重试' })
   }
 }
