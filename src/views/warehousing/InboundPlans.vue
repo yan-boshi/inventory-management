@@ -117,10 +117,12 @@
         <template #summary>
           <a-table-summary v-if="expandedPlans.length > 0">
             <a-table-summary-row>
+              <!-- 复选框列占位：row-selection 多渲染一列，不留占位整行合计会左移错位 -->
+              <a-table-summary-cell :index="0" />
               <a-table-summary-cell
                 v-for="(col, idx) in visibleColumns"
                 :key="col.key || col.dataIndex"
-                :index="idx"
+                :index="idx + 1"
                 :align="col.align"
               >
                 <strong v-if="col.key === 'purchase_quantity'">{{ formatQty(pageTotals.purchase_quantity) }}</strong>
@@ -596,7 +598,8 @@ const handleGenerateWarehousingOrder = (record: any) => {
     currency: plan.currency || 'CNY',
     warehousing_items: warehousingItems,
     plan_rows: planRows,
-    entry_date: plan.entry_date,
+    // 录入日期默认为当前日期（生成单据是今天的事，不沿用计划的录入日期）
+    entry_date: formatDate(new Date()),
     remarks: plan.remarks || '',
   }
 
@@ -697,7 +700,8 @@ const handleBatchGenerateWarehousingOrder = () => {
     currency: firstPlan.currency || 'CNY',
     warehousing_items: warehousingItems,
     plan_rows: planRows,
-    entry_date: firstPlan.entry_date,
+    // 录入日期默认为当前日期（生成单据是今天的事，不沿用计划的录入日期）
+    entry_date: formatDate(new Date()),
     remarks: firstPlan.remarks || '',
   }
 
