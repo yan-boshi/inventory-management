@@ -15,6 +15,8 @@ class Product extends BaseModel {
       product_code: data.product_code,
       unit: data.unit || null,
       stock: data.stock || 0,
+      // 建档录入的库存即初始库存（此时还没有任何单据流水）
+      initial_stock: data.stock || 0,
       tax_included_price: data.tax_included_price || null,
       tax_excluded_price: data.tax_excluded_price || null,
       product_classification: data.product_classification || null,

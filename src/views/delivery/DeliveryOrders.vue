@@ -160,7 +160,10 @@
                 :index="idx"
                 :align="col.align"
               >
-                <strong v-if="col.key === 'shipping_fee'">
+                <strong v-if="col.key === 'quantity'">
+                  {{ (pageTotals.quantity ?? 0).toLocaleString('zh-CN', { maximumFractionDigits: 4 }) }}
+                </strong>
+                <strong v-else-if="col.key === 'shipping_fee'">
                   {{ formatMoney4(pageTotals.shipping_fee) }}
                 </strong>
                 <strong v-else-if="idx === 0">合计</strong>
@@ -513,7 +516,7 @@ const filteredOrders = computed(() => {
   )
 })
 
-// 合计行：查询出的所有金额列合计
+// 合计行：查询出的所有数量/金额列合计
 // 运费是单据级金额，同一出库单的多行明细共享同一笔运费，按出库单去重求和
 const pageTotals = computed(() => {
   const countedOrders = new Set<string>()
@@ -524,9 +527,11 @@ const pageTotals = computed(() => {
         countedOrders.add(orderId)
         totals.shipping_fee += getShippingFeeAmount(row.expenses)
       }
+      // 数量列可能为 '-'（单据汇总行占位）或字符串，parseFloat 兜底
+      totals.quantity += parseFloat(row.quantity) || 0
       return totals
     },
-    { shipping_fee: 0 }
+    { shipping_fee: 0, quantity: 0 }
   )
 })
 

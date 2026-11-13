@@ -1,6 +1,7 @@
 import InboundReturnOrder from '../models/InboundReturnOrder.js'
 import WarehousingOrder from '../models/WarehousingOrder.js'
 import PurchaseOrder from '../models/PurchaseOrder.js'
+import InboundPlan from '../models/InboundPlan.js'
 import Payable from '../models/Payable.js'
 import pool from '../config/database.js'
 import { round4 } from '../utils/round.js'
@@ -139,6 +140,62 @@ const restorePayableForReturn = async (returnOrder, returnAmount, conn) => {
       warehousing_time: null
     }, conn)
   }
+}
+
+// 退货联动入库计划：退货使"已入库"回退 → 计划待入库加回；撤销退货则反向扣回
+// 保持口径：计划待入库 = 采购数量 - 已入库（含退货回退后的净值）
+async function syncInboundPlanForReturn(sourceOrderId, items, direction, conn) {
+  if (!sourceOrderId || !Array.isArray(items) || items.length === 0) return
+  const warehousingOrder = await WarehousingOrder.findById(sourceOrderId, conn)
+  // 旧数据入库单没有 purchase_order_id 时无法精确定位计划，跳过（不做合同级瞎猜）
+  if (!warehousingOrder || !warehousingOrder.purchase_order_id) return
+
+  const plans = await InboundPlan.findAll({
+    where: 'purchase_order_id = ?',
+    params: [warehousingOrder.purchase_order_id]
+  }, conn)
+  const plan = plans[0]
+  if (!plan) return
+
+  const planItems = JSON.parse(plan.plan_items || '[]')
+  let dirty = false
+  for (const item of items) {
+    const code = item.product_code
+    let qty = parseFloat(item.quantity) || 0
+    if (!code || qty <= 0) continue
+    for (const row of planItems) {
+      if (qty <= 0) break
+      if (row.product_code !== code) continue
+      const cap = parseFloat(row.purchase_quantity ?? row.quantity) || 0
+      const cur = parseFloat(row.quantity) || 0
+      if (direction > 0) {
+        // 退货：待入库加回，封顶采购数量
+        const add = Math.min(qty, Math.max(0, cap - cur))
+        if (add <= 0) continue
+        row.quantity = cur + add
+        qty -= add
+        dirty = true
+      } else {
+        // 撤销退货：待入库再扣，不扣破 0
+        const take = Math.min(qty, cur)
+        if (take <= 0) continue
+        row.quantity = cur - take
+        qty -= take
+        dirty = true
+      }
+    }
+  }
+
+  if (!dirty) return
+  for (const row of planItems) {
+    const cap = parseFloat(row.purchase_quantity ?? row.quantity) || 0
+    const cur = parseFloat(row.quantity) || 0
+    row.inbound_status = cur <= 0 ? 'completed' : (cur < cap ? 'partial' : 'pending')
+  }
+  const status = planItems.every(r => r.inbound_status === 'completed')
+    ? 'completed'
+    : planItems.every(r => r.inbound_status === 'pending') ? 'pending' : 'partial'
+  await InboundPlan.update(plan.inbound_plan_id, { plan_items: planItems, status }, conn)
 }
 
 export const getAllInboundReturns = async (req, res) => {
@@ -363,6 +420,9 @@ export const createInboundReturn = async (req, res) => {
       }
     }
 
+    // 退货联动入库计划待入库数量（已入库回退 → 待入库加回）
+    await syncInboundPlanForReturn(source_order_id, parsedItems, 1, connection)
+
     // 按退货金额冲减应付账款（全退且未付款才删除，已付款的不减破实付金额）
     const returnAmount = calcReturnAmount(parsedItems, warehousingItems)
     await reducePayableForReturn(source_order_number || order.source_order_number, returnAmount, connection)
@@ -472,6 +532,12 @@ export const updateInboundReturn = async (req, res) => {
       } else if (deltaAmount < 0) {
         await restorePayableForReturn({ ...existing, source_order_number: sourceOrderNumber }, -deltaAmount, connection)
       }
+    }
+
+    // 计划待入库联动：旧明细撤销、新明细重放（保持 待入库 = 采购数量 - 已入库 口径）
+    if (updateData.return_items !== undefined) {
+      await syncInboundPlanForReturn(existing.source_order_id, oldItems, -1, connection)
+      await syncInboundPlanForReturn(updateData.source_order_id || existing.source_order_id, newItems, 1, connection)
     }
 
     const order = await InboundReturnOrder.update(id, updateData, connection)
@@ -588,6 +654,9 @@ export const deleteInboundReturn = async (req, res) => {
       if (sourceOrder) warehousingItems = parseReturnItems(sourceOrder.warehousing_items)
     }
     await restorePayableForReturn(existing, calcReturnAmount(returnItems, warehousingItems), connection)
+
+    // 撤销退货联动入库计划待入库数量（退货被撤销 → 待入库扣回）
+    await syncInboundPlanForReturn(existing.source_order_id, returnItems, -1, connection)
 
     await InboundReturnOrder.delete(id, connection)
     await connection.commit()

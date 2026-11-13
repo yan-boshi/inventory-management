@@ -260,15 +260,34 @@ export const createWarehousingOrder = async (req, res) => {
         expenses
       }, connection)
 
-      // 从入库计划生成时，扣减计划明细的待入库数量并记录扣减明细（删除时据此原路回补）
+      // 扣减入库计划的待入库数量并记录扣减明细（删除时据此原路回补）：
+      // 从计划页生成的带 plan_rows 路由；直接建单（如从采购订单带入）不带 plan_rows 时，
+      // 按 purchase_order_id 自动定位入库计划行补扣——否则入库单不扣计划，计划待入库会虚高
+      let planRowsForDeduction = plan_rows
+      if (!plan_rows && purchase_order_id) {
+        const plans = await InboundPlan.findAll({
+          where: 'purchase_order_id = ?',
+          params: [purchase_order_id]
+        }, connection)
+        const plan = plans[0]
+        if (plan) {
+          const planItems = JSON.parse(plan.plan_items || '[]')
+          planRowsForDeduction = planItems.map((it, idx) => ({
+            plan_id: plan.inbound_plan_id,
+            item_index: idx,
+            product_code: it.product_code,
+            quantity: it.quantity
+          }))
+        }
+      }
       const planDeductions = await applyPlanDeductions(
         InboundPlan,
         INBOUND_PLAN_KEYS,
-        plan_rows,
+        planRowsForDeduction,
         parsedItems,
         connection
       )
-      if (plan_rows) {
+      if (planDeductions.length > 0) {
         order = await WarehousingOrder.update(order.warehousing_order_id, {
           plan_deductions: planDeductions
         }, connection)

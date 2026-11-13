@@ -113,6 +113,23 @@
             </a-space>
           </template>
         </template>
+
+        <template #summary>
+          <a-table-summary v-if="expandedPlans.length > 0">
+            <a-table-summary-row>
+              <a-table-summary-cell
+                v-for="(col, idx) in visibleColumns"
+                :key="col.key || col.dataIndex"
+                :index="idx"
+                :align="col.align"
+              >
+                <strong v-if="col.key === 'purchase_quantity'">{{ formatQty(pageTotals.purchase_quantity) }}</strong>
+                <strong v-else-if="col.key === 'quantity'">{{ formatQty(pageTotals.quantity) }}</strong>
+                <strong v-else-if="idx === 0">合计</strong>
+              </a-table-summary-cell>
+            </a-table-summary-row>
+          </a-table-summary>
+        </template>
       </a-table>
       <a-pagination
         v-model:current="pagination.current"
@@ -220,6 +237,21 @@ const expandedPlans = computed(() => {
     }
   })
   return result
+})
+
+// 数量合计格式化：最多保留 4 位小数
+const formatQty = (v: number) => (v ?? 0).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
+
+// 合计行：查询出的所有行的数量列合计（基于表格数据源 expandedPlans）
+const pageTotals = computed(() => {
+  return expandedPlans.value.reduce(
+    (totals, row: any) => {
+      totals.purchase_quantity += parseFloat(row.purchase_quantity) || 0
+      totals.quantity += parseFloat(row.quantity) || 0
+      return totals
+    },
+    { purchase_quantity: 0, quantity: 0 }
+  )
 })
 
 const searchParams = reactive<InboundPlanQueryParams>({

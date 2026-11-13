@@ -92,11 +92,11 @@
                   列设置
                 </a-button>
               </a-popover>
-              <a-button @click="handleExport" :disabled="reportData.length === 0">
+              <a-button @click="handleExport" :disabled="filteredRows.length === 0">
                 <template #icon><DownloadOutlined /></template>
                 导出Excel
               </a-button>
-              <a-button @click="handlePrint" :disabled="reportData.length === 0">
+              <a-button @click="handlePrint" :disabled="filteredRows.length === 0">
                 <template #icon><PrinterOutlined /></template>
                 打印
               </a-button>
@@ -108,13 +108,14 @@
       <a-table
         v-scroll-topbar
         :columns="filteredColumns"
-        :data-source="reportData"
+        :data-source="pagedRows"
         :loading="loading"
         :pagination="false"
         rowKey="product_id"
         bordered
         size="small"
         :scroll="{ x: 3500, y: 'calc(100vh - 380px)' }"
+        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <!-- 数量列 -->
@@ -155,11 +156,27 @@
             <a-button size="small" style="width: 90px" @click="clearFilters?.()">重置</a-button>
           </div>
         </template>
+
+        <template #summary>
+          <a-table-summary v-if="filteredRows.length > 0">
+            <a-table-summary-row>
+              <a-table-summary-cell
+                v-for="(col, idx) in filteredColumns"
+                :key="col.key"
+                :index="idx"
+                :align="col.align"
+              >
+                <strong v-if="summaryKeys.includes(col.key)">{{ formatNumber((summaryTotals as any)[col.key]) }}</strong>
+                <strong v-else-if="idx === 0">合计</strong>
+              </a-table-summary-cell>
+            </a-table-summary-row>
+          </a-table-summary>
+        </template>
       </a-table>
       <a-pagination
         v-model:current="pagination.current"
         v-model:pageSize="pagination.pageSize"
-        :total="pagination.total"
+        :total="filteredRows.length"
         show-total
         show-size-changer
         show-quick-jumper
@@ -172,7 +189,7 @@
 
     <InventoryReportPrint
       v-model:visible="printVisible"
-      :data="reportData"
+      :data="filteredRows"
       :search-params="searchParams"
       :visible-columns="visibleColumnKeys"
     />
@@ -186,12 +203,29 @@ import { SearchOutlined, ReloadOutlined, PrinterOutlined, SettingOutlined, Downl
 import { inventoryReportApi } from '@/api/inventoryReport'
 import InventoryReportPrint from '@/components/InventoryReportPrint.vue'
 import type { InventoryReportItem } from '@/types'
-import { formatDate } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 
 const loading = ref(false)
 const reportData = ref<InventoryReportItem[]>([])
 const printVisible = ref(false)
+
+// 数量列表头筛选：等于 0 / 不为 0（表头漏斗单选）
+const qtyColumn = (key: string, title: string) => ({
+  title,
+  dataIndex: key,
+  key,
+  width: 80,
+  align: 'right' as const,
+  filterMultiple: false,
+  filters: [
+    { text: '等于 0', value: 'zero' },
+    { text: '不为 0', value: 'nonzero' },
+  ],
+  onFilter: (value: string, record: InventoryReportItem) => {
+    const isZero = Number((record as any)[key] || 0) === 0
+    return value === 'zero' ? isZero : !isZero
+  },
+})
 
 // 列配置
 const allColumns = [
@@ -215,25 +249,25 @@ const allColumns = [
   },
   { title: '单位', dataIndex: 'unit', key: 'unit', width: 50, align: 'center' as const },
   // 期初
-  { title: '期初数量', dataIndex: 'opening_stock', key: 'opening_stock', width: 80, align: 'right' as const },
+  qtyColumn('opening_stock', '期初数量'),
   { title: '期初含税单价', dataIndex: 'opening_stock_included_price', key: 'opening_stock_included_price', width: 100, align: 'right' as const },
   { title: '期初未税单价', dataIndex: 'opening_stock_excluded_price', key: 'opening_stock_excluded_price', width: 100, align: 'right' as const },
   { title: '期初含税金额', dataIndex: 'opening_stock_included_amount', key: 'opening_stock_included_amount', width: 100, align: 'right' as const },
   { title: '期初未税金额', dataIndex: 'opening_stock_excluded_amount', key: 'opening_stock_excluded_amount', width: 100, align: 'right' as const },
   // 本期入库
-  { title: '入库数量', dataIndex: 'inbound_quantity', key: 'inbound_quantity', width: 80, align: 'right' as const },
+  qtyColumn('inbound_quantity', '入库数量'),
   { title: '入库含税单价', dataIndex: 'inbound_included_price', key: 'inbound_included_price', width: 100, align: 'right' as const },
   { title: '入库未税单价', dataIndex: 'inbound_excluded_price', key: 'inbound_excluded_price', width: 100, align: 'right' as const },
   { title: '入库含税金额', dataIndex: 'inbound_included_amount', key: 'inbound_included_amount', width: 100, align: 'right' as const },
   { title: '入库未税金额', dataIndex: 'inbound_excluded_amount', key: 'inbound_excluded_amount', width: 100, align: 'right' as const },
   // 本期出库
-  { title: '出库数量', dataIndex: 'outbound_quantity', key: 'outbound_quantity', width: 80, align: 'right' as const },
+  qtyColumn('outbound_quantity', '出库数量'),
   { title: '出库含税单价', dataIndex: 'outbound_included_price', key: 'outbound_included_price', width: 100, align: 'right' as const },
   { title: '出库未税单价', dataIndex: 'outbound_excluded_price', key: 'outbound_excluded_price', width: 100, align: 'right' as const },
   { title: '出库含税金额', dataIndex: 'outbound_included_amount', key: 'outbound_included_amount', width: 100, align: 'right' as const },
   { title: '出库未税金额', dataIndex: 'outbound_excluded_amount', key: 'outbound_excluded_amount', width: 100, align: 'right' as const },
   // 结余
-  { title: '结余数量', dataIndex: 'closing_stock', key: 'closing_stock', width: 80, align: 'right' as const },
+  qtyColumn('closing_stock', '结余数量'),
   { title: '结余含税单价', dataIndex: 'closing_stock_included_price', key: 'closing_stock_included_price', width: 100, align: 'right' as const },
   { title: '结余未税单价', dataIndex: 'closing_stock_excluded_price', key: 'closing_stock_excluded_price', width: 100, align: 'right' as const },
   { title: '结余含税金额', dataIndex: 'closing_stock_included_amount', key: 'closing_stock_included_amount', width: 100, align: 'right' as const },
@@ -252,7 +286,10 @@ const outboundColumns = allColumns.filter(col => col.key.startsWith('outbound_')
 const closingColumns = allColumns.filter(col => col.key.startsWith('closing_'))
 
 const filteredColumns = computed(() => {
-  return allColumns.filter(col => visibleColumnKeys.value.includes(col.key))
+  return allColumns
+    .filter(col => visibleColumnKeys.value.includes(col.key))
+    // 表头筛选受控：把外部筛选状态回注到列定义，表格 UI 与导出/打印共用一套状态
+    .map((col: any) => (col.onFilter ? { ...col, filteredValue: columnFilterState[col.key] || [] } : col))
 })
 
 const handleColumnChange = (key: string, checked: boolean) => {
@@ -276,7 +313,49 @@ const searchParams = reactive({
 const pagination = reactive({
   current: 1,
   pageSize: 20,
-  total: 0,
+})
+
+// 表头筛选状态（受控）：{ 列key: 选中的筛选值数组 }
+const columnFilterState = reactive<Record<string, string[] | undefined>>({})
+
+const handleTableChange = (_pag: unknown, filters: Record<string, string[] | undefined>) => {
+  for (const key of Object.keys(filters)) {
+    columnFilterState[key] = filters[key] && filters[key].length ? filters[key] : undefined
+  }
+  pagination.current = 1
+}
+
+// 表头筛选对整个数据集生效（不只当前页）；表格/导出/打印统一吃 filteredRows
+const filteredRows = computed(() =>
+  reportData.value.filter(row =>
+    filteredColumns.value.every((col: any) => {
+      const selected = columnFilterState[col.key]
+      if (!selected || selected.length === 0 || !col.onFilter) return true
+      return selected.some((v: string) => col.onFilter(v, row))
+    })
+  )
+)
+
+const pagedRows = computed(() => {
+  const start = (pagination.current - 1) * pagination.pageSize
+  return filteredRows.value.slice(start, start + pagination.pageSize)
+})
+
+// 合计行：统计筛选后全部行的数量列（表头筛选/查询变化时自动更新）
+const summaryKeys = ['opening_stock', 'inbound_quantity', 'outbound_quantity', 'closing_stock']
+const summaryTotals = computed(() => {
+  const totals: Record<string, number> = {
+    opening_stock: 0,
+    inbound_quantity: 0,
+    outbound_quantity: 0,
+    closing_stock: 0,
+  }
+  for (const row of filteredRows.value) {
+    for (const key of summaryKeys) {
+      totals[key] += parseFloat((row as any)[key]) || 0
+    }
+  }
+  return totals
 })
 
 const formatNumber = (value: number) => {
@@ -296,7 +375,6 @@ const fetchReport = async () => {
     }
     const response = await inventoryReportApi.getReport(params)
     reportData.value = response.data || []
-    pagination.total = reportData.value.length
   } catch (error) {
     message.error('获取报表数据失败')
   } finally {
@@ -312,6 +390,10 @@ const handleSearch = () => {
 const handleReset = () => {
   searchParams.year = currentYear
   searchParams.month = undefined
+  // 清空表头筛选（受控 filteredValue 同步清掉漏斗选中态）
+  for (const key of Object.keys(columnFilterState)) {
+    columnFilterState[key] = undefined
+  }
   pagination.current = 1
   fetchReport()
 }
@@ -331,7 +413,7 @@ const handleExport = () => {
   exportToExcel({
     filename: '进销存明细表',
     columns: exportColumns,
-    data: reportData.value,
+    data: filteredRows.value,
     sheetName: '进销存明细表',
   })
 }

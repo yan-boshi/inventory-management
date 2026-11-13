@@ -50,6 +50,7 @@
         :pagination="false"
         rowKey="product_id"
         :scroll="{ y: 'calc(100vh - 380px)' }"
+        @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'stock'">
@@ -111,12 +112,13 @@ const formVisible = ref(false)
 const isEdit = ref(false)
 const currentProduct = ref<Product | undefined>(undefined)
 
-const searchParams = reactive<ProductQueryParams>({
+const searchParams = reactive<ProductQueryParams & { sortOrder?: 'asc' | 'desc' }>({
   page: 1,
   pageSize: 100,
   name: '',
   code: '',
   model: '',
+  sortOrder: 'asc',
 })
 
 const pagination = reactive({
@@ -126,6 +128,14 @@ const pagination = reactive({
 })
 
 const columns = [
+  {
+    title: '序号',
+    key: 'index',
+    width: 60,
+    align: 'center' as const,
+    customRender: ({ index }: { index: number }) =>
+      (pagination.current - 1) * pagination.pageSize + index + 1,
+  },
   {
     title: '产品名称',
     dataIndex: 'product_name',
@@ -137,6 +147,10 @@ const columns = [
     dataIndex: 'product_code',
     key: 'product_code',
     width: 120,
+    // 服务端排序（跨页生效），默认升序
+    sorter: true,
+    defaultSortOrder: 'ascend' as const,
+    sortDirections: ['ascend', 'descend'] as ('ascend' | 'descend')[],
   },
   {
     title: '规格型号',
@@ -221,6 +235,16 @@ const handleReset = () => {
 const handlePageChange = (page: number, pageSize: number) => {
   searchParams.page = page
   searchParams.pageSize = pageSize
+  loadProducts()
+}
+
+// 产品代码列排序：服务端排序（跨页生效），默认升序
+const handleTableChange = (_pag: unknown, _filters: unknown, sorter: any) => {
+  if (!sorter || sorter.columnKey !== 'product_code') return
+  const order = sorter.order === 'descend' ? 'desc' : 'asc'
+  if (searchParams.sortOrder === order) return
+  searchParams.sortOrder = order
+  searchParams.page = 1
   loadProducts()
 }
 

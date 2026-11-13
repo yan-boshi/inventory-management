@@ -3,7 +3,7 @@ import { escapeLike } from '../utils/sql.js'
 
 export const getAllProducts = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, name, code, model } = req.query
+    const { page = 1, pageSize = 10, name, code, model, sortOrder } = req.query
     const where = []
     const params = []
 
@@ -25,7 +25,8 @@ export const getAllProducts = async (req, res) => {
     const whereClause = where.length > 0 ? where.join(' AND ') : ''
     const result = await Product.paginate({
       where: whereClause,
-      orderBy: 'created_at DESC',
+      // 产品代码排序：默认升序，sortOrder=desc 时降序（两档白名单，无注入面）
+      orderBy: sortOrder === 'desc' ? 'product_code DESC' : 'product_code ASC',
       page,
       pageSize,
       params
@@ -105,7 +106,13 @@ export const updateProduct = async (req, res) => {
     if (description !== undefined) updateData.description = description
     if (product_code !== undefined) updateData.product_code = product_code
     if (unit !== undefined) updateData.unit = unit
-    if (stock !== undefined) updateData.stock = stock
+    if (stock !== undefined) {
+      updateData.stock = stock
+      // 手工改库存视作盘点调整：同步平移建档初始库存，
+      // 保持恒等式 stock = initial_stock + 单据净流入，否则改完报表又对不上账
+      const delta = (parseFloat(stock) || 0) - (parseFloat(existing.stock) || 0)
+      updateData.initial_stock = (parseFloat(existing.initial_stock) || 0) + delta
+    }
     if (tax_included_price !== undefined) updateData.tax_included_price = tax_included_price
     if (tax_excluded_price !== undefined) updateData.tax_excluded_price = tax_excluded_price
     if (product_classification !== undefined) updateData.product_classification = product_classification

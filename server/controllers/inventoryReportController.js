@@ -23,7 +23,7 @@ export const getInventoryReport = async (req, res) => {
 
     // 查询所有产品
     const [products] = await pool.query(
-      'SELECT product_id, product_name, product_code, model, unit, stock, tax_included_price, tax_excluded_price FROM products ORDER BY product_name'
+      'SELECT product_id, product_name, product_code, model, unit, stock, initial_stock, tax_included_price, tax_excluded_price FROM products ORDER BY product_name'
     )
 
     // 查询时间范围内的所有入库单
@@ -201,10 +201,11 @@ export const getInventoryReport = async (req, res) => {
       const inbound = (inboundMap[code] || 0) - (inboundReturnMap[code] || 0)
       // 本期出库 = 出库 - 出库退货
       const outbound = (outboundMap[code] || 0) - (outboundReturnMap[code] || 0)
-      // 期初库存 = (之前入库 - 之前入库退货) - (之前出库 - 之前出库退货)
+      // 期初库存 = 建档初始库存 + (之前入库 - 之前入库退货) - (之前出库 - 之前出库退货)
+      // （建档初始库存不落这一项的话，结余会比产品库存整体少一截、出多进少时直接为负）
       const inboundBefore = (inboundBeforeMap[code] || 0) - (inboundReturnBeforeMap[code] || 0)
       const outboundBefore = (outboundBeforeMap[code] || 0) - (outboundReturnBeforeMap[code] || 0)
-      const openingStock = inboundBefore - outboundBefore
+      const openingStock = (parseFloat(product.initial_stock) || 0) + inboundBefore - outboundBefore
       // 期末库存 = 期初 + 期间入库 - 期间出库
       const closingStock = openingStock + inbound - outbound
       const taxIncludedPrice = parseFloat(product.tax_included_price) || 0

@@ -135,9 +135,13 @@
         <template #summary v-if="reportData.length > 0">
           <a-table-summary>
             <a-table-summary-row>
-              <a-table-summary-cell :index="0" :colSpan="12" :align="'right'">
+              <a-table-summary-cell :index="0" :colSpan="10" :align="'right'">
                 <strong>合计</strong>
               </a-table-summary-cell>
+              <a-table-summary-cell :index="10" :align="'right'">
+                <strong>{{ (totals.quantity ?? 0).toLocaleString('zh-CN', { maximumFractionDigits: 4 }) }}</strong>
+              </a-table-summary-cell>
+              <a-table-summary-cell :index="11" :colSpan="1" />
               <a-table-summary-cell :index="12" :align="'right'">
                 <strong>{{ formatMoney(totals.total_price) }}</strong>
               </a-table-summary-cell>
@@ -431,6 +435,7 @@ const filteredColumns = computed(() => {
 const totals = computed(() => {
   return reportData.value.reduce(
     (acc, item) => {
+      acc.quantity += parseFloat(item.quantity as any) || 0
       acc.total_price += item.total_price || 0
       acc.express_delivery_fee += item.express_delivery_fee || 0
       acc.transportation_fee += item.transportation_fee || 0
@@ -445,6 +450,7 @@ const totals = computed(() => {
       return acc
     },
     {
+      quantity: 0,
       total_price: 0,
       express_delivery_fee: 0,
       transportation_fee: 0,

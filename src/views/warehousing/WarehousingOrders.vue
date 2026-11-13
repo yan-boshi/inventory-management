@@ -143,7 +143,8 @@
                 :index="idx"
                 :align="col.align"
               >
-                <strong v-if="col.key === 'total_amount'">{{ formatMoney4(pageTotals.amount) }}</strong>
+                <strong v-if="col.key === 'quantity'">{{ (pageTotals.quantity ?? 0).toLocaleString('zh-CN', { maximumFractionDigits: 4 }) }}</strong>
+                <strong v-else-if="col.key === 'total_amount'">{{ formatMoney4(pageTotals.amount) }}</strong>
                 <strong v-else-if="idx === 0">合计</strong>
               </a-table-summary-cell>
             </a-table-summary-row>
@@ -468,14 +469,16 @@ const filteredOrders = computed(() => {
   )
 })
 
-// 合计行：查询出的所有金额列合计
+// 合计行：查询出的所有数量/金额列合计（随筛选、数据刷新自动更新）
 const pageTotals = computed(() => {
   return filteredOrders.value.reduce(
     (totals, row: any) => {
       totals.amount += Number(row.amount) || 0
+      // 数量列可能为 '-'（单据汇总行占位）或字符串，parseFloat 兜底
+      totals.quantity += parseFloat(row.quantity) || 0
       return totals
     },
-    { amount: 0 }
+    { amount: 0, quantity: 0 }
   )
 })
 
