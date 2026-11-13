@@ -64,18 +64,23 @@ try {
   }
   console.log(`A 不平: ${badA} 个计划；B 不平: ${badB} 个计划`)
 
-  console.log('\n=== 逐采购单对账（C PO已入库 vs 实际入库流水）===')
+  console.log('\n=== 采购单对账（C PO已入库 vs 实际入库流水）===')
+  // 旧流水没有 purchase_order_id 时无法逐单比较，按"合同合计"口径：
+  // 合同下所有采购单的已入库合计 == 合同下全部入库/退货流水合计
+  const contractPoIn = new Map()
   for (const p of pos) {
-    const inn = poIn.get(p.purchase_order_id) || 0
-    const actual = receivedByPO.get(p.purchase_order_id)
-    const actualQty = actual !== undefined ? actual : (receivedByContract.get(p.contract_number) ?? 0)
-    const okC = Math.abs(inn - actualQty) < 1e-6
+    const c = p.contract_number || ''
+    contractPoIn.set(c, (contractPoIn.get(c) || 0) + (poIn.get(p.purchase_order_id) || 0))
+  }
+  for (const [c, total] of contractPoIn) {
+    const actual = receivedByContract.get(c) || 0
+    const okC = Math.abs(total - actual) < 1e-6
     if (!okC) {
       badC++
-      console.log(`  ✗ ${p.order_number}: PO已入库${inn} vs 实际流水${r4(actualQty)}（按${actual !== undefined ? '订单号' : '合同'}聚合）`)
+      console.log(`  ✗ 合同 ${c}: 采购单已入库合计${total} vs 流水合计${r4(actual)}`)
     }
   }
-  console.log(`C 不平: ${badC} 个采购单`)
+  console.log(`C 不平: ${badC} 个合同（逐单归因口径见 db-fix-plan-reconcile.mjs）`)
   if (!badA && !badB && !badC) console.log('\n=== 三本账全部对平 ===')
 } finally {
   conn.release()
