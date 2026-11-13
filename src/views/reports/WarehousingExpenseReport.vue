@@ -77,6 +77,7 @@
         bordered
         size="small"
         :scroll="{ x: 2600, y: 'calc(100vh - 380px)' }"
+        @change="handleColumnFilterChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_type'">
@@ -223,6 +224,7 @@ import ColumnConfig from '@/components/ColumnConfig.vue'
 import type { WarehousingExpenseReportItem, WarehousingExpenseReportParams } from '@/types'
 import { formatDate } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
+import { applyColumnFilters, captureColumnFilterState } from '@/utils/tableFilterState'
 import type { Dayjs } from 'dayjs'
 
 const loading = ref(false)
@@ -480,9 +482,16 @@ const filteredColumns = computed(() => {
   return result
 })
 
+// 当前表格列筛选状态（从表格 @change 的 filters 参数同步）
+const columnFilterState = reactive<Record<string, any>>({})
+const handleColumnFilterChange = (_pag: unknown, filters: Record<string, unknown>) => {
+  captureColumnFilterState(columnFilterState, filters)
+}
+
 // 汇总计算
+// 表头筛选只过滤显示行、合计需同口径过滤，故用 applyColumnFilters 先行过滤再求和
 const totals = computed(() => {
-  return reportData.value.reduce(
+  return applyColumnFilters(reportData.value, filteredColumns.value, columnFilterState).reduce(
     (acc, item) => {
       acc.total_price += item.total_price || 0
       acc.tariff += item.tariff || 0

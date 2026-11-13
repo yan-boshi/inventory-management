@@ -206,6 +206,7 @@ import { SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/ic
 import { basicProfitReportApi } from '@/api/basicProfitReport'
 import type { BasicProfitReportItem, BasicProfitReportParams } from '@/api/basicProfitReport'
 import { formatDate } from '@/utils/date'
+import { applyColumnFilters, captureColumnFilterState } from '@/utils/tableFilterState'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import type { Dayjs } from 'dayjs'
@@ -520,8 +521,16 @@ const formatRate = (value: number | null | undefined) => {
   return value.toFixed(6)
 }
 
+// 表头列筛选状态：antd 的列筛选只过滤表格显示行、不动数据数组，
+// 合计行用它按同口径过滤后再求和（否则筛选后合计不变）
+const columnFilterState = reactive<Record<string, any>>({})
+const handleColumnFilterChange = (_pag: unknown, filters: Record<string, unknown>) => {
+  captureColumnFilterState(columnFilterState, filters)
+}
+
 const totals = computed(() => {
-  return filteredReportData.value.reduce(
+  // 表头筛选只过滤显示行、合计需同口径过滤后再求和
+  return applyColumnFilters(filteredReportData.value, visibleColumns.value, columnFilterState).reduce(
     (acc, item) => {
       acc.amount += item.amount || 0
       acc.sales_amount_cny += item.sales_amount_cny || 0
@@ -596,7 +605,8 @@ const handlePageChange = (page: number, pageSize: number) => {
 }
 
 // 处理表格筛选变化
-const handleTableChange = (_pagination: any, _filters: any, _sorter: any, { currentDataSource }: any) => {
+const handleTableChange = (_pagination: any, filters: any, _sorter: any, { currentDataSource }: any) => {
+  handleColumnFilterChange(_pagination, filters)
   filteredReportData.value = currentDataSource || []
 }
 

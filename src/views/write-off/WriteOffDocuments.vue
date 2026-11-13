@@ -264,6 +264,7 @@ import { SearchOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/ic
 import { writeOffApi } from '@/api/writeOff'
 import type { WriteOffDocument, WriteOffSummary, WriteOffQueryParams } from '@/types'
 import { formatDate } from '@/utils/date'
+import { applyColumnFilters, captureColumnFilterState } from '@/utils/tableFilterState'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import WriteOffFormModal from './WriteOffFormModal.vue'
 import dayjs from 'dayjs'
@@ -408,8 +409,16 @@ const formatMoney = (value: number | undefined | null) => {
   return formatMoney4Grouped(value, '0.00')
 }
 
+// 表头列筛选状态：antd 的列筛选只过滤表格显示行、不动数据数组，
+// 合计行用它按同口径过滤后再求和（否则筛选后合计不变）
+const columnFilterState = reactive<Record<string, any>>({})
+const handleColumnFilterChange = (_pag: unknown, filters: Record<string, unknown>) => {
+  captureColumnFilterState(columnFilterState, filters)
+}
+
 const pageTotals = computed(() => {
-  return filteredWriteOffList.value.reduce(
+  // 表头筛选只过滤显示行、合计需同口径过滤后再求和
+  return applyColumnFilters(filteredWriteOffList.value, columns, columnFilterState).reduce(
     (totals, item) => {
       totals.total_amount += Number(item.total_amount) || 0
       return totals
@@ -501,10 +510,11 @@ const handlePageChange = (page: number, pageSize: number) => {
 // 处理表格筛选变化
 const handleTableChange = (
   _pagination: any,
-  _filters: any,
+  filters: any,
   _sorter: any,
   { currentDataSource }: any
 ) => {
+  handleColumnFilterChange(_pagination, filters)
   filteredWriteOffList.value = currentDataSource || []
 }
 

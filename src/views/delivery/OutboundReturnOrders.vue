@@ -156,6 +156,7 @@ import OutboundReturnForm from '@/components/OutboundReturnForm.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
+import { applyColumnFilters, captureColumnFilterState } from '@/utils/tableFilterState'
 import dayjs from 'dayjs'
 
 const orders = ref<OutboundReturnOrder[]>([])
@@ -212,9 +213,13 @@ const expandedOrders = computed(() => {
 // 数量合计格式化：最多保留 4 位小数
 const formatQty = (v: number) => (v ?? 0).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
 
+// 当前表格列筛选状态（从表格 @change 的 filters 参数同步）
+const columnFilterState = reactive<Record<string, any>>({})
+
 // 合计行：查询出的所有行的数量列合计（基于表格数据源 expandedOrders）
+// 表头筛选只过滤显示行、合计需同口径过滤，故用 applyColumnFilters 先行过滤再求和
 const pageTotals = computed(() => {
-  return expandedOrders.value.reduce(
+  return applyColumnFilters(expandedOrders.value, visibleColumns.value, columnFilterState).reduce(
     (totals, row: any) => {
       totals.quantity += parseFloat(row.quantity) || 0
       return totals
@@ -331,7 +336,9 @@ const handleDateRangeChange = (dates: any) => {
   }
 }
 
-const handleTableChange = (pag: any) => {
+const handleTableChange = (pag: any, filters: any) => {
+  // antd change 第 2 个参数是列筛选状态，同步给合计行同口径过滤
+  captureColumnFilterState(columnFilterState, filters)
   pagination.current = pag.current
   pagination.pageSize = pag.pageSize
   loadOrders()

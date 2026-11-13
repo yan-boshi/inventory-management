@@ -77,6 +77,7 @@
         rowKey="row_key"
         :row-selection="rowSelection"
         :scroll="{ x: 3000, y: 'calc(100vh - 380px)' }"
+        @change="handleColumnFilterChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'plan_number'">
@@ -166,6 +167,7 @@ import type { InboundPlan, InboundPlanQueryParams } from '@/types'
 import WarehousingOrderForm from '@/components/WarehousingOrderForm.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate } from '@/utils/date'
+import { applyColumnFilters, captureColumnFilterState } from '@/utils/tableFilterState'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 
 const plans = ref<InboundPlan[]>([])
@@ -244,9 +246,16 @@ const expandedPlans = computed(() => {
 // 数量合计格式化：最多保留 4 位小数
 const formatQty = (v: number) => (v ?? 0).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
 
-// 合计行：查询出的所有行的数量列合计（基于表格数据源 expandedPlans）
+// 表头列筛选状态：antd 的列筛选只过滤表格显示行、不动数据数组，
+// 合计行用它按同口径过滤后再求和（否则筛选后合计不变）
+const columnFilterState = reactive<Record<string, any>>({})
+const handleColumnFilterChange = (_pag: unknown, filters: Record<string, unknown>) => {
+  captureColumnFilterState(columnFilterState, filters)
+}
+
+// 合计行：当前筛选结果的数量列合计（随表头筛选/查询自动更新）
 const pageTotals = computed(() => {
-  return expandedPlans.value.reduce(
+  return applyColumnFilters(expandedPlans.value, visibleColumns.value, columnFilterState).reduce(
     (totals, row: any) => {
       totals.purchase_quantity += parseFloat(row.purchase_quantity) || 0
       totals.quantity += parseFloat(row.quantity) || 0

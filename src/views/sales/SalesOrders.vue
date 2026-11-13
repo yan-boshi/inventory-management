@@ -94,6 +94,7 @@
         :pagination="false"
         rowKey="row_key"
         :scroll="{ x: 3800, y: 'calc(100vh - 380px)' }"
+        @change="handleColumnFilterChange"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'order_number'">
@@ -284,6 +285,7 @@ import PackingListForm from '@/components/PackingListForm.vue'
 import InvoiceForm from '@/components/InvoiceForm.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate } from '@/utils/date'
+import { applyColumnFilters, captureColumnFilterState } from '@/utils/tableFilterState'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
 import { getLocale, type Lang } from '@/locales'
 import dayjs from 'dayjs'
@@ -397,9 +399,17 @@ const pagination = reactive({
   total: 0,
 })
 
+// 表头列筛选状态：antd 的列筛选只过滤表格显示行、不动数据数组，
+// 合计行用它按同口径过滤后再求和（否则筛选后合计不变）
+const columnFilterState = reactive<Record<string, any>>({})
+const handleColumnFilterChange = (_pag: unknown, filters: Record<string, unknown>) => {
+  captureColumnFilterState(columnFilterState, filters)
+}
+
 // 计算总计金额
 const totalAmounts = computed(() => {
-  const data = expandedOrders.value
+  // 表头筛选只过滤显示行、合计需同口径过滤后再求和
+  const data = applyColumnFilters(expandedOrders.value, visibleColumns.value, columnFilterState)
   return {
     settlement_amount: data.reduce((sum, item) => sum + (Number(item.settlement_amount) || 0), 0),
     unsettled_amount: data.reduce((sum, item) => sum + (Number(item.unsettled_amount) || 0), 0),

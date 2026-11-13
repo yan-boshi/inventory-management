@@ -197,6 +197,7 @@ import DeleteWithRestoreModal from '@/components/DeleteWithRestoreModal.vue'
 import ColumnConfig from '@/components/ColumnConfig.vue'
 import { formatDate, formatDateTime } from '@/utils/date'
 import { exportToExcel, type ExportColumn } from '@/utils/exportExcel'
+import { applyColumnFilters, captureColumnFilterState } from '@/utils/tableFilterState'
 import dayjs from 'dayjs'
 
 const orders = ref<WarehousingOrder[]>([])
@@ -450,23 +451,13 @@ const visibleColumns = computed(() => {
   return allColumns.value.filter((col: any) => col.visible !== false)
 })
 
-// 当前表格列筛选条件（合计行随表格筛选联动）
-const activeFilters = ref<Record<string, any>>({})
+// 当前表格列筛选状态（从表格 @change 的 filters 参数同步，合计行随表格筛选联动）
+const columnFilterState = reactive<Record<string, any>>({})
 
 // 表格当前展示的数据行（含列筛选结果），合计行基于该数据计算
+// 表头筛选只过滤显示行、合计需同口径过滤，故用 applyColumnFilters 先行过滤再求和
 const filteredOrders = computed(() => {
-  const rows = expandedOrders.value
-  const filters = activeFilters.value
-  const filterCols = visibleColumns.value.filter(
-    (col: any) => col.onFilter && filters[col.key || col.dataIndex]?.length
-  )
-  if (filterCols.length === 0) return rows
-  return rows.filter((row: any) =>
-    filterCols.every((col: any) => {
-      const selected = filters[col.key || col.dataIndex]
-      return selected.some((v: any) => col.onFilter(v, row))
-    })
-  )
+  return applyColumnFilters(expandedOrders.value, visibleColumns.value, columnFilterState)
 })
 
 // 合计行：查询出的所有数量/金额列合计（随筛选、数据刷新自动更新）
@@ -530,7 +521,8 @@ const handleDateRangeChange = (dates: [any, any]) => {
 }
 
 const handleTableChange = (pag: any, filters: any, _sorter: any, extra: any) => {
-  activeFilters.value = filters || {}
+  // antd change 第 2 个参数是列筛选状态，同步给合计行同口径过滤
+  captureColumnFilterState(columnFilterState, filters)
   // 列筛选/排序在前端完成，不需要重新请求；仅翻页时重新加载
   if (extra?.action && extra.action !== 'paginate') return
   searchParams.page = pag.current
